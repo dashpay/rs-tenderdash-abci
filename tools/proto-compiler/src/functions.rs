@@ -209,7 +209,7 @@ pub fn find_proto_files(proto_paths: Vec<PathBuf>) -> Vec<PathBuf> {
 
 /// Create tenderdash.rs with library information
 pub fn generate_tenderdash_lib(prost_dir: &Path, tenderdash_lib_target: &Path) {
-    let file_names = WalkDir::new(prost_dir)
+    let mut file_names = WalkDir::new(prost_dir)
         .into_iter()
         .filter_map(|e| e.ok())
         .filter(|e| {
@@ -219,6 +219,7 @@ pub fn generate_tenderdash_lib(prost_dir: &Path, tenderdash_lib_target: &Path) {
         })
         .map(|d| d.file_name().to_str().unwrap().to_string())
         .collect::<Vec<_>>();
+    file_names.sort();
 
     let mut content =
         String::from("//! Tenderdash-proto auto-generated sub-modules for Tenderdash\n");

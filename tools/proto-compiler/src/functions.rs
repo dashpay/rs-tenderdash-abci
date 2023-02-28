@@ -207,8 +207,8 @@ pub fn find_proto_files(proto_paths: Vec<PathBuf>) -> Vec<PathBuf> {
     protos
 }
 
-/// Create tendermint.rs with library information
-pub fn generate_tendermint_lib(prost_dir: &Path, tendermint_lib_target: &Path) {
+/// Create tenderdash.rs with library information
+pub fn generate_tenderdash_lib(prost_dir: &Path, tenderdash_lib_target: &Path) {
     let file_names = WalkDir::new(prost_dir)
         .into_iter()
         .filter_map(|e| e.ok())
@@ -221,7 +221,7 @@ pub fn generate_tendermint_lib(prost_dir: &Path, tendermint_lib_target: &Path) {
         .collect::<Vec<_>>();
 
     let mut content =
-        String::from("//! Tendermint-proto auto-generated sub-modules for Tendermint\n");
+        String::from("//! Tenderdash-proto auto-generated sub-modules for Tenderdash\n");
     let tab = "    ".to_string();
 
     for file_name in file_names {
@@ -259,13 +259,13 @@ pub fn generate_tendermint_lib(prost_dir: &Path, tendermint_lib_target: &Path) {
         "{}\npub mod meta {{\n{}pub const REPOSITORY: &str = \"{}\";\n{}pub const COMMITISH: &str = \"{}\";\n}}\n",
         content,
         tab,
-        crate::constants::TENDERMINT_REPO,
+        crate::constants::TENDERDASH_REPO,
         tab,
-        crate::constants::TENDERMINT_COMMITISH,
+        crate::constants::TENDERDASH_COMMITISH,
     );
 
     let mut file =
-        File::create(tendermint_lib_target).expect("tendermint library file create failed");
+        File::create(tenderdash_lib_target).expect("tenderdash library file create failed");
     file.write_all(content.as_bytes())
-        .expect("tendermint library file write failed");
+        .expect("tenderdash library file write failed");
 }

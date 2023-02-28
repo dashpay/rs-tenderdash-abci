@@ -3,21 +3,21 @@ use std::{env::var, path::PathBuf};
 use tempfile::tempdir;
 
 mod functions;
-use functions::{copy_files, find_proto_files, generate_tendermint_lib, get_commitish};
+use functions::{copy_files, find_proto_files, generate_tenderdash_lib, get_commitish};
 
 mod constants;
 use constants::{
-    CUSTOM_FIELD_ATTRIBUTES, CUSTOM_TYPE_ATTRIBUTES, TENDERMINT_COMMITISH, TENDERMINT_REPO,
+    CUSTOM_FIELD_ATTRIBUTES, CUSTOM_TYPE_ATTRIBUTES, TENDERDASH_COMMITISH, TENDERDASH_REPO,
 };
 
 fn main() {
     let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
-    let tendermint_lib_target = root
+    let tenderdash_lib_target = root
         .join("..")
         .join("..")
         .join("proto")
         .join("src")
-        .join("tendermint.rs");
+        .join("tenderdash.rs");
     let target_dir = root
         .join("..")
         .join("..")
@@ -28,10 +28,10 @@ fn main() {
         .map(PathBuf::from)
         .or_else(|_| tempdir().map(|d| d.into_path()))
         .unwrap();
-    let tendermint_dir = PathBuf::from(var("TENDERMINT_DIR").unwrap_or_else(|_| {
+    let tenderdash_dir = PathBuf::from(var("TENDERDASH_DIR").unwrap_or_else(|_| {
         root.join("..")
             .join("target")
-            .join("tendermint")
+            .join("tenderdash")
             .to_str()
             .unwrap()
             .to_string()
@@ -40,18 +40,18 @@ fn main() {
     let thirdparty_dir = root.join("third_party");
 
     println!(
-        "[info] => Fetching {TENDERMINT_REPO} at {TENDERMINT_COMMITISH} into {tendermint_dir:?}"
+        "[info] => Fetching {TENDERDASH_REPO} at {TENDERDASH_COMMITISH} into {tenderdash_dir:?}"
     );
     get_commitish(
-        &PathBuf::from(&tendermint_dir),
-        TENDERMINT_REPO,
-        TENDERMINT_COMMITISH,
+        &PathBuf::from(&tenderdash_dir),
+        TENDERDASH_REPO,
+        TENDERDASH_COMMITISH,
     ); // This panics if it fails.
 
-    let proto_paths = vec![tendermint_dir.join("proto")];
+    let proto_paths = vec![tenderdash_dir.join("proto")];
     let proto_includes_paths = vec![
-        tendermint_dir.join("proto"),
-        tendermint_dir.join("third_party").join("proto"),
+        tenderdash_dir.join("proto"),
+        tenderdash_dir.join("third_party").join("proto"),
         thirdparty_dir,
     ];
     // List available proto files
@@ -60,7 +60,7 @@ fn main() {
     let mut pb = prost_build::Config::new();
 
     // Use shared Bytes buffers for ABCI messages:
-    pb.bytes([".tendermint.abci"]);
+    pb.bytes([".tenderdash.abci"]);
 
     // Compile proto files with added annotations, exchange prost_types to our own
     pb.out_dir(&out_dir);
@@ -86,7 +86,7 @@ fn main() {
 
     println!("[info] => Removing old structs and copying new structs.");
     copy_files(&out_dir, &target_dir); // This panics if it fails.
-    generate_tendermint_lib(&out_dir, &tendermint_lib_target);
+    generate_tenderdash_lib(&out_dir, &tenderdash_lib_target);
 
     println!("[info] => Done!");
 }

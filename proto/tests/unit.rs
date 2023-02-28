@@ -1,6 +1,6 @@
 use core::convert::TryFrom;
 
-use tendermint_proto::{
+use tenderdash_proto::{
     types::{BlockId as RawBlockId, PartSetHeader as RawPartSetHeader},
     Protobuf,
 };

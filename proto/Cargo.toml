@@ -1,16 +1,16 @@
 [package]
-name       = "tendermint-proto"
-version    = "0.29.1"
-authors    = ["Informal Systems <hello@informal.systems>"]
-edition    = "2021"
-license    = "Apache-2.0"
-repository = "https://github.com/informalsystems/tendermint-rs/tree/main/proto"
-readme     = "README.md"
+name = "tenderdash-proto"
+version = "0.29.1"
+authors = ["Informal Systems <hello@informal.systems>"]
+edition = "2021"
+license = "Apache-2.0"
+repository = "https://github.com/dashpay/tenderdash-abci-rs/tree/main/proto"
+readme = "README.md"
 categories = ["cryptography", "cryptography::cryptocurrencies", "database"]
-keywords   = ["blockchain", "tendermint", "proto"]
+keywords = ["blockchain", "tenderdash", "proto"]
 
 description = """
-    tendermint-proto is a the Rust implementation of the Tendermint proto structs.
+    tenderdash-proto is a the Rust implementation of the Tenderdash proto structs.
     """
 
 [package.metadata.docs.rs]
@@ -19,13 +19,22 @@ all-features = true
 [dependencies]
 prost = { version = "0.11", default-features = false }
 prost-types = { version = "0.11", default-features = false }
-bytes = { version = "1.0", default-features = false, features = ["serde"]}
+bytes = { version = "1.0", default-features = false, features = ["serde"] }
 serde = { version = "1.0", default-features = false, features = ["derive"] }
-serde_bytes = { version = "0.11", default-features = false, features = ["alloc"] }
-subtle-encoding = { version = "0.5", default-features = false, features = ["hex", "base64", "alloc"] }
+serde_bytes = { version = "0.11", default-features = false, features = [
+    "alloc",
+] }
+subtle-encoding = { version = "0.5", default-features = false, features = [
+    "hex",
+    "base64",
+    "alloc",
+] }
 num-traits = { version = "0.2", default-features = false }
 num-derive = { version = "0.3", default-features = false }
-time = { version = "0.3", default-features = false, features = ["macros", "parsing"] }
+time = { version = "0.3", default-features = false, features = [
+    "macros",
+    "parsing",
+] }
 flex-error = { version = "0.4.4", default-features = false }
 
 [dev-dependencies]

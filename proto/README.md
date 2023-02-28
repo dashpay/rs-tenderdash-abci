@@ -15,6 +15,10 @@ Crate for interacting with Tendermint [proto structs][tendermint-go-proto-link].
 
 - The latest stable version of Rust
 
+## Code generation
+
+`src/prost` contains code generated based on [Tenderdash protocol buffers](https://github.com/dashpay/tenderdash/tree/HEAD/proto) definitions. To regenerate, use [proto-compiler](../tools/proto-compiler/README.md).
+
 ## License
 
 Copyright © 2020 Informal Systems

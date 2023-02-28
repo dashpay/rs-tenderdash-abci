@@ -44,34 +44,6 @@ use tenderdash_proto::abci::{
     ResponseVerifyVoteExtension,
 };
 
-/*
-type Application interface {
-    // Info/Query Connection
-    Info(context.Context, *RequestInfo) (*ResponseInfo, error)    // Return application info
-    Query(context.Context, *RequestQuery) (*ResponseQuery, error) // Query for state
-
-    // Mempool Connection
-    CheckTx(context.Context, *RequestCheckTx) (*ResponseCheckTx, error) // Validate a tx for the mempool
-
-    // Consensus Connection
-    InitChain(context.Context, *RequestInitChain) (*ResponseInitChain, error) // Initialize blockchain w validators/other info from TendermintCore
-    PrepareProposal(context.Context, *RequestPrepareProposal) (*ResponsePrepareProposal, error)
-    ProcessProposal(context.Context, *RequestProcessProposal) (*ResponseProcessProposal, error)
-    // Create application specific vote extension
-    ExtendVote(context.Context, *RequestExtendVote) (*ResponseExtendVote, error)
-    // Verify application's vote extension data
-    VerifyVoteExtension(context.Context, *RequestVerifyVoteExtension) (*ResponseVerifyVoteExtension, error)
-    // Deliver the decided block with its txs to the Application
-    FinalizeBlock(context.Context, *RequestFinalizeBlock) (*ResponseFinalizeBlock, error)
-
-    // State Sync Connection
-    ListSnapshots(context.Context, *RequestListSnapshots) (*ResponseListSnapshots, error)                // List available snapshots
-    OfferSnapshot(context.Context, *RequestOfferSnapshot) (*ResponseOfferSnapshot, error)                // Offer a snapshot to the application
-    LoadSnapshotChunk(context.Context, *RequestLoadSnapshotChunk) (*ResponseLoadSnapshotChunk, error)    // Load a snapshot chunk
-    ApplySnapshotChunk(context.Context, *RequestApplySnapshotChunk) (*ResponseApplySnapshotChunk, error) // Apply a shapshot chunk
-}
-*/
-
 /// An ABCI application.
 ///
 /// Applications are `Send` + `Clone` + `'static` because they are cloned for

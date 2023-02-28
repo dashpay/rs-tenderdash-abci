@@ -1,0 +1,82 @@
+name: Build
+on:
+  pull_request:
+    paths-ignore:
+      - "docs/**"
+  push:
+    paths-ignore:
+      - "docs/**"
+    branches:
+      - main
+      - 'v*.*.*'
+jobs:
+  cleanup-runs:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: rokroskar/workflow-run-cleanup-action@master
+        env:
+          GITHUB_TOKEN: "${{ secrets.GITHUB_TOKEN }}"
+    if: "!startsWith(github.ref, 'refs/tags/') && github.ref != 'refs/heads/main'"
+
+  tendermint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          override: true
+      - uses: actions-rs/cargo@v1
+        with:
+          command: build-all
+
+  build-light-client-wasm:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          override: true
+          target: wasm32-unknown-unknown
+      - uses: actions-rs/cargo@v1
+        with:
+          command: build-wasm-tendermint
+      - uses: actions-rs/cargo@v1
+        with:
+          command: build-wasm-light-client
+
+  tools:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          override: true
+      - uses: actions-rs/cargo@v1
+        with:
+          command: build-tools
+
+  # As per https://github.com/informalsystems/tendermint-rs/issues/1014
+  generated-protos-compile:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          override: true
+      - name: Install protoc
+        run: |
+          curl -Lo /tmp/protoc.zip https://github.com/protocolbuffers/protobuf/releases/download/v21.4/protoc-21.4-linux-x86_64.zip
+          unzip /tmp/protoc.zip -d ${HOME}/.local
+          echo "PROTOC=${HOME}/.local/bin/protoc" >> $GITHUB_ENV
+          export PATH="${PATH}:${HOME}/.local/bin"
+      - name: Regenerate proto definitions
+        working-directory: ./tools/proto-compiler/
+        run: cargo run
+      - name: Ensure that generated proto definitions compile
+        uses: actions-rs/cargo@v1
+        with:
+          command: build-all

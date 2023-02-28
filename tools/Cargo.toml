@@ -1,0 +1,10 @@
+[workspace]
+
+members = [
+#    "abci-test",
+    "proto-compiler"
+]
+
+exclude = [
+    "no-std-check"
+]

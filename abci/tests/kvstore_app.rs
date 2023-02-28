@@ -4,8 +4,8 @@
 mod kvstore_app_integration {
     use std::thread;
 
-    use tendermint_abci::{ClientBuilder, KeyValueStoreApp, ServerBuilder};
-    use tendermint_proto::abci::{RequestDeliverTx, RequestEcho, RequestQuery};
+    use tenderdash_abci::{ClientBuilder, KeyValueStoreApp, ServerBuilder};
+    use tenderdash_proto::abci::{RequestDeliverTx, RequestEcho, RequestQuery};
 
     #[test]
     fn happy_path() {

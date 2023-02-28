@@ -450,7 +450,17 @@ pub struct ResponseOfferSnapshot {
 }
 /// Nested message and enum types in `ResponseOfferSnapshot`.
 pub mod response_offer_snapshot {
-    #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
+    #[derive(
+        Clone,
+        Copy,
+        Debug,
+        PartialEq,
+        Eq,
+        Hash,
+        PartialOrd,
+        Ord,
+        ::prost::Enumeration
+    )]
     #[repr(i32)]
     pub enum Result {
         /// Unknown result, abort all snapshot restoration
@@ -515,7 +525,17 @@ pub struct ResponseApplySnapshotChunk {
 }
 /// Nested message and enum types in `ResponseApplySnapshotChunk`.
 pub mod response_apply_snapshot_chunk {
-    #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
+    #[derive(
+        Clone,
+        Copy,
+        Debug,
+        PartialEq,
+        Eq,
+        Hash,
+        PartialOrd,
+        Ord,
+        ::prost::Enumeration
+    )]
     #[repr(i32)]
     pub enum Result {
         /// Unknown result, abort all snapshot restoration
@@ -603,7 +623,17 @@ pub struct ResponseProcessProposal {
 }
 /// Nested message and enum types in `ResponseProcessProposal`.
 pub mod response_process_proposal {
-    #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
+    #[derive(
+        Clone,
+        Copy,
+        Debug,
+        PartialEq,
+        Eq,
+        Hash,
+        PartialOrd,
+        Ord,
+        ::prost::Enumeration
+    )]
     #[repr(i32)]
     pub enum ProposalStatus {
         /// Unspecified error occurred
@@ -653,15 +683,22 @@ pub struct ResponseExtendVote {
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct ResponseVerifyVoteExtension {
-    #[prost(
-        enumeration = "response_verify_vote_extension::VerifyStatus",
-        tag = "1"
-    )]
+    #[prost(enumeration = "response_verify_vote_extension::VerifyStatus", tag = "1")]
     pub status: i32,
 }
 /// Nested message and enum types in `ResponseVerifyVoteExtension`.
 pub mod response_verify_vote_extension {
-    #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
+    #[derive(
+        Clone,
+        Copy,
+        Debug,
+        PartialEq,
+        Eq,
+        Hash,
+        PartialOrd,
+        Ord,
+        ::prost::Enumeration
+    )]
     #[repr(i32)]
     pub enum VerifyStatus {
         Unknown = 0,
@@ -791,7 +828,17 @@ pub struct TxRecord {
 /// Nested message and enum types in `TxRecord`.
 pub mod tx_record {
     /// TxAction contains App-provided information on what to do with a transaction that is part of a raw proposal
-    #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
+    #[derive(
+        Clone,
+        Copy,
+        Debug,
+        PartialEq,
+        Eq,
+        Hash,
+        PartialOrd,
+        Ord,
+        ::prost::Enumeration
+    )]
     #[repr(i32)]
     pub enum TxAction {
         /// Unknown action

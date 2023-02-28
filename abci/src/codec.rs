@@ -11,7 +11,7 @@ use std::{
 
 use bytes::{Buf, BufMut, BytesMut};
 use prost::Message;
-use tendermint_proto::abci::{Request, Response};
+use tenderdash_proto::abci::{Request, Response};
 
 use crate::error::Error;
 

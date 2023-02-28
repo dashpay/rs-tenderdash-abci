@@ -2,7 +2,7 @@
 
 use std::net::{TcpStream, ToSocketAddrs};
 
-use tendermint_proto::abci::{
+use tenderdash_proto::abci::{
     request, response, Request, RequestApplySnapshotChunk, RequestBeginBlock, RequestCheckTx,
     RequestCommit, RequestDeliverTx, RequestEcho, RequestEndBlock, RequestFlush, RequestInfo,
     RequestInitChain, RequestListSnapshots, RequestLoadSnapshotChunk, RequestOfferSnapshot,

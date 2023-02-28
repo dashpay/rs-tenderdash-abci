@@ -6,7 +6,7 @@ use std::{
 };
 
 use bytes::BytesMut;
-use tendermint_proto::abci::{
+use tenderdash_proto::abci::{
     Event, EventAttribute, RequestCheckTx, RequestDeliverTx, RequestInfo, RequestQuery,
     ResponseCheckTx, ResponseCommit, ResponseDeliverTx, ResponseInfo, ResponseQuery,
 };
@@ -21,8 +21,8 @@ use crate::{codec::MAX_VARINT_LENGTH, Application, Error};
 ///
 /// ## Example
 /// ```rust
-/// use tendermint_abci::{KeyValueStoreApp, ServerBuilder, ClientBuilder};
-/// use tendermint_proto::abci::{RequestEcho, RequestDeliverTx, RequestQuery};
+/// use tenderdash_abci::{KeyValueStoreApp, ServerBuilder, ClientBuilder};
+/// use tenderdash_proto::abci::{RequestEcho, RequestDeliverTx, RequestQuery};
 ///
 /// // Create our key/value store application
 /// let (app, driver) = KeyValueStoreApp::new();

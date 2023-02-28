@@ -37,6 +37,8 @@ fn main() {
             .to_string()
     }));
 
+    let thirdparty_dir = root.join("third_party");
+
     println!(
         "[info] => Fetching {TENDERMINT_REPO} at {TENDERMINT_COMMITISH} into {tendermint_dir:?}"
     );
@@ -50,6 +52,7 @@ fn main() {
     let proto_includes_paths = vec![
         tendermint_dir.join("proto"),
         tendermint_dir.join("third_party").join("proto"),
+        thirdparty_dir,
     ];
     // List available proto files
     let protos = find_proto_files(proto_paths);

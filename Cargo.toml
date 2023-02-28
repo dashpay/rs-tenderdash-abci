@@ -1,7 +1,3 @@
 [workspace]
 
 members = ["abci", "tools/proto-compiler", "proto"]
-
-[profile.release.package.tendermint-light-client-js]
-# Tell `rustc` to optimize for small code size.
-opt-level = "s"

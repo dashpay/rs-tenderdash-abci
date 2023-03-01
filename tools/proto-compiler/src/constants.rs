@@ -6,7 +6,8 @@ pub const TENDERDASH_REPO: &str = "https://github.com/dashpay/tenderdash";
 // Tag: v0.34.0-rc4
 // Branch: master
 // Commit ID (full length): d7d0ffea13c60c98b812d243ba5a2c375f341c15
-pub const TENDERDASH_COMMITISH: &str = "v0.10-dev";
+// Set env variable TENDERDASH_COMMITISH to override the default.
+pub(crate) const DEFAULT_TENDERDASH_COMMITISH: &str = "v0.10-dev";
 
 /// Predefined custom attributes for message annotations
 const PRIMITIVE_ENUM: &str = r#"#[derive(::num_derive::FromPrimitive, ::num_derive::ToPrimitive)]"#;

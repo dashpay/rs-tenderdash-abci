@@ -1,14 +1,13 @@
 use std::{env::var, path::PathBuf};
-
 use tempfile::tempdir;
 
 mod functions;
-use functions::{copy_files, find_proto_files, generate_tenderdash_lib, get_commitish};
+use functions::{
+    copy_files, fetch_commitish, find_proto_files, generate_tenderdash_lib, tenderdash_commitish,
+};
 
 mod constants;
-use constants::{
-    CUSTOM_FIELD_ATTRIBUTES, CUSTOM_TYPE_ATTRIBUTES, TENDERDASH_COMMITISH, TENDERDASH_REPO,
-};
+use constants::{CUSTOM_FIELD_ATTRIBUTES, CUSTOM_TYPE_ATTRIBUTES, TENDERDASH_REPO};
 
 fn main() {
     let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
@@ -39,21 +38,12 @@ fn main() {
 
     let thirdparty_dir = root.join("third_party");
 
-    println!(
-        "[info] => Fetching {TENDERDASH_REPO} at {TENDERDASH_COMMITISH} into {tenderdash_dir:?}"
-    );
-    get_commitish(
-        &PathBuf::from(&tenderdash_dir),
-        TENDERDASH_REPO,
-        TENDERDASH_COMMITISH,
-    ); // This panics if it fails.
+    let commitish = tenderdash_commitish();
+    println!("[info] => Fetching {TENDERDASH_REPO} at {commitish} into {tenderdash_dir:?}");
+    fetch_commitish(&PathBuf::from(&tenderdash_dir), TENDERDASH_REPO, &commitish); // This panics if it fails.
 
-    let proto_paths = vec![tenderdash_dir.join("proto")];
-    let proto_includes_paths = vec![
-        tenderdash_dir.join("proto"),
-        tenderdash_dir.join("third_party").join("proto"),
-        thirdparty_dir,
-    ];
+    let proto_paths = vec![tenderdash_dir.join("proto").join("tendermint").join("abci")];
+    let proto_includes_paths = vec![tenderdash_dir.join("proto"), thirdparty_dir];
     // List available proto files
     let protos = find_proto_files(proto_paths);
 

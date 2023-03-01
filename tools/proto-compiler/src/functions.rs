@@ -1,19 +1,20 @@
-use std::{
-    fs::{copy, create_dir_all, remove_dir_all, File},
-    io::Write,
-    path::{Path, PathBuf},
-};
-
+use crate::constants::DEFAULT_TENDERDASH_COMMITISH;
 use git2::{
     build::{CheckoutBuilder, RepoBuilder},
     AutotagOption, Commit, FetchOptions, Oid, Reference, Repository,
+};
+use std::{
+    env,
+    fs::{copy, create_dir_all, remove_dir_all, File},
+    io::Write,
+    path::{Path, PathBuf},
 };
 use subtle_encoding::hex;
 use walkdir::WalkDir;
 
 /// Clone or open+fetch a repository and check out a specific commitish
 /// In case of an existing repository, the origin remote will be set to `url`.
-pub fn get_commitish(dir: &Path, url: &str, commitish: &str) {
+pub fn fetch_commitish(dir: &Path, url: &str, commitish: &str) {
     let repo = if dir.exists() {
         fetch_existing(dir, url)
     } else {
@@ -129,8 +130,11 @@ fn find_reference_or_commit<'a>(
             // Remote branch not found, last chance: try as a commit ID
             // Note: Oid::from_str() currently does an incorrect conversion and cuts the second half
             // of the ID. We are falling back on Oid::from_bytes() for now.
-            let commitish_vec =
-                hex::decode(commitish).unwrap_or_else(|_| hex::decode_upper(commitish).unwrap());
+            let commitish_vec = hex::decode(commitish).unwrap_or_else(|_| {
+                hex::decode_upper(commitish).expect(
+                    "TENDERDASH_COMMITISH refers to non-existing or invalid git branch/tag/commit",
+                )
+            });
             return (
                 None,
                 repo.find_commit(Oid::from_bytes(commitish_vec.as_slice()).unwrap())
@@ -262,11 +266,18 @@ pub fn generate_tenderdash_lib(prost_dir: &Path, tenderdash_lib_target: &Path) {
         tab,
         crate::constants::TENDERDASH_REPO,
         tab,
-        crate::constants::TENDERDASH_COMMITISH,
+        tenderdash_commitish(),
     );
 
     let mut file =
         File::create(tenderdash_lib_target).expect("tenderdash library file create failed");
     file.write_all(content.as_bytes())
         .expect("tenderdash library file write failed");
+}
+
+pub(crate) fn tenderdash_commitish() -> String {
+    match env::var("TENDERDASH_COMMITISH") {
+        Ok(v) => v,
+        Err(_) => DEFAULT_TENDERDASH_COMMITISH.to_string(),
+    }
 }

@@ -19,8 +19,14 @@ name = "kvstore-rs"
 path = "src/application/kvstore/main.rs"
 required-features = ["binary", "kvstore-app"]
 
+[[bin]]
+
+name = "server"
+path = "src/server/main.rs"
+required-features = ["binary", "server"]
+
 [features]
-default = ["flex-error/std", "flex-error/eyre_tracer", "server"]
+default = ["flex-error/std", "flex-error/eyre_tracer", "server", "binary"]
 server = ["tracing-subscriber/fmt"]
 echo-app = []
 kvstore-app = []

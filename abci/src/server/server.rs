@@ -1,7 +1,11 @@
 use crate::{
     application::RequestDispatcher, codec::ServerCodec, server::tcp::TcpServer, Application, Error,
 };
-use std::{net::ToSocketAddrs, path::Path};
+use std::{
+    io::{Read, Write},
+    net::ToSocketAddrs,
+    path::Path,
+};
 use tracing::{error, info};
 
 use super::unix::UnixSocketServer;
@@ -39,8 +43,6 @@ pub fn start_unix<App: Application>(
     UnixSocketServer::bind(app, socket_file, DEFAULT_SERVER_READ_BUF_SIZE)
 }
 
-pub(crate) trait ReadWriter: std::io::Read + std::io::Write {}
-
 // handle_client accepts one client connection and handles received messages.
 pub(crate) fn handle_client<App, S>(
     stream: S,
@@ -50,7 +52,7 @@ pub(crate) fn handle_client<App, S>(
 ) -> Result<(), Error>
 where
     App: Application,
-    S: ReadWriter,
+    S: Read + Write,
 {
     let mut codec = ServerCodec::new(stream, read_buf_size);
     info!("Listening for incoming requests from {}", name);

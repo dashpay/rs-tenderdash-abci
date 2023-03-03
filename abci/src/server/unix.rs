@@ -3,10 +3,8 @@
 use std::path::Path;
 
 use crate::{server::server::handle_client, Application, Error};
-use std::os::unix::net::{UnixListener, UnixStream};
+use std::os::unix::net::UnixListener;
 use tracing::info;
-
-use super::server::ReadWriter;
 
 /// A Unix socket-based server for serving a specific ABCI application.
 ///
@@ -68,4 +66,4 @@ impl<App: Application> UnixSocketServer<App> {
     }
 }
 
-impl ReadWriter for UnixStream {}
+// impl ReadWriter for UnixStream {}

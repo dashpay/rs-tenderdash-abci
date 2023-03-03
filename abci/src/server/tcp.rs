@@ -1,6 +1,6 @@
 //! ABCI application server interface.
 
-use std::net::{TcpListener, TcpStream, ToSocketAddrs};
+use std::net::{TcpListener,  ToSocketAddrs};
 
 use tracing::info;
 
@@ -9,8 +9,6 @@ use crate::{
     server::server::{handle_client, DEFAULT_SERVER_READ_BUF_SIZE},
     Application,
 };
-
-use super::server::ReadWriter;
 
 /// A TCP-based server for serving a specific ABCI application.
 ///
@@ -48,4 +46,4 @@ impl<App: Application> TcpServer<App> {
     }
 }
 
-impl ReadWriter for TcpStream {}
+// impl ReadWriter for TcpStream {}

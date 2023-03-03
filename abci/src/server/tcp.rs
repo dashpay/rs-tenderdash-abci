@@ -1,18 +1,16 @@
 //! ABCI application server interface.
 
-use std::{
-    net::{ TcpListener, TcpStream, ToSocketAddrs},
-    thread,
-};
+use std::net::{TcpListener, TcpStream, ToSocketAddrs};
 
-use tracing::{ info};
+use tracing::info;
 
 use crate::{
-     error::Error,
-    server::server::DEFAULT_SERVER_READ_BUF_SIZE, Application,
+    error::Error,
+    server::server::{handle_client, DEFAULT_SERVER_READ_BUF_SIZE},
+    Application,
 };
 
-use super::server::{ClientThread, ReadWriter};
+use super::server::ReadWriter;
 
 /// A TCP-based server for serving a specific ABCI application.
 ///
@@ -26,36 +24,27 @@ pub struct TcpServer<App: Application> {
 }
 
 impl<App: Application> TcpServer<App> {
-    pub(in crate::server) fn bind<Addr>(app: App, addr: Addr) -> Result<TcpServer<App>, Error>
+    pub(super) fn bind<Addr>(app: App, addr: Addr) -> Result<TcpServer<App>, Error>
     where
         Addr: ToSocketAddrs,
     {
         let listener = TcpListener::bind(addr).map_err(Error::io)?;
         let local_addr = listener.local_addr().map_err(Error::io)?.to_string();
         info!("ABCI server running at {}", local_addr);
-        let server = TcpServer {
-            app,
-            listener,
-                    };
+        let server = TcpServer { app, listener };
         Ok(server)
     }
 
-    /// Initiate a blocking listener for incoming connections.
-    pub(in crate::server) fn listen(self) -> Result<(), Error> {
-        loop {
-            let ( stream, addr) = self.listener.accept().map_err(Error::io)?;
-            let addr = addr.to_string();
-            info!("Incoming connection from: {}", addr);
+    // Process one incoming connection, using clone of Application.
+    // It is safe to call this method multiple times after it finishes; however, errors must be
+    // examined and handles, as it is unlikely that the connection breaks.
+    pub fn handle_connection(self) -> Result<(), Error> {
+        let (stream, addr) = self.listener.accept().map_err(Error::io)?;
+        let addr = addr.to_string();
+        info!("Incoming connection from: {}", addr);
 
-            let app = self.app.clone();
-            let thread = ClientThread::new(stream, addr, app, DEFAULT_SERVER_READ_BUF_SIZE);
-            thread::spawn(move || ClientThread::handle_client(thread));
-        }
+        handle_client(stream, addr, self.app.clone(), DEFAULT_SERVER_READ_BUF_SIZE)
     }
 }
 
-impl ReadWriter for TcpStream {
-    fn clone(&self) -> Self {
-        self.try_clone().expect("cannot clone TcpStream")
-    }
-}
+impl ReadWriter for TcpStream {}

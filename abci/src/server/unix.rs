@@ -1,13 +1,12 @@
 //! ABCI application server interface.
 
-use std::{path::Path, thread};
+use std::path::Path;
 
-use tracing::{error, info};
-
-use crate::{error::Error, Application};
+use crate::{server::server::handle_client, Application, Error};
 use std::os::unix::net::{UnixListener, UnixStream};
+use tracing::info;
 
-use super::server::{ClientThread, ReadWriter};
+use super::server::ReadWriter;
 
 /// A Unix socket-based server for serving a specific ABCI application.
 ///
@@ -42,27 +41,18 @@ impl<App: Application> UnixSocketServer<App> {
         Ok(server)
     }
     /// Initiate a blocking listener for incoming connections.
-    pub fn listen(self) -> Result<(), Error> {
-        let listener = self.listener;
-        for stream in listener.incoming() {
-            info!("Incoming Unix connection");
-            match stream {
-                Ok(stream) => {
-                    let app = self.app.clone();
-                    let thread =
-                        ClientThread::new(stream, String::from("unix"), app, self.read_buf_size);
-                    thread::spawn(move || ClientThread::handle_client(thread));
-                },
-                Err(err) => error!("failed to process incoming connection: {}", err),
-            }
-        }
+    pub fn handle_connection(self) -> Result<(), Error> {
+        // let listener = self.listener;
+        let stream = self.listener.accept().map_err(Error::io)?;
+        info!("Incoming Unix connection");
 
-        Ok(())
+        handle_client(
+            stream.0,
+            String::from("Unix"),
+            self.app.clone(),
+            self.read_buf_size,
+        )
     }
 }
 
-impl ReadWriter for UnixStream {
-    fn clone(&self) -> Self {
-        self.try_clone().expect("cannot clone UnixStream")
-    }
-}
+impl ReadWriter for UnixStream {}

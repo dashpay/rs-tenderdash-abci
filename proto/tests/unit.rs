@@ -1,6 +1,6 @@
 use core::convert::TryFrom;
 
-use tendermint_proto::{
+use tenderdash_proto::{
     types::{BlockId as RawBlockId, PartSetHeader as RawPartSetHeader},
     Protobuf,
 };
@@ -11,6 +11,7 @@ impl Protobuf<RawBlockId> for BlockId {}
 #[derive(Clone, Debug)]
 pub struct BlockId {
     hash: String,
+    state_id: String,
     part_set_header_exists: bool,
 }
 
@@ -22,6 +23,8 @@ impl TryFrom<RawBlockId> for BlockId {
         Ok(BlockId {
             hash: String::from_utf8(value.hash)
                 .map_err(|_| "Could not convert vector to string")?,
+            state_id: String::from_utf8(value.state_id)
+                .map_err(|_| "Could not convert state ID to string")?,
             part_set_header_exists: value.part_set_header.is_some(),
         })
     }
@@ -32,6 +35,7 @@ impl From<BlockId> for RawBlockId {
     fn from(value: BlockId) -> Self {
         RawBlockId {
             hash: value.hash.into_bytes(),
+            state_id: value.state_id.into_bytes(),
             part_set_header: match value.part_set_header_exists {
                 true => Some(RawPartSetHeader {
                     total: 0,
@@ -54,6 +58,7 @@ impl PartialEq for BlockId {
 pub fn protobuf_struct_example() {
     let my_domain_type = BlockId {
         hash: "Hello world!".to_string(),
+        state_id: "Bye bye world!".to_string(),
         part_set_header_exists: false,
     };
 
@@ -73,6 +78,7 @@ pub fn protobuf_struct_example() {
 pub fn protobuf_struct_length_delimited_example() {
     let my_domain_type = BlockId {
         hash: "Hello world!".to_string(),
+        state_id: "Bye bye world!".to_string(),
         part_set_header_exists: false,
     };
 
@@ -92,6 +98,7 @@ pub fn protobuf_struct_length_delimited_example() {
 pub fn protobuf_struct_conveniences_example() {
     let my_domain_type = BlockId {
         hash: "Hello world!".to_string(),
+        state_id: "Bye bye world!".to_string(),
         part_set_header_exists: false,
     };
 

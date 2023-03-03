@@ -53,7 +53,8 @@
 // Todo: remove dead_code allowance as soon as more types are implemented
 #![allow(dead_code)]
 pub mod bytes;
-pub mod evidence;
+// FIXME: evicence.rs didn't build, so it's removed for now
+// pub mod evidence;
 pub mod from_str;
 pub mod nullable;
 pub mod optional;

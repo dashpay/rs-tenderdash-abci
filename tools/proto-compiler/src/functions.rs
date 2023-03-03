@@ -1,19 +1,20 @@
-use std::{
-    fs::{copy, create_dir_all, remove_dir_all, File},
-    io::Write,
-    path::{Path, PathBuf},
-};
-
+use crate::constants::DEFAULT_TENDERDASH_COMMITISH;
 use git2::{
     build::{CheckoutBuilder, RepoBuilder},
     AutotagOption, Commit, FetchOptions, Oid, Reference, Repository,
+};
+use std::{
+    env,
+    fs::{copy, create_dir_all, remove_dir_all, File},
+    io::Write,
+    path::{Path, PathBuf},
 };
 use subtle_encoding::hex;
 use walkdir::WalkDir;
 
 /// Clone or open+fetch a repository and check out a specific commitish
 /// In case of an existing repository, the origin remote will be set to `url`.
-pub fn get_commitish(dir: &Path, url: &str, commitish: &str) {
+pub fn fetch_commitish(dir: &Path, url: &str, commitish: &str) {
     let repo = if dir.exists() {
         fetch_existing(dir, url)
     } else {
@@ -129,8 +130,11 @@ fn find_reference_or_commit<'a>(
             // Remote branch not found, last chance: try as a commit ID
             // Note: Oid::from_str() currently does an incorrect conversion and cuts the second half
             // of the ID. We are falling back on Oid::from_bytes() for now.
-            let commitish_vec =
-                hex::decode(commitish).unwrap_or_else(|_| hex::decode_upper(commitish).unwrap());
+            let commitish_vec = hex::decode(commitish).unwrap_or_else(|_| {
+                hex::decode_upper(commitish).expect(
+                    "TENDERDASH_COMMITISH refers to non-existing or invalid git branch/tag/commit",
+                )
+            });
             return (
                 None,
                 repo.find_commit(Oid::from_bytes(commitish_vec.as_slice()).unwrap())
@@ -207,9 +211,9 @@ pub fn find_proto_files(proto_paths: Vec<PathBuf>) -> Vec<PathBuf> {
     protos
 }
 
-/// Create tendermint.rs with library information
-pub fn generate_tendermint_lib(prost_dir: &Path, tendermint_lib_target: &Path) {
-    let file_names = WalkDir::new(prost_dir)
+/// Create tenderdash.rs with library information
+pub fn generate_tenderdash_lib(prost_dir: &Path, tenderdash_lib_target: &Path) {
+    let mut file_names = WalkDir::new(prost_dir)
         .into_iter()
         .filter_map(|e| e.ok())
         .filter(|e| {
@@ -219,9 +223,10 @@ pub fn generate_tendermint_lib(prost_dir: &Path, tendermint_lib_target: &Path) {
         })
         .map(|d| d.file_name().to_str().unwrap().to_string())
         .collect::<Vec<_>>();
+    file_names.sort();
 
     let mut content =
-        String::from("//! Tendermint-proto auto-generated sub-modules for Tendermint\n");
+        String::from("//! Tenderdash-proto auto-generated sub-modules for Tenderdash\n");
     let tab = "    ".to_string();
 
     for file_name in file_names {
@@ -259,13 +264,20 @@ pub fn generate_tendermint_lib(prost_dir: &Path, tendermint_lib_target: &Path) {
         "{}\npub mod meta {{\n{}pub const REPOSITORY: &str = \"{}\";\n{}pub const COMMITISH: &str = \"{}\";\n}}\n",
         content,
         tab,
-        crate::constants::TENDERMINT_REPO,
+        crate::constants::TENDERDASH_REPO,
         tab,
-        crate::constants::TENDERMINT_COMMITISH,
+        tenderdash_commitish(),
     );
 
     let mut file =
-        File::create(tendermint_lib_target).expect("tendermint library file create failed");
+        File::create(tenderdash_lib_target).expect("tenderdash library file create failed");
     file.write_all(content.as_bytes())
-        .expect("tendermint library file write failed");
+        .expect("tenderdash library file write failed");
+}
+
+pub(crate) fn tenderdash_commitish() -> String {
+    match env::var("TENDERDASH_COMMITISH") {
+        Ok(v) => v,
+        Err(_) => DEFAULT_TENDERDASH_COMMITISH.to_string(),
+    }
 }

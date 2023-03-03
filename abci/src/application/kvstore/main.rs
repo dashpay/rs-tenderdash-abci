@@ -1,7 +1,7 @@
 //! In-memory key/value store application for Tendermint.
 
 use structopt::StructOpt;
-use tendermint_abci::{KeyValueStoreApp, ServerBuilder};
+use tenderdash_abci::{KeyValueStoreApp, ServerBuilder};
 use tracing_subscriber::filter::LevelFilter;
 
 #[derive(Debug, StructOpt)]

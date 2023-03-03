@@ -25,9 +25,9 @@ pub fn start_tcp<App: Application>(
     TcpServer::bind(app, addrs)
 }
 
-// start_unix_server binds to `socket_file` and returns respective server.
+// start_unix creates new UnixSocketServer that binds to `socket_file`.
 // Use UnixSocketServer::handle_connection() to accept connection and process all incoming messages.
-// Each incoming connection will be processed using clone of `app`.
+// Each incoming connection will be processed using a clone of `app`.
 pub fn start_unix<App: Application>(
     socket_file: &Path,
     app: App,
@@ -39,8 +39,7 @@ pub fn start_unix<App: Application>(
     UnixSocketServer::bind(app, socket_file, DEFAULT_SERVER_READ_BUF_SIZE)
 }
 
-pub(crate) trait ReadWriter: std::io::Read + std::io::Write  {
-}
+pub(crate) trait ReadWriter: std::io::Read + std::io::Write {}
 
 // handle_client accepts one client connection and handles received messages.
 pub(crate) fn handle_client<App, S>(

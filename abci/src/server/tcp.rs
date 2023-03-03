@@ -38,11 +38,12 @@ impl<App: Application> TcpServer<App> {
     // Process one incoming connection, using clone of Application.
     // It is safe to call this method multiple times after it finishes; however, errors must be
     // examined and handles, as it is unlikely that the connection breaks.
-    pub fn handle_connection(self) -> Result<(), Error> {
+    pub fn handle_connection(&self) -> Result<(), Error> {
         let (stream, addr) = self.listener.accept().map_err(Error::io)?;
         let addr = addr.to_string();
         info!("Incoming connection from: {}", addr);
 
+        // FIXME: we might not need clone() here
         handle_client(stream, addr, self.app.clone(), DEFAULT_SERVER_READ_BUF_SIZE)
     }
 }

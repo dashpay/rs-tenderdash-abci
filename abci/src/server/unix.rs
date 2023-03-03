@@ -10,10 +10,20 @@ use super::server::ReadWriter;
 
 /// A Unix socket-based server for serving a specific ABCI application.
 ///
-/// Each incoming connection is handled in a separate thread. The ABCI
-/// application is cloned for access in each thread. It is up to the
-/// application developer to manage shared state across these different
-/// threads.
+/// The ABCI application is cloned before use. It is up to the application
+/// developer to manage shared state across these different clones.
+///
+/// Example usage:
+// let socket = Path::new("/tmp/socket");
+// let server = start_unix(socket, EchoApp {}).expect("server failed");
+// loop {
+//     match server.handle_connection() {
+//         Ok(_) => {},
+//         Err(e) => tracing::error!("error {}", e),
+//     };
+// }
+//
+
 pub struct UnixSocketServer<App: Application> {
     app: App,
     listener: UnixListener,
@@ -40,8 +50,11 @@ impl<App: Application> UnixSocketServer<App> {
         };
         Ok(server)
     }
-    /// Initiate a blocking listener for incoming connections.
-    pub fn handle_connection(self) -> Result<(), Error> {
+
+    // Process one incoming connection, using clone of Application.
+    // It is safe to call this method multiple times after it finishes; however, errors must be
+    // examined and handles, as it is unlikely that the connection breaks.
+    pub fn handle_connection(&self) -> Result<(), Error> {
         // let listener = self.listener;
         let stream = self.listener.accept().map_err(Error::io)?;
         info!("Incoming Unix connection");
@@ -49,7 +62,7 @@ impl<App: Application> UnixSocketServer<App> {
         handle_client(
             stream.0,
             String::from("Unix"),
-            self.app.clone(),
+            self.app.clone(), // FIXME: we might not need clone() here
             self.read_buf_size,
         )
     }

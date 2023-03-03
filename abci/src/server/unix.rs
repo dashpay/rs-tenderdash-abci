@@ -4,10 +4,7 @@ use std::{path::Path, thread};
 
 use tracing::{error, info};
 
-use crate::{
-    error::{self, Error},
-    Application,
-};
+use crate::{error::Error, Application};
 use std::os::unix::net::{UnixListener, UnixStream};
 
 use super::server::{ClientThread, ReadWriter};

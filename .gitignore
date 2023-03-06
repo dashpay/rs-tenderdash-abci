@@ -14,3 +14,4 @@ Cargo.lock
 
 # Proptest regressions dumps
 **/*.proptest-regressions
+.vscode/launch.json

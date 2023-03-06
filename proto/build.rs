@@ -18,4 +18,6 @@ fn main() {
         eprintln!("{}", String::from_utf8_lossy(&output.stderr));
         exit(output.status.code().unwrap());
     }
+
+    println!("cargo:rerun-if-env-changed=TENDERDASH_COMMITISH");
 }

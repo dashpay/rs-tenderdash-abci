@@ -14,17 +14,14 @@ description = """
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
-[[bin]]
-name = "kvstore-rs"
-path = "src/application/kvstore/main.rs"
-required-features = ["binary", "kvstore-app"]
-
 [features]
 default = ["flex-error/std", "flex-error/eyre_tracer"]
-client = []
-echo-app = []
-kvstore-app = []
-binary = ["structopt", "tracing-subscriber/fmt"]
+server = ["tracing-subscriber/fmt"]
+
+[[example]]
+
+name = "echo_socket"
+required-features = ["server"]
 
 [dependencies]
 bytes = { version = "1.0", default-features = false }

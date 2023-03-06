@@ -5,9 +5,9 @@
 mod application;
 #[cfg(feature = "client")]
 mod client;
-mod codec;
 pub mod error;
-mod server;
+#[cfg(feature = "server")]
+pub mod server;
 
 // Common exports
 // Example applications
@@ -19,4 +19,3 @@ pub use application::Application;
 #[cfg(feature = "client")]
 pub use client::{Client, ClientBuilder};
 pub use error::Error;
-pub use server::{Server, ServerBuilder};

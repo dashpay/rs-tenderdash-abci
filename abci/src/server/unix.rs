@@ -1,6 +1,6 @@
 //! ABCI application server interface.
 
-use std::path::Path;
+use std::{fs::remove_file, path::Path};
 
 use crate::{server::server::handle_client, Application, Error};
 use std::os::unix::net::UnixListener;
@@ -34,6 +34,8 @@ impl<App: Application> UnixSocketServer<App> {
         socket_file: &Path,
         read_buf_size: usize,
     ) -> Result<UnixSocketServer<App>, Error> {
+        _ = remove_file(socket_file);
+
         let listener = UnixListener::bind(socket_file).map_err(Error::io)?;
         let socket_file = socket_file.to_path_buf();
         info!(

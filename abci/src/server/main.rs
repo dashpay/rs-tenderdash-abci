@@ -1,6 +1,7 @@
 use std::path::Path;
 use tenderdash_abci::{server::start_unix, Application};
-use tracing::{span, Level};
+use tenderdash_proto::abci::{RequestEcho, RequestInfo, ResponseEcho, ResponseInfo};
+use tracing::{info, span, Level};
 use tracing_subscriber::filter::LevelFilter;
 
 pub fn main() {
@@ -26,4 +27,16 @@ pub fn main() {
 #[derive(Clone, Default)]
 pub struct EchoApp;
 
-impl Application for EchoApp {}
+impl Application for EchoApp {
+    fn echo(&self, request: RequestEcho) -> ResponseEcho {
+        info!("received echo");
+        ResponseEcho {
+            message: request.message,
+        }
+    }
+    /// Provide information about the ABCI application.
+    fn info(&self, _request: RequestInfo) -> ResponseInfo {
+        info!("received info");
+        Default::default()
+    }
+}

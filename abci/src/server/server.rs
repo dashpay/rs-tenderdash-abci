@@ -31,7 +31,7 @@ pub fn start_tcp<App: Application>(
 }
 
 // start_unix creates new UnixSocketServer that binds to `socket_file`.
-// Use UnixSocketServer::handle_connection() to accept connection and process all incoming messages.
+// Use UnixSocketServer::handle_connection() to accept connection and process all traffic in this connection.
 // Each incoming connection will be processed using a clone of `app`.
 pub fn start_unix<App: Application>(
     socket_file: &Path,

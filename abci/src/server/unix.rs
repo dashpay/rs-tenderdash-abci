@@ -29,7 +29,7 @@ pub struct UnixSocketServer<App: Application> {
 }
 
 impl<App: Application> UnixSocketServer<App> {
-    pub(in crate::server) fn bind(
+    pub(super) fn bind(
         app: App,
         socket_file: &Path,
         read_buf_size: usize,
@@ -51,21 +51,21 @@ impl<App: Application> UnixSocketServer<App> {
         Ok(server)
     }
 
-    // Process one incoming connection, using clone of Application.
-    // It is safe to call this method multiple times after it finishes; however, errors must be
-    // examined and handles, as it is unlikely that the connection breaks.
+    /// Process one incoming connection.
+    /// The application is cloned using clone() for each connection.
+    /// Returns once the connection is terminated.
+    ///
+    /// It is safe to call this method multiple times after it finishes;
+    /// however, errors must be examined and handled, as the connection
+    /// should not terminate.
     pub fn handle_connection(&self) -> Result<(), Error> {
         // let listener = self.listener;
         let stream = self.listener.accept().map_err(Error::io)?;
+        let name = String::from("<unix socket>");
+
         info!("Incoming Unix connection");
 
-        handle_client(
-            stream.0,
-            String::from("Unix"),
-            self.app.clone(), // FIXME: we might not need clone() here
-            self.read_buf_size,
-        )
+        // FIXME: we might not need clone() here
+        handle_client(stream.0, name, self.app.clone(), self.read_buf_size)
     }
 }
-
-// impl ReadWriter for UnixStream {}

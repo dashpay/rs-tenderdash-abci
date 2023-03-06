@@ -22,7 +22,7 @@ pub const DEFAULT_SERVER_READ_BUF_SIZE: usize = 1024 * 1024;
 //    let result = server.handle_connection()
 //    // handle result errors
 // }
-// Each incoming connection will be processed using clone of `app`.
+// Each incoming connection will be processed using `app`.
 pub fn start_tcp<App: Application>(
     addrs: impl ToSocketAddrs,
     app: App,
@@ -32,7 +32,7 @@ pub fn start_tcp<App: Application>(
 
 // start_unix creates new UnixSocketServer that binds to `socket_file`.
 // Use UnixSocketServer::handle_connection() to accept connection and process all traffic in this connection.
-// Each incoming connection will be processed using a clone of `app`.
+// Each incoming connection will be processed using `app`.
 pub fn start_unix<App: Application>(
     socket_file: &Path,
     app: App,
@@ -48,7 +48,7 @@ pub fn start_unix<App: Application>(
 pub(crate) fn handle_client<App, S>(
     stream: S,
     name: String,
-    app: App,
+    app: &App,
     read_buf_size: usize,
 ) -> Result<(), Error>
 where

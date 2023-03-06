@@ -8,20 +8,17 @@ use tracing::info;
 
 /// A Unix socket-based server for serving a specific ABCI application.
 ///
-/// The ABCI application is cloned before use. It is up to the application
-/// developer to manage shared state across these different clones.
-///
-/// Example usage:
-// let socket = Path::new("/tmp/socket");
-// let server = start_unix(socket, EchoApp {}).expect("server failed");
-// loop {
-//     match server.handle_connection() {
-//         Ok(_) => {},
-//         Err(e) => tracing::error!("error {}", e),
-//     };
-// }
-//
-
+/// Example:
+/// ```
+/// let socket = Path::new("/tmp/socket");
+/// let server = start_unix(socket, EchoApp {}).expect("server failed");
+/// loop {
+///     match server.handle_connection() {
+///         Ok(_) => {},
+///         Err(e) => tracing::error!("error {}", e),
+///     };
+/// }
+/// ```
 pub struct UnixSocketServer<App: Application> {
     app: App,
     listener: UnixListener,
@@ -52,7 +49,6 @@ impl<App: Application> UnixSocketServer<App> {
     }
 
     /// Process one incoming connection.
-    /// The application is cloned using clone() for each connection.
     /// Returns once the connection is terminated.
     ///
     /// It is safe to call this method multiple times after it finishes;
@@ -65,7 +61,6 @@ impl<App: Application> UnixSocketServer<App> {
 
         info!("Incoming Unix connection");
 
-        // FIXME: we might not need clone() here
-        handle_client(stream.0, name, self.app.clone(), self.read_buf_size)
+        handle_client(stream.0, name, &self.app, self.read_buf_size)
     }
 }

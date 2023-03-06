@@ -12,9 +12,7 @@ use crate::{
 
 /// A TCP-based server for serving a specific ABCI application.
 ///
-/// Only one incoming connection is handled at a time. The ABCI
-/// application is cloned before use. It is up to the
-/// application developer to manage application state.
+/// Only one incoming connection is handled at a time.
 pub struct TcpServer<App: Application> {
     app: App,
     listener: TcpListener,
@@ -32,9 +30,7 @@ impl<App: Application> TcpServer<App> {
         Ok(server)
     }
 
-    /// Process one incoming connection.
-    /// The application is cloned using clone() for each connection.
-    /// Returns once the connection is terminated.
+    /// Process one incoming connection. Returns once the connection is terminated.
     ///
     /// It is safe to call this method multiple times after it finishes;
     /// however, errors must be examined and handled, as the connection
@@ -44,7 +40,6 @@ impl<App: Application> TcpServer<App> {
         let addr = addr.to_string();
         info!("Incoming connection from: {}", addr);
 
-        // FIXME: we might not need clone() here
-        handle_client(stream, addr, self.app.clone(), DEFAULT_SERVER_READ_BUF_SIZE)
+        handle_client(stream, addr, &self.app, DEFAULT_SERVER_READ_BUF_SIZE)
     }
 }

@@ -1,19 +1,19 @@
 use std::path::Path;
 use tenderdash_abci::{server::start_unix, Application};
 use tenderdash_proto::abci::{RequestEcho, RequestInfo, ResponseEcho, ResponseInfo};
-use tracing::{info, span, Level};
+use tracing::info;
 use tracing_subscriber::filter::LevelFilter;
+
+const SOCKET: &str = "/tmp/socket";
 
 pub fn main() {
     let log_level = LevelFilter::DEBUG;
     tracing_subscriber::fmt().with_max_level(log_level).init();
 
-    let span = span!(Level::TRACE, "my span");
+    info!("Unix socket ABCI server example.");
+    info!("This application listens on {SOCKET} and waits for incoming Tenderdash requests.");
 
-    // Enter the span, returning a guard object.
-    let _enter = span.enter();
-
-    let socket = Path::new("/tmp/socket");
+    let socket = Path::new(SOCKET);
     let server = start_unix(socket, EchoApp {}).expect("server failed");
     loop {
         match server.handle_connection() {
@@ -36,7 +36,13 @@ impl Application for EchoApp {
     }
     /// Provide information about the ABCI application.
     fn info(&self, _request: RequestInfo) -> ResponseInfo {
-        info!("received info");
-        Default::default()
+        info!("received info request");
+        ResponseInfo {
+            app_version: 1,
+            data: String::from("Echo Socket App"),
+            version: String::from("1.0.0"),
+            last_block_app_hash: Vec::from([0; 32]),
+            last_block_height: 0,
+        }
     }
 }

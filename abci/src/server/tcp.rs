@@ -2,13 +2,9 @@
 
 use std::net::{TcpListener, ToSocketAddrs};
 
+use super::{handle_client, DEFAULT_SERVER_READ_BUF_SIZE};
+use crate::{error::Error, Application};
 use tracing::info;
-
-use crate::{
-    error::Error,
-    server::server::{handle_client, DEFAULT_SERVER_READ_BUF_SIZE},
-    Application,
-};
 
 /// A TCP-based server for serving a specific ABCI application.
 ///

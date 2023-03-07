@@ -15,7 +15,7 @@ description = """
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [features]
-default = ["flex-error/std", "flex-error/eyre_tracer"]
+default = ["flex-error/std", "flex-error/eyre_tracer", "server"]
 server = ["tracing-subscriber/fmt"]
 
 [[example]]

@@ -47,7 +47,7 @@ const ALIAS_PARTS: &str = r#"#[serde(alias = "parts")]"#;
 /// The first item in the tuple defines the message where the annotation should apply and
 /// the second item is the string that should be added as annotation.
 /// The first item is a path as defined in the prost_build::Config::btree_map here:
-/// https://docs.rs/prost-build/0.6.1/prost_build/struct.Config.html#method.btree_map
+/// <https://docs.rs/prost-build/0.6.1/prost_build/struct.Config.html#method.btree_map>
 pub static CUSTOM_TYPE_ATTRIBUTES: &[(&str, &str)] = &[
     (".tenderdash.libs.bits.BitArray", SERIALIZED),
     (".tenderdash.types.EvidenceParams", SERIALIZED),
@@ -86,7 +86,7 @@ pub static CUSTOM_TYPE_ATTRIBUTES: &[(&str, &str)] = &[
 /// The first item in the tuple defines the field where the annotation should apply and
 /// the second item is the string that should be added as annotation.
 /// The first item is a path as defined in the prost_build::Config::btree_map here:
-/// https://docs.rs/prost-build/0.6.1/prost_build/struct.Config.html#method.btree_map
+/// <https://docs.rs/prost-build/0.6.1/prost_build/struct.Config.html#method.btree_map>
 pub static CUSTOM_FIELD_ATTRIBUTES: &[(&str, &str)] = &[
     (
         ".tenderdash.types.EvidenceParams.max_bytes",

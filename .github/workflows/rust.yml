@@ -40,4 +40,4 @@ jobs:
           RUSTDOCFLAGS: "--cfg docsrs"
         with:
           command: doc
-          args: --all-features --package tenderdash-abci --package tenderdash-proto
+          args: --no-deps --all-features

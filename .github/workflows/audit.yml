@@ -5,8 +5,6 @@ on:
     paths:
       - "**/Cargo.toml"
       - "**/Cargo.lock"
-  schedule:
-    - cron: "0 0 * * *"
 
 jobs:
   security_audit:
@@ -19,5 +17,6 @@ jobs:
           path: ~/.cargo/bin
           key: ${{ runner.os }}-cargo-audit
       - uses: actions-rs/audit-check@v1
+        name: Audit check
         with:
           token: ${{ secrets.GITHUB_TOKEN }}

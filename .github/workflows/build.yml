@@ -25,6 +25,7 @@ jobs:
       - uses: actions/checkout@v2
       - uses: ./.github/actions/deps
       - uses: actions-rs/cargo@v1
+        name: Cargo build
         with:
           command: build
           args: --release --all-features

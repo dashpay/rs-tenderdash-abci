@@ -1,13 +1,17 @@
 ---
 name: "Dependencies"
 description: "Install dependencies"
+inputs:
+  toolchain:
+    description: Rust toolchain to use, stable / nightly / beta
+    default: stable
 runs:
   using: composite
   steps:
     - uses: actions-rs/toolchain@v1
       name: Install Rust toolchain
       with:
-        toolchain: stable
+        toolchain: ${{ inputs.toolchain }}
         profile: minimal
         override: true
     - name: Install protoc

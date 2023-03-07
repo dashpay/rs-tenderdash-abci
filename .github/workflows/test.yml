@@ -25,6 +25,7 @@ jobs:
       - uses: actions/checkout@v2
       - uses: ./.github/actions/deps
       - uses: actions-rs/cargo@v1
+        name: Cargo test
         with:
           command: test
           args: --all-features
@@ -34,7 +35,10 @@ jobs:
     steps:
       - uses: actions/checkout@v2
       - uses: ./.github/actions/deps
+        with:
+          toolchain: nightly
       - uses: actions-rs/cargo@v1
+        name: Cargo test with coverage
         with:
           command: test
           args: --all-features

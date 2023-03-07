@@ -1,0 +1,16 @@
+---
+# Please see the documentation for all configuration options:
+# https://docs.github.com/en/code-security/dependabot/dependabot-version-updates/configuration-options-for-the-dependabot.yml-file
+
+version: 2
+updates:
+  - package-ecosystem: "cargo"
+    directory: "/"
+    schedule:
+      interval: "daily"
+      time: "13:37"
+      timezone: "UTC"
+    ignore:
+      # These are peer deps of Cargo and should not be automatically bumped
+      - dependency-name: "tenderdash-abci"
+      - dependency-name: "tenderdash-proto"

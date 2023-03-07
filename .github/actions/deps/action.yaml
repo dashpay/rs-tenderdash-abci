@@ -18,6 +18,11 @@ runs:
         unzip /tmp/protoc.zip -d ${HOME}/.local
         echo "PROTOC=${HOME}/.local/bin/protoc" >> $GITHUB_ENV
         export PATH="${PATH}:${HOME}/.local/bin"
+    - name: Rust cache
+      uses: Swatinem/rust-cache@v2
+      with:
+        cache-directories: |
+          proto/src/prost
     - name: Compile Protobuf definitions
       uses: actions-rs/cargo@v1
       with:

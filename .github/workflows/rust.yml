@@ -1,4 +1,6 @@
+---
 name: Rust
+
 on:
   pull_request:
     paths-ignore:
@@ -7,25 +9,22 @@ on:
     paths-ignore:
       - "docs/**"
     branches:
-      - master
+      - main
       - "v*.*.*"
 jobs:
   cleanup-runs:
     runs-on: ubuntu-latest
     steps:
-      - uses: rokroskar/workflow-run-cleanup-action@master
+      - uses: rokroskar/workflow-run-cleanup-action@main
         env:
           GITHUB_TOKEN: "${{ secrets.GITHUB_TOKEN }}"
-    if: "!startsWith(github.ref, 'refs/tags/') && github.ref != 'refs/heads/master'"
+    if: "!startsWith(github.ref, 'refs/tags/') && github.ref != 'refs/heads/main'"
 
   fmt:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
-      - uses: actions-rs/toolchain@v1
-        with:
-          toolchain: stable
-          override: true
+      - uses: ./.github/actions/deps
       - uses: actions-rs/cargo@v1
         with:
           command: fmt
@@ -36,11 +35,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
-      - uses: actions-rs/toolchain@v1
-        with:
-          toolchain: stable
-          components: clippy
-          override: true
+      - uses: ./.github/actions/deps
       - uses: actions-rs/clippy-check@v1
         with:
           name: clippy-results
@@ -51,11 +46,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
-      - uses: actions-rs/toolchain@v1
-        with:
-          toolchain: stable
-          components: clippy
-          override: true
+      - uses: ./.github/actions/deps
       - uses: actions-rs/clippy-check@v1
         with:
           name: clippy-tools-results
@@ -66,10 +57,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
-      - uses: actions-rs/toolchain@v1
-        with:
-          toolchain: nightly
-          override: true
+      - uses: ./.github/actions/deps
       - uses: actions-rs/cargo@v1
         env:
           RUSTDOCFLAGS: "--cfg docsrs"

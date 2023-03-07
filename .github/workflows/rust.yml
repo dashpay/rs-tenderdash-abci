@@ -42,17 +42,6 @@ jobs:
           token: ${{ secrets.GITHUB_TOKEN }}
           args: --all-features --all-targets -- -Dwarnings -Drust-2018-idioms
 
-  clippy-tools-output:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v2
-      - uses: ./.github/actions/deps
-      - uses: actions-rs/clippy-check@v1
-        with:
-          name: clippy-tools-results
-          token: ${{ secrets.GITHUB_TOKEN }}
-          args: --manifest-path tools/kvstore-test/Cargo.toml --all-features --all-targets -- -Dwarnings -Drust-2018-idioms
-
   docs:
     runs-on: ubuntu-latest
     steps:

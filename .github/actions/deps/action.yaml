@@ -18,3 +18,8 @@ runs:
         unzip /tmp/protoc.zip -d ${HOME}/.local
         echo "PROTOC=${HOME}/.local/bin/protoc" >> $GITHUB_ENV
         export PATH="${PATH}:${HOME}/.local/bin"
+    - name: Compile Protobuf definitions
+      uses: actions-rs/cargo@v1
+      with:
+        command: build
+        args: --release -p tenderdash-proto

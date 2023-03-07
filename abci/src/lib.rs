@@ -1,7 +1,3 @@
-//! ABCI framework for building [Tendermint] applications in Rust.
-//!
-//! [Tendermint]: https://tendermint.com
-
 mod application;
 #[cfg(feature = "client")]
 mod client;

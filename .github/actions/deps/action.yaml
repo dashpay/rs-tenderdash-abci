@@ -8,6 +8,7 @@ runs:
       name: Install Rust toolchain
       with:
         toolchain: stable
+        profile: minimal
         override: true
     - name: Install protoc
       id: deps-protoc

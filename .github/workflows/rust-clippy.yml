@@ -26,10 +26,15 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v2
+
       - name: Install Rust toolchain and deps
         uses: ./.github/actions/deps
+
       - name: Install clippy
-        run: cargo install clippy clippy-sarif sarif-fmt
+        run: |
+          rustup component add clippy && \
+          cargo install clippy-sarif sarif-fmt
+
       - name: Run rust-clippy
         run: cargo clippy
           --all-features

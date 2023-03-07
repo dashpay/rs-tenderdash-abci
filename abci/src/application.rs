@@ -46,13 +46,8 @@ use tenderdash_proto::abci::{
 
 /// An ABCI application.
 ///
-/// Applications are `Send` + `Clone` + `'static` because they are cloned for
-/// each incoming connection to the ABCI [`Server`]. It is up to the
-/// application developer to manage shared state between these clones of their
-/// application.
-///
-/// [`Server`]: crate::Server
-pub trait Application: Send + Clone + 'static {
+/// Implementers should provide implementation of this trait to `server::start_tcp()` or `server::start_unix()`.
+pub trait Application {
     /// Echo back the same message as provided in the request.
     fn echo(&self, request: RequestEcho) -> ResponseEcho {
         ResponseEcho {

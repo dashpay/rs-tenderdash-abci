@@ -1,6 +1,7 @@
+//! Tenderdash ABCI Server.
 mod codec;
-mod tcp;
-mod unix;
+pub mod tcp;
+pub mod unix;
 
 use crate::{
     application::RequestDispatcher, server::codec::ServerCodec, server::tcp::TcpServer,
@@ -19,14 +20,16 @@ use unix::UnixSocketServer;
 /// server (1MB).
 pub const DEFAULT_SERVER_READ_BUF_SIZE: usize = 1024 * 1024;
 
-// start_tcp creates a server that listens on `addresses`.
-// Example:
-// let server = start_tcp(addresses, app)
-// loop {
-//    let result = server.handle_connection()
-//    // handle result errors
-// }
-// Each incoming connection will be processed using `app`.
+/// start_tcp creates a server that listens on `addresses`.
+/// Each incoming connection will be processed using `app`.
+/// # Example
+/// ```
+/// let server = start_tcp(addresses, app)
+/// loop {
+///    let result = server.handle_connection()
+///    // handle result errors
+/// }
+
 pub fn start_tcp<App: Application>(
     addrs: impl ToSocketAddrs,
     app: App,
@@ -34,9 +37,9 @@ pub fn start_tcp<App: Application>(
     TcpServer::bind(app, addrs)
 }
 
-// start_unix creates new UnixSocketServer that binds to `socket_file`.
-// Use UnixSocketServer::handle_connection() to accept connection and process all traffic in this connection.
-// Each incoming connection will be processed using `app`.
+/// start_unix creates new UnixSocketServer that binds to `socket_file`.
+/// Use `UnixSocketServer::handle_connection()` to accept connection and process all traffic in this connection.
+/// Each incoming connection will be processed using `app`.
 pub fn start_unix<App: Application>(
     socket_file: &Path,
     app: App,
@@ -48,7 +51,7 @@ pub fn start_unix<App: Application>(
     UnixSocketServer::bind(app, socket_file, DEFAULT_SERVER_READ_BUF_SIZE)
 }
 
-// handle_client accepts one client connection and handles received messages.
+/// handle_client accepts one client connection and handles received messages.
 pub(crate) fn handle_client<App, S>(
     stream: S,
     name: String,

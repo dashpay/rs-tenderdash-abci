@@ -41,7 +41,7 @@ jobs:
         name: Cargo test with coverage
         with:
           command: test
-          args: --all-features
+          args: --all-features -p tenderdash-abci
         env:
           RUSTFLAGS: "-Zinstrument-coverage"
           LLVM_PROFILE_FILE: "%p-%m.profraw"

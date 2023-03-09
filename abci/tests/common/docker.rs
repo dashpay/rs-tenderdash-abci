@@ -5,10 +5,11 @@ use bollard::{
     service::{CreateImageInfo, HostConfig},
     Docker, API_DEFAULT_VERSION,
 };
+use flex_error::{define_error, DisplayError};
 use futures::StreamExt;
-use tenderdash_abci::Error;
 use tokio::{runtime::Runtime, time::timeout};
-use tracing::{debug, info};
+use tracing::{debug, error, info};
+use url::Url;
 
 pub struct TenderdashDocker {
     id: String,
@@ -18,44 +19,72 @@ pub struct TenderdashDocker {
 }
 impl TenderdashDocker {
     /// new() creates and starts new Tenderdash docker container for provided tag.
-    /// If tag is "", we use tenderdash proto version.
-    pub(crate) fn new(tag: String) -> Result<TenderdashDocker, Error> {
+    ///
+    /// Panics on error.
+    ///
+    /// When using with socket server, it should be called after the server starts listening.
+    ///
+    /// # Arguments
+    ///
+    /// * `tag` - Docker tag to use; provide empty string to use default
+    /// * `app_address` - address of ABCI app server; either 'tcp://1.2.3.4:4567' or 'unix:///path/to/file'
+    ///
+    pub(crate) fn new(tag: &str, app_address: &str) -> Result<TenderdashDocker, Error> {
         // let tag = String::from(tenderdash_proto::VERSION);
-        let tag = match tag.is_empty() {
-            true => String::from(tenderdash_proto::VERSION),
-            false => tag,
+        let tag = if tag.is_empty() {
+            tenderdash_proto::VERSION
+        } else {
+            tag
         };
-        let image = format!("dashpay/tenderdash:{}", tag);
+
+        let app_address = url::Url::parse(app_address).expect("invalid app address");
+        if app_address.scheme() != "tcp" && app_address.scheme() != "unix" {
+            panic!("app_address must be either tcp:// or unix://");
+        }
 
         let runtime = tokio::runtime::Builder::new_multi_thread()
             .enable_all()
-            .build()?;
+            .build()
+            .expect("cannot initialize tokio runtime");
 
-        info!("starting Tenderdash docker container");
+        info!("Starting Tenderdash docker container");
+
+        let docker = runtime.block_on(Self::connect())?;
 
         let mut td: TenderdashDocker = TenderdashDocker {
             id: Default::default(),
-            docker: runtime.block_on(Self::connect())?,
-            image,
+            docker,
+            image: format!("dashpay/tenderdash:{}", tag),
             runtime,
         };
 
-        td.id = td.runtime.block_on(td.start())?;
+        td.id = td.runtime.block_on(td.start(app_address))?;
 
+        info!("Tenderdash docker container started successfully");
+        td.handle_ctrlc();
+        Ok(td)
+    }
+
+    fn handle_ctrlc(&self) {
         // Handle ctrl+c
-        let id = td.id.clone();
-        let docker = td.docker.clone();
+        let id = self.id.clone();
+        let docker = self.docker.clone();
         // let runtime = &td.runtime;
-        let _ctrlc = td.runtime.spawn(async move {
+        let _ctrlc = self.runtime.spawn(async move {
             tokio::signal::ctrl_c().await.unwrap();
-            debug!("Received ctrl+c, removing Tenderdash container");
-            timeout(Duration::from_secs(15), Self::stop(id, &docker))
+            error!("Received ctrl+c, removing Tenderdash container");
+
+            let stopped = timeout(Duration::from_secs(15), Self::stop(id, &docker))
                 .await
                 .expect("timeout removing tenderdash container");
+            if stopped.is_err() {
+                error!(
+                    "failed to remove tenderdash container: {}",
+                    stopped.err().unwrap()
+                )
+            }
             std::process::exit(1);
         });
-
-        Ok(td)
     }
 
     async fn connect() -> Result<Docker, Error> {
@@ -86,18 +115,29 @@ impl TenderdashDocker {
             .collect::<Vec<Result<CreateImageInfo, bollard::errors::Error>>>()
             .await;
 
-        let image_response = image_responses.pop().unwrap()?;
-        debug!("Image fetch status: {}", image_response.status.unwrap());
+        image_responses.pop().unwrap()?;
+        debug!("Image fetch completed");
+
         Ok(())
     }
 
-    async fn create_container(&self) -> Result<String, Error> {
+    async fn create_container(&self, app_address: Url) -> Result<String, Error> {
         debug!("Creating container");
+        let binds = if app_address.scheme() == "unix" {
+            let path = app_address.path();
+            Some(vec![format!("{}:{}", path, path)])
+        } else {
+            None
+        };
+
+        let app_address = app_address.to_string().replace("/", "\\/");
+
+        debug!("Tenderdash will connect to ABCI address: {}", app_address);
         let container_config = Config {
             image: Some(self.image.clone()),
-            env: Some(vec![String::from("PROXY_APP=unix:\\/\\/\\/abci.sock")]),
+            env: Some(vec![format!("PROXY_APP={}", app_address)]),
             host_config: Some(HostConfig {
-                binds: Some(vec![String::from("/tmp/socket:/abci.sock")]),
+                binds: binds,
                 ..Default::default()
             }),
             ..Default::default()
@@ -128,16 +168,12 @@ impl TenderdashDocker {
         Ok(id)
     }
     /// Start Tenderdash in Docker
-    async fn start(&self) -> Result<String, Error> {
+    async fn start(&self, app_address: Url) -> Result<String, Error> {
         self.image_pull().await?;
-
-        let id = self.create_container().await?;
-
-        info!("Tenderdash container started successfully");
-        Ok(id)
+        self.create_container(app_address).await
     }
 
-    async fn stop(id: String, docker: &Docker) {
+    async fn stop(id: String, docker: &Docker) -> Result<(), Error> {
         docker
             .remove_container(
                 &id,
@@ -146,16 +182,30 @@ impl TenderdashDocker {
                     ..Default::default()
                 }),
             )
-            .await
-            .expect("cannot remove container, leaving some garbage");
+            .await?;
+        Ok(())
     }
 }
 
 impl Drop for TenderdashDocker {
     fn drop(&mut self) {
         if !self.id.is_empty() {
-            self.runtime
+            let _ = self
+                .runtime
                 .block_on(Self::stop(self.id.clone(), &self.docker));
         }
+    }
+}
+define_error!(
+Error {
+    Docker
+        [DisplayError<bollard::errors::Error>]
+        | _ | { "Docker error" },
+});
+
+// FIXME: I think this should be generated somehow by the define_error! macro above, but it is not
+impl From<bollard::errors::Error> for Error {
+    fn from(value: bollard::errors::Error) -> Self {
+        Error::docker(value)
     }
 }

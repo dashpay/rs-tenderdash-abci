@@ -39,23 +39,12 @@ define_error! {
         ChannelRecv
             [ DisplayError<std::sync::mpsc::RecvError> ]
             | _ | { "channel recv error" },
-
-        Docker
-            [DisplayError<bollard::errors::Error>]
-            | _| { format!("docker error",)},
     }
 }
 
 impl Error {
     pub fn send<T>(_e: std::sync::mpsc::SendError<T>) -> Error {
         Error::channel_send()
-    }
-}
-
-// FIXME: I think this should be generated somehow by the define_error! macro above, but it is not
-impl From<bollard::errors::Error> for Error {
-    fn from(value: bollard::errors::Error) -> Self {
-        Error::docker(value)
     }
 }
 

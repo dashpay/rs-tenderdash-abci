@@ -8,6 +8,7 @@ const SOCKET: &str = "/tmp/socket";
 
 mod common;
 
+#[cfg(feature = "docker-tests")]
 #[test]
 fn test_socket_kvstore() {
     let log_level = LevelFilter::DEBUG;
@@ -15,9 +16,9 @@ fn test_socket_kvstore() {
 
     let socket = Path::new(SOCKET);
     let server = start_unix(socket, EchoApp {}).expect("server failed");
-
-    let _td = common::TenderdashDocker::new(String::from("fix-docker-init"))
-        .expect("cannot start docker container");
+    let socket_uri = format!("unix://{}", socket.to_str().unwrap());
+    let _td = common::docker::TenderdashDocker::new("fix-docker-init", &socket_uri)
+        .expect("start tenderdash container");
 
     loop {
         match server.handle_connection() {

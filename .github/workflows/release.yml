@@ -16,6 +16,7 @@ on:
     tags:
       - "v[0-9]+.[0-9]+.[0-9]+" # Push events to matching v*, i.e. v0.26.0, v1.0.0
       - "v[0-9]+.[0-9]+.[0-9]+-pre.[0-9]+" # e.g. v0.26.0-pre.1
+      - "v[0-9]+.[0-9]+.[0-9]+-dev.[0-9]+" # e.g. v0.26.0-dev.1
 
 jobs:
   release:

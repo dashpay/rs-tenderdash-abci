@@ -44,6 +44,8 @@ use tenderdash_proto::abci::{
     ResponseVerifyVoteExtension,
 };
 
+use crate::Error;
+
 /// An ABCI application.
 ///
 /// Implementers should provide implementation of this trait to `server::start_tcp()` or `server::start_unix()`.
@@ -132,47 +134,41 @@ pub trait Application {
 pub trait RequestDispatcher {
     /// Executes the relevant application method based on the type of the
     /// request, and produces the corresponding response.
-    fn handle(&self, request: Request) -> Response;
+    fn handle(&self, request: Request) -> Result<Response, Error>;
 }
 
 // Implement `RequestDispatcher` for all `Application`s.
 impl<A: Application> RequestDispatcher for A {
-    fn handle(&self, request: Request) -> Response {
+    fn handle(&self, request: Request) -> Result<Response, Error> {
         tracing::debug!("Incoming request: {:?}", request);
-        Response {
-            value: Some(match request.value.unwrap() {
-                Value::Echo(req) => response::Value::Echo(self.echo(req)),
-                Value::Flush(req) => response::Value::Flush(self.flush(req)),
-                Value::Info(req) => response::Value::Info(self.info(req)),
-                Value::InitChain(req) => response::Value::InitChain(self.init_chain(req)),
-                Value::Query(req) => response::Value::Query(self.query(req)),
-                Value::CheckTx(req) => response::Value::CheckTx(self.check_tx(req)),
-                Value::OfferSnapshot(req) => {
-                    response::Value::OfferSnapshot(self.offer_snapshot(req))
-                },
-                Value::LoadSnapshotChunk(req) => {
-                    response::Value::LoadSnapshotChunk(self.load_snapshot_chunk(req))
-                },
-                Value::ApplySnapshotChunk(req) => {
-                    response::Value::ApplySnapshotChunk(self.apply_snapshot_chunk(req))
-                },
-                Value::ListSnapshots(req) => {
-                    response::Value::ListSnapshots(self.list_snapshots(req))
-                },
-                Value::PrepareProposal(req) => {
-                    response::Value::PrepareProposal(self.prepare_proposal(req))
-                },
-                Value::ProcessProposal(req) => {
-                    response::Value::ProcessProposal(self.process_proposal(req))
-                },
-                Value::FinalizeBlock(req) => {
-                    response::Value::FinalizeBlock(self.finalize_block(req))
-                },
-                Value::ExtendVote(req) => response::Value::ExtendVote(self.extend_vote(req)),
-                Value::VerifyVoteExtension(req) => {
-                    response::Value::VerifyVoteExtension(self.verify_vote_extension(req))
-                },
-            }),
-        }
+        let value = match request.value.unwrap() {
+            Value::Echo(req) => response::Value::Echo(self.echo(req)),
+            Value::Flush(req) => response::Value::Flush(self.flush(req)),
+            Value::Info(req) => response::Value::Info(self.info(req)),
+            Value::InitChain(req) => response::Value::InitChain(self.init_chain(req)),
+            Value::Query(req) => response::Value::Query(self.query(req)),
+            Value::CheckTx(req) => response::Value::CheckTx(self.check_tx(req)),
+            Value::OfferSnapshot(req) => response::Value::OfferSnapshot(self.offer_snapshot(req)),
+            Value::LoadSnapshotChunk(req) => {
+                response::Value::LoadSnapshotChunk(self.load_snapshot_chunk(req))
+            },
+            Value::ApplySnapshotChunk(req) => {
+                response::Value::ApplySnapshotChunk(self.apply_snapshot_chunk(req))
+            },
+            Value::ListSnapshots(req) => response::Value::ListSnapshots(self.list_snapshots(req)),
+            Value::PrepareProposal(req) => {
+                response::Value::PrepareProposal(self.prepare_proposal(req))
+            },
+            Value::ProcessProposal(req) => {
+                response::Value::ProcessProposal(self.process_proposal(req))
+            },
+            Value::FinalizeBlock(req) => response::Value::FinalizeBlock(self.finalize_block(req)),
+            Value::ExtendVote(req) => response::Value::ExtendVote(self.extend_vote(req)),
+            Value::VerifyVoteExtension(req) => {
+                response::Value::VerifyVoteExtension(self.verify_vote_extension(req))
+            },
+        };
+
+        Ok(Response { value: Some(value) })
     }
 }

@@ -22,6 +22,8 @@ pub const DEFAULT_SERVER_READ_BUF_SIZE: usize = 1024 * 1024;
 
 /// start_tcp creates a server that listens on `addresses`.
 /// Each incoming connection will be processed using `app`.
+/// Use [`handle_connection()`] to accept connection and process all traffic in this connection.
+///
 /// # Example
 /// ```
 /// let server = start_tcp(addresses, app)
@@ -29,7 +31,8 @@ pub const DEFAULT_SERVER_READ_BUF_SIZE: usize = 1024 * 1024;
 ///    let result = server.handle_connection()
 ///    // handle result errors
 /// }
-
+///
+/// [`handle_connection()`]: unix::UnixSocketServer::handle_connection()
 pub fn start_tcp<App: Application>(
     addrs: impl ToSocketAddrs,
     app: App,
@@ -38,9 +41,11 @@ pub fn start_tcp<App: Application>(
 }
 
 /// start_unix creates new UnixSocketServer that binds to `socket_file`.
-/// Use `UnixSocketServer::handle_connection()` to accept connection and process all traffic in this connection.
 /// Each incoming connection will be processed using `app`.
-pub fn start_unix<App: Application>(
+/// Use [`handle_connection()`] to accept connection and process all traffic in this connection.
+///
+/// [`handle_connection()`]: unix::UnixSocketServer::handle_connection()
+pub fn start_unix<App: RequestDispatcher>(
     socket_file: &Path,
     app: App,
 ) -> Result<UnixSocketServer<App>, Error> {
@@ -59,7 +64,7 @@ pub(crate) fn handle_client<App, S>(
     read_buf_size: usize,
 ) -> Result<(), Error>
 where
-    App: Application,
+    App: RequestDispatcher,
     S: Read + Write,
 {
     let mut codec = ServerCodec::new(stream, read_buf_size);
@@ -78,14 +83,10 @@ where
             },
             None => {
                 info!("Client {} terminated stream", name);
-
-                return Err(Error::io(std::io::Error::new(
-                    std::io::ErrorKind::UnexpectedEof,
-                    "client connection terminated",
-                )));
+                return Err(Error::server_connection_terminated());
             },
         };
-        let response = app.handle(request);
+        let response = app.handle(request)?;
         if let Err(e) = codec.send(response) {
             error!("Failed sending response to client {}: {:?}", name, e);
             return Err(e);

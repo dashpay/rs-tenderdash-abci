@@ -2,13 +2,15 @@
 
 use std::{fs::remove_file, path::Path};
 
-use super::{handle_client, Application, Error};
+use crate::RequestDispatcher;
+
+use crate::Error;
 use std::os::unix::net::UnixListener;
 use tracing::info;
 
 /// A Unix socket-based server for serving a specific ABCI application.
 ///
-/// Example:
+/// Examples:
 /// ```
 /// let socket = Path::new("/tmp/socket");
 /// let server = start_unix(socket, EchoApp {}).expect("server failed");
@@ -19,13 +21,13 @@ use tracing::info;
 ///     };
 /// }
 /// ```
-pub struct UnixSocketServer<App: Application> {
+pub struct UnixSocketServer<App: RequestDispatcher> {
     app: App,
     listener: UnixListener,
     read_buf_size: usize,
 }
 
-impl<App: Application> UnixSocketServer<App> {
+impl<App: RequestDispatcher> UnixSocketServer<App> {
     pub(super) fn bind(
         app: App,
         socket_file: &Path,
@@ -61,6 +63,6 @@ impl<App: Application> UnixSocketServer<App> {
 
         info!("Incoming Unix connection");
 
-        handle_client(stream.0, name, &self.app, self.read_buf_size)
+        super::handle_client(stream.0, name, &self.app, self.read_buf_size)
     }
 }

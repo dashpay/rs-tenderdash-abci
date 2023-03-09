@@ -8,12 +8,11 @@ inputs:
 runs:
   using: composite
   steps:
-    - uses: actions-rs/toolchain@v1
+    - uses: dtolnay/rust-toolchain@master
       name: Install Rust toolchain
       with:
         toolchain: ${{ inputs.toolchain }}
-        profile: minimal
-        override: true
+
     - name: Install protoc
       id: deps-protoc
       shell: bash
@@ -29,7 +28,5 @@ runs:
         cache-directories: |
           proto/src/prost
     - name: Compile Protobuf definitions
-      uses: actions-rs/cargo@v1
-      with:
-        command: build
-        args: --release -p tenderdash-proto
+      shell: bash
+      run: cargo build --release -p tenderdash-proto

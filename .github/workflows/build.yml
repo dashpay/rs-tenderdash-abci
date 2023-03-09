@@ -8,7 +8,7 @@ on:
     paths-ignore:
       - "docs/**"
     branches:
-      - main
+      - master
       - "v*.*.*"
 jobs:
   cleanup-runs:
@@ -17,15 +17,13 @@ jobs:
       - uses: rokroskar/workflow-run-cleanup-action@master
         env:
           GITHUB_TOKEN: "${{ secrets.GITHUB_TOKEN }}"
-    if: "!startsWith(github.ref , 'refs/tags/') && github.ref != 'refs/heads/main'"
+    if: "!startsWith(github.ref, 'refs/tags/') && github.ref != 'refs/heads/master'"
 
   tenderdash:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
       - uses: ./.github/actions/deps
-      - uses: actions-rs/cargo@v1
-        name: Cargo build
-        with:
-          command: build
-          args: --release --all-features
+      - name: Build source code
+        shell: bash
+        run: cargo build --release --all-features

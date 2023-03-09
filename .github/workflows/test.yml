@@ -8,7 +8,7 @@ on:
     paths-ignore:
       - "docs/**"
     branches:
-      - main
+      - master
       - "v*.*.*"
 jobs:
   cleanup-runs:
@@ -17,18 +17,16 @@ jobs:
       - uses: rokroskar/workflow-run-cleanup-action@master
         env:
           GITHUB_TOKEN: "${{ secrets.GITHUB_TOKEN }}"
-    if: "!startsWith(github.ref, 'refs/tags/') && github.ref != 'refs/heads/main'"
+    if: "!startsWith(github.ref, 'refs/tags/') && github.ref != 'refs/heads/master'"
 
   test-all:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
       - uses: ./.github/actions/deps
-      - uses: actions-rs/cargo@v1
-        name: Cargo test
-        with:
-          command: test
-          args: --all-features
+      - name: Run tests
+        shell: bash
+        run: cargo test --all-features
 
   nightly-coverage:
     runs-on: ubuntu-latest
@@ -37,11 +35,9 @@ jobs:
       - uses: ./.github/actions/deps
         with:
           toolchain: nightly
-      - uses: actions-rs/cargo@v1
-        name: Cargo test with coverage
-        with:
-          command: test
-          args: --all-features -p tenderdash-abci
+      - name: Test coverage of tenderdash-abci
+        shell: bash
+        run: cargo test --all-features -p tenderdash-abci
         env:
           RUSTFLAGS: "-Zinstrument-coverage"
           LLVM_PROFILE_FILE: "%p-%m.profraw"

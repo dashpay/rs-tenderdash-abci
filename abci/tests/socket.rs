@@ -10,28 +10,22 @@ mod common;
 
 #[cfg(feature = "docker-tests")]
 #[test]
-fn test_socket_kvstore() {
+fn test_socket() {
     let log_level = LevelFilter::DEBUG;
     tracing_subscriber::fmt().with_max_level(log_level).init();
 
     let socket = Path::new(SOCKET);
     let server = start_unix(socket, EchoApp {}).expect("server failed");
     let socket_uri = format!("unix://{}", socket.to_str().unwrap());
-    let _td = common::docker::TenderdashDocker::new("fix-docker-init", &socket_uri)
-        .expect("start tenderdash container");
+    let _td = common::docker::TenderdashDocker::new("fix-docker-init", &socket_uri);
 
-    loop {
-        match server.handle_connection() {
-            Ok(_) => {},
-            Err(e) => tracing::error!("error {}", e),
-        };
-    }
+    assert!(server.handle_connection().is_ok());
 }
 
 /// Trivial echo application, mainly for testing purposes.
 /// TODO: Replace with kvstore app when ready
 #[derive(Clone, Default)]
-pub struct EchoApp;
+pub struct EchoApp {}
 
 impl Application for EchoApp {
     fn echo(&self, request: RequestEcho) -> ResponseEcho {

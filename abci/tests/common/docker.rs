@@ -29,7 +29,7 @@ impl TenderdashDocker {
     /// * `tag` - Docker tag to use; provide empty string to use default
     /// * `app_address` - address of ABCI app server; either 'tcp://1.2.3.4:4567' or 'unix:///path/to/file'
     ///
-    pub(crate) fn new(tag: &str, app_address: &str) -> Result<TenderdashDocker, Error> {
+    pub(crate) fn new(tag: &str, app_address: &str) -> TenderdashDocker {
         // let tag = String::from(tenderdash_proto::VERSION);
         let tag = if tag.is_empty() {
             tenderdash_proto::VERSION
@@ -49,7 +49,9 @@ impl TenderdashDocker {
 
         info!("Starting Tenderdash docker container");
 
-        let docker = runtime.block_on(Self::connect())?;
+        let docker = runtime
+            .block_on(Self::connect())
+            .expect("docker daemon connection failure");
 
         let mut td: TenderdashDocker = TenderdashDocker {
             id: Default::default(),
@@ -58,11 +60,15 @@ impl TenderdashDocker {
             runtime,
         };
 
-        td.id = td.runtime.block_on(td.start(app_address))?;
+        td.id = td
+            .runtime
+            .block_on(td.start(app_address))
+            .expect("starting docker container failed");
 
         info!("Tenderdash docker container started successfully");
         td.handle_ctrlc();
-        Ok(td)
+
+        td
     }
 
     fn handle_ctrlc(&self) {
@@ -174,6 +180,7 @@ impl TenderdashDocker {
     }
 
     async fn stop(id: String, docker: &Docker) -> Result<(), Error> {
+        debug!("Stopping Tenderdash container");
         docker
             .remove_container(
                 &id,
@@ -183,6 +190,7 @@ impl TenderdashDocker {
                 }),
             )
             .await?;
+
         Ok(())
     }
 }

@@ -36,14 +36,14 @@ jobs:
 
       - name: Test tenderdash-proto
         shell: bash
-        run: cargo test --all-features -p tenderdash-proto -- -Z unstable-options --report-time --ensure-time
+        run: cargo test --all-features -p tenderdash-proto -- -Zunstable-options --ensure-time
 
       - name: Test tenderdash-abci
         shell: bash
         env:
           RUSTFLAGS: "-Cinstrument-coverage"
           LLVM_PROFILE_FILE: "%p-%m.profraw"
-        run: cargo test --all-features -p tenderdash-abci -- -Z unstable-options --report-time --ensure-time
+        run: cargo test --all-features -p tenderdash-abci -- -Zunstable-options --ensure-time
 
       - name: Install grcov
         run: |

@@ -133,6 +133,8 @@ impl TenderdashDocker {
     }
 
     async fn create_container(&self, app_address: Url) -> Result<String, Error> {
+        self.image_pull().await?;
+
         debug!("Creating container");
         let binds = if app_address.scheme() == "unix" {
             let path = app_address.path();
@@ -170,8 +172,6 @@ impl TenderdashDocker {
     }
 
     async fn start_container(&self) -> Result<(), Error> {
-        self.image_pull().await?;
-
         debug!("Starting container");
         self.docker
             .start_container::<String>(

@@ -45,6 +45,18 @@ jobs:
           LLVM_PROFILE_FILE: "%p-%m.profraw"
         run: cargo test --all-features -p tenderdash-abci -- -Zunstable-options --ensure-time
 
+      - name: Emit docker logs on error
+        if: failure()
+        shell: bash
+        run: docker logs tenderdash > tenderdash.log 2>&1
+
+      - name: Archive docker logs
+        uses: actions/upload-artifact@v1
+        if: failure()
+        with:
+          name: tenderdash.log
+          path: tenderdash.log
+
       - name: Install grcov
         run: |
           rustup component add llvm-tools-preview

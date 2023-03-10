@@ -58,7 +58,7 @@ where
     }
 }
 
-// Iterating over a codec produces instances of `Result<I>`.
+/// Iterating over a codec produces instances of `Result<I>`.
 impl<S, I, O> Iterator for Codec<S, I, O>
 where
     S: Read,

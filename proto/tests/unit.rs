@@ -58,7 +58,7 @@ impl PartialEq for BlockId {
 pub fn protobuf_struct_example() {
     let my_domain_type = BlockId {
         hash: "Hello world!".to_string(),
-        state_id: "Bye bye world!".to_string(),
+        state_id: Default::default(),
         part_set_header_exists: false,
     };
 
@@ -78,7 +78,7 @@ pub fn protobuf_struct_example() {
 pub fn protobuf_struct_length_delimited_example() {
     let my_domain_type = BlockId {
         hash: "Hello world!".to_string(),
-        state_id: "Bye bye world!".to_string(),
+        state_id: Default::default(),
         part_set_header_exists: false,
     };
 
@@ -98,7 +98,7 @@ pub fn protobuf_struct_length_delimited_example() {
 pub fn protobuf_struct_conveniences_example() {
     let my_domain_type = BlockId {
         hash: "Hello world!".to_string(),
-        state_id: "Bye bye world!".to_string(),
+        state_id: Default::default(),
         part_set_header_exists: false,
     };
 

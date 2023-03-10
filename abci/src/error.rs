@@ -1,4 +1,4 @@
-//! tendermint-abci errors
+//! tenderdash-abci error definitions.
 
 use flex_error::{define_error, DisplayError};
 use tenderdash_proto::abci::response::Value;

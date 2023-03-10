@@ -21,30 +21,30 @@ jobs:
 
   test-all:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v2
-      - uses: ./.github/actions/deps
-      - name: Run tests
-        shell: bash
-        run: cargo test --all-features
 
-  nightly-coverage:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v2
       - uses: ./.github/actions/deps
         with:
           toolchain: nightly
-      - name: Test coverage of tenderdash-abci
+
+      - name: Test tenderdash-proto
         shell: bash
-        run: cargo test --all-features -p tenderdash-abci
+        run: cargo test --all-features -p tenderdash-proto -- -Z unstable-options --ensure-time 60
+
+      - name: Test tenderdash-abci
+        shell: bash
         env:
           RUSTFLAGS: "-Zinstrument-coverage"
           LLVM_PROFILE_FILE: "%p-%m.profraw"
+        run: cargo test --all-features -p tenderdash-abci -- -Z unstable-options --ensure-time 60
+
       - name: Install grcov
         run: |
           rustup component add llvm-tools-preview
           curl -L https://github.com/mozilla/grcov/releases/download/v0.8.13/grcov-x86_64-unknown-linux-gnu.tar.bz2 | tar jxf -
+
       - name: Run grcov
         run: |
           ./grcov . --source-dir . --binary-path ./target/debug/ --output-type lcov --output-path ./lcov.info --branch --ignore-not-existing

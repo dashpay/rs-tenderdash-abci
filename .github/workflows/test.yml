@@ -36,10 +36,13 @@ jobs:
 
       - name: Test tenderdash-proto
         shell: bash
+        timeout-minutes: 6
         run: cargo test --all-features -p tenderdash-proto -- -Zunstable-options --ensure-time
 
       - name: Test tenderdash-abci
         shell: bash
+        timeout-minutes: 6
+
         env:
           RUSTFLAGS: "-Cinstrument-coverage"
           LLVM_PROFILE_FILE: "%p-%m.profraw"

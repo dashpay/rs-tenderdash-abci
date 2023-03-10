@@ -60,9 +60,14 @@ impl TenderdashDocker {
             runtime,
         };
 
+        // Create container; we do it separately to retrieve `id` early and clean up if needed
         td.id = td
             .runtime
-            .block_on(td.start(app_address))
+            .block_on(td.create_container(app_address))
+            .expect("creating docker container failed");
+
+        td.runtime
+            .block_on(td.start_container())
             .expect("starting docker container failed");
 
         info!("Tenderdash docker container started successfully");
@@ -161,22 +166,23 @@ impl TenderdashDocker {
             .await?
             .id;
 
+        Ok(id)
+    }
+
+    async fn start_container(&self) -> Result<(), Error> {
+        self.image_pull().await?;
+
         debug!("Starting container");
         self.docker
             .start_container::<String>(
-                &id,
+                &self.id,
                 Some(bollard::container::StartContainerOptions {
                     ..Default::default()
                 }),
             )
             .await?;
 
-        Ok(id)
-    }
-    /// Start Tenderdash in Docker
-    async fn start(&self, app_address: Url) -> Result<String, Error> {
-        self.image_pull().await?;
-        self.create_container(app_address).await
+        Ok(())
     }
 
     async fn stop(id: String, docker: &Docker) -> Result<(), Error> {

@@ -17,13 +17,13 @@ define_error! {
             [ DisplayError<prost::DecodeError> ]
             | _ | { "error encoding protocol buffer" },
 
-        ServerConnectionTerminated
+        ConnectionTerminated
             | _ | { "server connection terminated" },
 
         MalformedServerResponse
             | _ | { "malformed server response" },
 
-        UnexpectedServerResponseType
+        UnexpectedResponseType
             {
                 expected: String,
                 got: Value,
@@ -39,6 +39,10 @@ define_error! {
         ChannelRecv
             [ DisplayError<std::sync::mpsc::RecvError> ]
             | _ | { "channel recv error" },
+
+        Generic
+            { reason: String }
+            | e |{ format!("generic error: {}", e.reason ) },
     }
 }
 

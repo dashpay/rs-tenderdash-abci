@@ -1,11 +1,9 @@
 //! ABCI application server interface.
 
-use std::{fs::remove_file, path::Path};
-
-use crate::RequestDispatcher;
-
 use crate::Error;
+use crate::RequestDispatcher;
 use std::os::unix::net::UnixListener;
+use std::{fs::remove_file, path::Path};
 use tracing::info;
 
 /// A Unix socket-based server for serving a specific ABCI application.
@@ -51,7 +49,8 @@ impl<App: RequestDispatcher> UnixSocketServer<App> {
     }
 
     /// Process one incoming connection.
-    /// Returns once the connection is terminated.
+    ///
+    /// Returns when the connection is terminated or RequestDispatcher returns error.
     ///
     /// It is safe to call this method multiple times after it finishes;
     /// however, errors must be examined and handled, as the connection

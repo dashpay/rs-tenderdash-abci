@@ -20,17 +20,17 @@ use unix::UnixSocketServer;
 /// server (1MB).
 pub const DEFAULT_SERVER_READ_BUF_SIZE: usize = 1024 * 1024;
 
-/// start_tcp creates a server that listens on `addresses`.
-/// Each incoming connection will be processed using `app`.
 /// Use [`handle_connection()`] to accept connection and process all traffic in this connection.
 ///
 /// # Example
+///
 /// ```
 /// let server = start_tcp(addresses, app)
 /// loop {
-///    let result = server.handle_connection()
+///    let result = server.handle_connection();
 ///    // handle result errors
 /// }
+/// ```
 ///
 /// [`handle_connection()`]: unix::UnixSocketServer::handle_connection()
 pub fn start_tcp<App: Application>(
@@ -40,9 +40,20 @@ pub fn start_tcp<App: Application>(
     TcpServer::bind(app, addrs)
 }
 
-/// start_unix creates new UnixSocketServer that binds to `socket_file`.
-/// Each incoming connection will be processed using `app`.
-/// Use [`handle_connection()`] to accept connection and process all traffic in this connection.
+// start_unix creates new UnixSocketServer that binds to `socket_file`.
+// Use [`handle_connection()`] to accept connection and process all traffic in this connection.
+// Each incoming connection will be processed using `app`.
+///
+/// # Arguments
+///
+/// * `socket_file` - path to Unix socket file, for example: `/var/run/abci.sock`
+/// * `app` - request dispatcher, most likely implementation of Application trait
+///
+///
+/// # Return
+///
+/// Returns [`Server`] which provides [`Server::handle_connection()`] method. Call it in a loop
+/// to accept and process incoming connections.
 ///
 /// [`handle_connection()`]: unix::UnixSocketServer::handle_connection()
 pub fn start_unix<App: RequestDispatcher>(
@@ -83,7 +94,7 @@ where
             },
             None => {
                 info!("Client {} terminated stream", name);
-                return Err(Error::server_connection_terminated());
+                return Err(Error::connection_terminated());
             },
         };
         let response = app.handle(request)?;

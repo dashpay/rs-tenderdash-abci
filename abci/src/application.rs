@@ -131,6 +131,8 @@ pub trait Application {
 
 /// Provides a mechanism for the [`Server`] to execute incoming requests while
 /// expecting the correct response types.
+///
+/// [`Server`]: crate::server::Server
 pub trait RequestDispatcher {
     /// Executes the relevant application method based on the type of the
     /// request, and produces the corresponding response.

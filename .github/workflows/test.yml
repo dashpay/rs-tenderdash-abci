@@ -22,6 +22,11 @@ jobs:
   test-all:
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    env:
+      # warn when test takes more than 3s, kill after 6s
+      RUST_TEST_TIME_UNIT: "3000,6000"
+      RUST_TEST_TIME_INTEGRATION: "3000,6000"
+      RUST_TEST_TIME_DOCTEST: "3000,6000"
     steps:
       - uses: actions/checkout@v2
 
@@ -31,14 +36,14 @@ jobs:
 
       - name: Test tenderdash-proto
         shell: bash
-        run: cargo test --all-features -p tenderdash-proto -- -Z unstable-options --ensure-time 60
+        run: cargo test --all-features -p tenderdash-proto -- -Z unstable-options --report-time --ensure-time
 
       - name: Test tenderdash-abci
         shell: bash
         env:
-          RUSTFLAGS: "-Zinstrument-coverage"
+          RUSTFLAGS: "-Cinstrument-coverage"
           LLVM_PROFILE_FILE: "%p-%m.profraw"
-        run: cargo test --all-features -p tenderdash-abci -- -Z unstable-options --ensure-time 60
+        run: cargo test --all-features -p tenderdash-abci -- -Z unstable-options --report-time --ensure-time
 
       - name: Install grcov
         run: |

@@ -15,7 +15,7 @@ mod common;
 /// * Given that we have Tenderdash instance using Unix Sockets to communicate with ABCI APP
 /// * When we estabilish connection with Tenderdash
 /// * Then Tenderdash sends Info request
-fn test_socket() {
+fn test_socket_server() {
     let log_level = LevelFilter::DEBUG;
     tracing_subscriber::fmt().with_max_level(log_level).init();
 
@@ -32,7 +32,6 @@ fn test_socket() {
             assert!(e.to_string().contains(INFO_CALLED_ERROR));
         },
     };
-    // TODO: check error type, ensure we have error that means "success"
 }
 
 /// Returns error containing string [`INFO_CALLED_ERROR`] when Tenderdash calls Info() endpoint.

@@ -25,7 +25,7 @@ pub const DEFAULT_SERVER_READ_BUF_SIZE: usize = 1024 * 1024;
 /// # Example
 ///
 /// ```
-/// let server = start_tcp(addresses, app)
+/// let server = tenderdash_abci::server::start_tcp(addresses, app);
 /// loop {
 ///    let result = server.handle_connection();
 ///    // handle result errors

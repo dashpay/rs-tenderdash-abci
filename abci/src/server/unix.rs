@@ -9,9 +9,14 @@ use tracing::info;
 /// A Unix socket-based server for serving a specific ABCI application.
 ///
 /// Examples:
-/// ```
-/// let socket = Path::new("/tmp/socket");
-/// let server = start_unix(socket, EchoApp {}).expect("server failed");
+///
+/// ```no_run
+/// struct EchoApp {}
+/// impl tenderdash_abci::Application for EchoApp{};
+///
+/// let socket = std::path::Path::new("/tmp/socket");
+/// let server = tenderdash_abci::server::start_unix(socket, EchoApp {}).expect("server failed");
+///
 /// loop {
 ///     match server.handle_connection() {
 ///         Ok(_) => {},

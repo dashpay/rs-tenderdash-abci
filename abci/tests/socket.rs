@@ -16,12 +16,17 @@ mod common;
 /// * When we estabilish connection with Tenderdash
 /// * Then Tenderdash sends Info request
 fn test_socket_server() {
+    use std::{fs, os::unix::prelude::PermissionsExt};
+
     let log_level = LevelFilter::DEBUG;
     tracing_subscriber::fmt().with_max_level(log_level).init();
 
     let socket = Path::new(SOCKET);
     let app = TestDispatcher {};
     let server = start_unix(socket, app).expect("server failed");
+
+    let perms = fs::Permissions::from_mode(0o777);
+    fs::set_permissions(socket, perms).expect("set perms");
 
     let socket_uri = format!("unix://{}", socket.to_str().unwrap());
     let _td = common::docker::TenderdashDocker::new("fix-docker-init", &socket_uri);

@@ -4,8 +4,7 @@ pub mod tcp;
 pub mod unix;
 
 use crate::{
-    application::RequestDispatcher, server::codec::ServerCodec, server::tcp::TcpServer,
-    Application, Error,
+    application::RequestDispatcher, server::codec::ServerCodec, server::tcp::TcpServer, Error,
 };
 use std::{
     io::{Read, Write},
@@ -33,7 +32,7 @@ pub const DEFAULT_SERVER_READ_BUF_SIZE: usize = 1024 * 1024;
 /// ```
 ///
 /// [`handle_connection()`]: unix::UnixSocketServer::handle_connection()
-pub fn start_tcp<App: Application>(
+pub fn start_tcp<App: RequestDispatcher>(
     addrs: impl ToSocketAddrs,
     app: App,
 ) -> Result<TcpServer<App>, Error> {

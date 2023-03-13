@@ -19,29 +19,10 @@ use unix::UnixSocketServer;
 /// server (1MB).
 pub const DEFAULT_SERVER_READ_BUF_SIZE: usize = 1024 * 1024;
 
+/// Create new TCP server and bind to TCP address/port.
+///
 /// Use [`handle_connection()`] to accept connection and process all traffic in this connection.
-///
-/// # Example
-///
-/// ```
-/// let server = tenderdash_abci::server::start_tcp(addresses, app);
-/// loop {
-///    let result = server.handle_connection();
-///    // handle result errors
-/// }
-/// ```
-///
-/// [`handle_connection()`]: unix::UnixSocketServer::handle_connection()
-pub fn start_tcp<App: RequestDispatcher>(
-    addrs: impl ToSocketAddrs,
-    app: App,
-) -> Result<TcpServer<App>, Error> {
-    TcpServer::bind(app, addrs)
-}
-
-// start_unix creates new UnixSocketServer that binds to `socket_file`.
-// Use [`handle_connection()`] to accept connection and process all traffic in this connection.
-// Each incoming connection will be processed using `app`.
+/// Each incoming connection will be processed using `app`.
 ///
 /// # Arguments
 ///
@@ -51,10 +32,59 @@ pub fn start_tcp<App: RequestDispatcher>(
 ///
 /// # Return
 ///
-/// Returns [`Server`] which provides [`Server::handle_connection()`] method. Call it in a loop
+/// Returns [`TcpServer`] which provides [`handle_connection()`] method. Call it in a loop
+/// to accept and process incoming connections.
+///
+/// [`handle_connection()`]: unix::TcpServer::handle_connection()
+///
+/// # Examples
+///
+/// ```no_run
+/// struct MyAbciApplication {};
+/// impl tenderdash_abci::Application for MyAbciApplication {};
+/// let app = MyAbciApplication {};
+/// let addr =  std::net::SocketAddrV4::new(std::net::Ipv4Addr::new(172, 17, 0, 1), 1234);
+/// let server = tenderdash_abci::server::start_tcp(addr, app).expect("server failed");
+/// loop {
+///     server.handle_connection();
+/// }
+/// ```
+pub fn start_tcp<App: RequestDispatcher>(
+    addrs: impl ToSocketAddrs,
+    app: App,
+) -> Result<TcpServer<App>, Error> {
+    TcpServer::bind(app, addrs)
+}
+
+/// start_unix creates new UnixSocketServer that binds to `socket_file`.
+/// Use [`handle_connection()`] to accept connection and process all traffic in this connection.
+/// Each incoming connection will be processed using `app`.
+///
+/// # Arguments
+///
+/// * `socket_file` - path to Unix socket file, for example: `/var/run/abci.sock`
+/// * `app` - request dispatcher, most likely implementation of Application trait
+///
+///
+/// # Return
+///
+/// Returns [`UnixSocketServer`] which provides [`handle_connection()`] method. Call it in a loop
 /// to accept and process incoming connections.
 ///
 /// [`handle_connection()`]: unix::UnixSocketServer::handle_connection()
+///
+/// # Examples
+///
+/// ```no_run
+/// struct MyAbciApplication {};
+/// impl tenderdash_abci::Application for MyAbciApplication {};
+/// let app = MyAbciApplication {};
+/// let socket = std::path::Path::new("/tmp/abci.sock");
+/// let server = tenderdash_abci::server::start_unix(socket, app).expect("server failed");
+/// loop {
+///     server.handle_connection();
+/// }
+/// ```
 pub fn start_unix<App: RequestDispatcher>(
     socket_file: &Path,
     app: App,

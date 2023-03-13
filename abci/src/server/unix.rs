@@ -14,7 +14,7 @@ use tracing::info;
 /// struct EchoApp {}
 /// impl tenderdash_abci::Application for EchoApp{};
 ///
-/// let socket = std::path::Path::new("/tmp/socket");
+/// let socket = std::path::Path::new("/tmp/abci.sock");
 /// let server = tenderdash_abci::server::start_unix(socket, EchoApp {}).expect("server failed");
 ///
 /// loop {

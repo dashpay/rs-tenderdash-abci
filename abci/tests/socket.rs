@@ -3,7 +3,7 @@ use tenderdash_abci::{error::Error, server::start_unix, RequestDispatcher};
 use tenderdash_proto::abci::request::Value;
 use tracing_subscriber::filter::LevelFilter;
 
-const SOCKET: &str = "/tmp/socket";
+const SOCKET: &str = "/tmp/abci.sock";
 const INFO_CALLED_ERROR: &str = "info method called";
 
 mod common;
@@ -15,7 +15,7 @@ mod common;
 /// * Given that we have Tenderdash instance using Unix Sockets to communicate with ABCI APP
 /// * When we estabilish connection with Tenderdash
 /// * Then Tenderdash sends Info request
-fn test_socket_server() {
+fn test_unix_socket_server() {
     use std::{fs, os::unix::prelude::PermissionsExt};
 
     let log_level = LevelFilter::DEBUG;

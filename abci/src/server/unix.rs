@@ -1,17 +1,22 @@
 //! ABCI application server interface.
 
-use std::{fs::remove_file, path::Path};
-
-use super::{handle_client, Application, Error};
+use crate::Error;
+use crate::RequestDispatcher;
 use std::os::unix::net::UnixListener;
+use std::{fs::remove_file, path::Path};
 use tracing::info;
 
 /// A Unix socket-based server for serving a specific ABCI application.
 ///
-/// Example:
-/// ```
-/// let socket = Path::new("/tmp/socket");
-/// let server = start_unix(socket, EchoApp {}).expect("server failed");
+/// Examples:
+///
+/// ```no_run
+/// struct EchoApp {}
+/// impl tenderdash_abci::Application for EchoApp{};
+///
+/// let socket = std::path::Path::new("/tmp/abci.sock");
+/// let server = tenderdash_abci::server::start_unix(socket, EchoApp {}).expect("server failed");
+///
 /// loop {
 ///     match server.handle_connection() {
 ///         Ok(_) => {},
@@ -19,13 +24,13 @@ use tracing::info;
 ///     };
 /// }
 /// ```
-pub struct UnixSocketServer<App: Application> {
+pub struct UnixSocketServer<App: RequestDispatcher> {
     app: App,
     listener: UnixListener,
     read_buf_size: usize,
 }
 
-impl<App: Application> UnixSocketServer<App> {
+impl<App: RequestDispatcher> UnixSocketServer<App> {
     pub(super) fn bind(
         app: App,
         socket_file: &Path,
@@ -49,7 +54,8 @@ impl<App: Application> UnixSocketServer<App> {
     }
 
     /// Process one incoming connection.
-    /// Returns once the connection is terminated.
+    ///
+    /// Returns when the connection is terminated or RequestDispatcher returns error.
     ///
     /// It is safe to call this method multiple times after it finishes;
     /// however, errors must be examined and handled, as the connection
@@ -61,6 +67,6 @@ impl<App: Application> UnixSocketServer<App> {
 
         info!("Incoming Unix connection");
 
-        handle_client(stream.0, name, &self.app, self.read_buf_size)
+        super::handle_client(stream.0, name, &self.app, self.read_buf_size)
     }
 }

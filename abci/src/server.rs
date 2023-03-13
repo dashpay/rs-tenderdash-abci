@@ -4,8 +4,7 @@ pub mod tcp;
 pub mod unix;
 
 use crate::{
-    application::RequestDispatcher, server::codec::ServerCodec, server::tcp::TcpServer,
-    Application, Error,
+    application::RequestDispatcher, server::codec::ServerCodec, server::tcp::TcpServer, Error,
 };
 use std::{
     io::{Read, Write},
@@ -20,17 +19,37 @@ use unix::UnixSocketServer;
 /// server (1MB).
 pub const DEFAULT_SERVER_READ_BUF_SIZE: usize = 1024 * 1024;
 
-/// start_tcp creates a server that listens on `addresses`.
+/// Create new TCP server and bind to TCP address/port.
+///
+/// Use [`handle_connection()`] to accept connection and process all traffic in this connection.
 /// Each incoming connection will be processed using `app`.
-/// # Example
-/// ```
-/// let server = start_tcp(addresses, app)
+///
+/// # Arguments
+///
+/// * `socket_file` - path to Unix socket file, for example: `/var/run/abci.sock`
+/// * `app` - request dispatcher, most likely implementation of Application trait
+///
+///
+/// # Return
+///
+/// Returns [`TcpServer`] which provides [`handle_connection()`] method. Call it in a loop
+/// to accept and process incoming connections.
+///
+/// [`handle_connection()`]: unix::TcpServer::handle_connection()
+///
+/// # Examples
+///
+/// ```no_run
+/// struct MyAbciApplication {};
+/// impl tenderdash_abci::Application for MyAbciApplication {};
+/// let app = MyAbciApplication {};
+/// let addr =  std::net::SocketAddrV4::new(std::net::Ipv4Addr::new(172, 17, 0, 1), 1234);
+/// let server = tenderdash_abci::server::start_tcp(addr, app).expect("server failed");
 /// loop {
-///    let result = server.handle_connection()
-///    // handle result errors
+///     server.handle_connection();
 /// }
-
-pub fn start_tcp<App: Application>(
+/// ```
+pub fn start_tcp<App: RequestDispatcher>(
     addrs: impl ToSocketAddrs,
     app: App,
 ) -> Result<TcpServer<App>, Error> {
@@ -38,9 +57,35 @@ pub fn start_tcp<App: Application>(
 }
 
 /// start_unix creates new UnixSocketServer that binds to `socket_file`.
-/// Use `UnixSocketServer::handle_connection()` to accept connection and process all traffic in this connection.
+/// Use [`handle_connection()`] to accept connection and process all traffic in this connection.
 /// Each incoming connection will be processed using `app`.
-pub fn start_unix<App: Application>(
+///
+/// # Arguments
+///
+/// * `socket_file` - path to Unix socket file, for example: `/var/run/abci.sock`
+/// * `app` - request dispatcher, most likely implementation of Application trait
+///
+///
+/// # Return
+///
+/// Returns [`UnixSocketServer`] which provides [`handle_connection()`] method. Call it in a loop
+/// to accept and process incoming connections.
+///
+/// [`handle_connection()`]: unix::UnixSocketServer::handle_connection()
+///
+/// # Examples
+///
+/// ```no_run
+/// struct MyAbciApplication {};
+/// impl tenderdash_abci::Application for MyAbciApplication {};
+/// let app = MyAbciApplication {};
+/// let socket = std::path::Path::new("/tmp/abci.sock");
+/// let server = tenderdash_abci::server::start_unix(socket, app).expect("server failed");
+/// loop {
+///     server.handle_connection();
+/// }
+/// ```
+pub fn start_unix<App: RequestDispatcher>(
     socket_file: &Path,
     app: App,
 ) -> Result<UnixSocketServer<App>, Error> {
@@ -59,7 +104,7 @@ pub(crate) fn handle_client<App, S>(
     read_buf_size: usize,
 ) -> Result<(), Error>
 where
-    App: Application,
+    App: RequestDispatcher,
     S: Read + Write,
 {
     let mut codec = ServerCodec::new(stream, read_buf_size);
@@ -78,14 +123,10 @@ where
             },
             None => {
                 info!("Client {} terminated stream", name);
-
-                return Err(Error::io(std::io::Error::new(
-                    std::io::ErrorKind::UnexpectedEof,
-                    "client connection terminated",
-                )));
+                return Err(Error::connection_terminated());
             },
         };
-        let response = app.handle(request);
+        let response = app.handle(request)?;
         if let Err(e) = codec.send(response) {
             error!("Failed sending response to client {}: {:?}", name, e);
             return Err(e);

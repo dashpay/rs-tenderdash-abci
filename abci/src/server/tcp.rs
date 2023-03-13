@@ -3,18 +3,18 @@
 use std::net::{TcpListener, ToSocketAddrs};
 
 use super::{handle_client, DEFAULT_SERVER_READ_BUF_SIZE};
-use crate::{error::Error, Application};
+use crate::{error::Error, RequestDispatcher};
 use tracing::info;
 
 /// A TCP-based server for serving a specific ABCI application.
 ///
 /// Only one incoming connection is handled at a time.
-pub struct TcpServer<App: Application> {
+pub struct TcpServer<App: RequestDispatcher> {
     app: App,
     listener: TcpListener,
 }
 
-impl<App: Application> TcpServer<App> {
+impl<App: RequestDispatcher> TcpServer<App> {
     pub(super) fn bind<Addr>(app: App, addr: Addr) -> Result<TcpServer<App>, Error>
     where
         Addr: ToSocketAddrs,
@@ -26,7 +26,9 @@ impl<App: Application> TcpServer<App> {
         Ok(server)
     }
 
-    /// Process one incoming connection. Returns once the connection is terminated.
+    /// Process one incoming connection.
+    ///
+    /// Returns when the connection is terminated or RequestDispatcher returns error.
     ///
     /// It is safe to call this method multiple times after it finishes;
     /// however, errors must be examined and handled, as the connection

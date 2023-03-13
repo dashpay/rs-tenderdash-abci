@@ -12,6 +12,7 @@ pub use application::echo::EchoApp;
 #[cfg(feature = "kvstore-app")]
 pub use application::kvstore::{KeyValueStoreApp, KeyValueStoreDriver};
 pub use application::Application;
+pub use application::RequestDispatcher;
 #[cfg(feature = "client")]
 pub use client::{Client, ClientBuilder};
 pub use error::Error;

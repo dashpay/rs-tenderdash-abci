@@ -4,7 +4,7 @@ use tenderdash_proto::abci::{RequestEcho, RequestInfo, ResponseEcho, ResponseInf
 use tracing::info;
 use tracing_subscriber::filter::LevelFilter;
 
-const SOCKET: &str = "/tmp/socket";
+const SOCKET: &str = "/tmp/abci.sock";
 
 pub fn main() {
     let log_level = LevelFilter::DEBUG;

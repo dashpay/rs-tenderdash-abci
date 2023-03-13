@@ -21,30 +21,50 @@ jobs:
 
   test-all:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      # warn when test takes more than 3s, kill after 6s
+      RUST_TEST_TIME_UNIT: "3000,6000"
+      RUST_TEST_TIME_INTEGRATION: "3000,6000"
+      RUST_TEST_TIME_DOCTEST: "3000,6000"
     steps:
       - uses: actions/checkout@v2
-      - uses: ./.github/actions/deps
-      - name: Run tests
-        shell: bash
-        run: cargo test --all-features
 
-  nightly-coverage:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v2
       - uses: ./.github/actions/deps
         with:
           toolchain: nightly
-      - name: Test coverage of tenderdash-abci
+
+      - name: Test tenderdash-proto
         shell: bash
-        run: cargo test --all-features -p tenderdash-abci
+        timeout-minutes: 6
+        run: cargo test --all-features -p tenderdash-proto -- -Zunstable-options --ensure-time
+
+      - name: Test tenderdash-abci
+        shell: bash
+        timeout-minutes: 6
+
         env:
-          RUSTFLAGS: "-Zinstrument-coverage"
+          RUSTFLAGS: "-Cinstrument-coverage"
           LLVM_PROFILE_FILE: "%p-%m.profraw"
+        run: cargo test --all-features -p tenderdash-abci -- -Zunstable-options --ensure-time
+
+      - name: Emit docker logs on error
+        if: failure()
+        shell: bash
+        run: docker logs tenderdash > tenderdash.log 2>&1
+
+      - name: Archive docker logs
+        uses: actions/upload-artifact@v1
+        if: failure()
+        with:
+          name: tenderdash.log
+          path: tenderdash.log
+
       - name: Install grcov
         run: |
           rustup component add llvm-tools-preview
           curl -L https://github.com/mozilla/grcov/releases/download/v0.8.13/grcov-x86_64-unknown-linux-gnu.tar.bz2 | tar jxf -
+
       - name: Run grcov
         run: |
           ./grcov . --source-dir . --binary-path ./target/debug/ --output-type lcov --output-path ./lcov.info --branch --ignore-not-existing

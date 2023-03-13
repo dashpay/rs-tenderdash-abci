@@ -26,4 +26,4 @@ jobs:
       - uses: ./.github/actions/deps
       - name: Build source code
         shell: bash
-        run: cargo build --release --all-features
+        run: cargo build --all-features

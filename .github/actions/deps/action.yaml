@@ -29,4 +29,4 @@ runs:
           proto/src/prost
     - name: Compile Protobuf definitions
       shell: bash
-      run: cargo build --release -p tenderdash-proto
+      run: cargo build -p tenderdash-proto

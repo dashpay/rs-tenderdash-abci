@@ -1,4 +1,5 @@
 use std::path::Path;
+
 use tenderdash_abci::{error::Error, server::start_unix, RequestDispatcher};
 use tenderdash_proto::abci::request::Value;
 use tracing_subscriber::filter::LevelFilter;
@@ -39,8 +40,8 @@ fn test_unix_socket_server() {
     };
 }
 
-/// Returns error containing string [`INFO_CALLED_ERROR`] when Tenderdash calls Info() endpoint.
-/// All other requests return Error::malformed_server_response()
+/// Returns error containing string [`INFO_CALLED_ERROR`] when Tenderdash calls Info()
+/// endpoint. All other requests return Error::malformed_server_response()
 pub struct TestDispatcher {}
 
 impl RequestDispatcher for TestDispatcher {

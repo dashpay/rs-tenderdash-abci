@@ -1,4 +1,5 @@
-//! tenderdash-proto library gives the developer access to the Tenderdash proto-defined structs.
+//! tenderdash-proto library gives the developer access to the Tenderdash proto-defined
+//! structs.
 
 #![no_std]
 #![deny(warnings, trivial_casts, trivial_numeric_casts, unused_import_braces)]

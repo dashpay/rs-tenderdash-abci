@@ -27,8 +27,8 @@ impl TenderdashDocker {
     /// # Arguments
     ///
     /// * `tag` - Docker tag to use; provide empty string to use default
-    /// * `app_address` - address of ABCI app server; either 'tcp://1.2.3.4:4567' or 'unix:///path/to/file'
-    ///
+    /// * `app_address` - address of ABCI app server; either 'tcp://1.2.3.4:4567' or
+    ///   'unix:///path/to/file'
     pub(crate) fn new(tag: &str, app_address: &str) -> TenderdashDocker {
         // let tag = String::from(tenderdash_proto::VERSION);
         let tag = if tag.is_empty() {
@@ -100,7 +100,8 @@ impl TenderdashDocker {
 
     async fn connect() -> Result<Docker, Error> {
         debug!("Connecting to Docker server");
-        let docker = Docker::connect_with_socket("/var/run/docker.sock", 120, API_DEFAULT_VERSION)?;
+        let docker =
+            Docker::connect_with_socket("/var/run/docker.sock", 120, API_DEFAULT_VERSION)?;
 
         let info = docker.info().await?;
         debug!(
@@ -217,7 +218,8 @@ Error {
         | _ | { "Docker error" },
 });
 
-// FIXME: I think this should be generated somehow by the define_error! macro above, but it is not
+// FIXME: I think this should be generated somehow by the define_error! macro above, but it is
+// not
 impl From<bollard::errors::Error> for Error {
     fn from(value: bollard::errors::Error) -> Self {
         Error::docker(value)

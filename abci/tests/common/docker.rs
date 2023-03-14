@@ -76,33 +76,6 @@ impl TenderdashDocker {
         td
     }
 
-    // pub fn handle_panic(&self)
-    // // where
-    // // T: AsRef<Box<dyn Fn(&PanicInfo<'_>) + 'static + Sync + Send>>,
-    // {
-    //     let default_panic = std::panic::take_hook();
-    //     let id = self.id.as_str();
-    //     let docker = self.docker.to_owned();
-
-    //     // let b = Box::new(move |info| {
-    //     //     Self::emit_logs(id, &docker);
-    //     //     default_panic(info);
-    //     //     std::process::exit(1);
-    //     // });
-    //     let fu = self.panic_handler();
-
-    //     std::panic::set_hook(Box::new(fu));
-    // }
-
-    // // dyn Fn(&PanicInfo<'_>) + 'static + Sync + Send
-    // fn panic_handler(&'static self) -> impl Fn(&PanicInfo) + 'static {
-    //     let rt = &self.runtime;
-    //     move |a: &PanicInfo| {
-    //         let id = self.id.clone();
-    //         Self::print_logs(id.as_str(), &self.runtime, &self.docker);
-    //     }
-    // }
-
     fn handle_ctrlc(&self) {
         // Handle ctrl+c
         let id = self.id.clone();
@@ -212,6 +185,7 @@ impl TenderdashDocker {
         Ok(())
     }
 
+    /// Print 200 most recent logs from Tenderdash on standard error.
     pub fn print_logs(&self) {
         let id = &self.id;
 
@@ -226,17 +200,9 @@ impl TenderdashDocker {
     }
 
     async fn emit_logs(id: &str, docker: &Docker) -> Result<(), Error> {
-        debug!("Emiting logs to stderr");
-
-        // let f = fs::File::create("/a").expect("create tenderdash log");
-        // // let f = Box::new(f) as Box<dyn Write>;
-        // let log_file = match env::var("TENDERDASH_LOG") {
-        //     Ok(path) => Box::new(f) as Box<dyn Write>,
-        //     Err(e) => Box::new(stderr()) as Box<dyn Write>,
-        // };
-
         let stderror = tokio::io::stderr();
         let mut dest = tokio::io::BufWriter::new(stderror);
+
         let mut logs = docker.logs(
             &id,
             Some(bollard::container::LogsOptions {

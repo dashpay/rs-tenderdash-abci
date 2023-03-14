@@ -216,6 +216,7 @@ impl TenderdashDocker {
         let id = &self.id;
 
         if !id.is_empty() {
+            debug!("Printing Tenderdash logs");
             let rt = &self.runtime;
             let docker = &self.docker;
 
@@ -234,15 +235,15 @@ impl TenderdashDocker {
         //     Err(e) => Box::new(stderr()) as Box<dyn Write>,
         // };
 
-        let dest = tokio::io::stderr();
-        let mut dest = tokio::io::BufWriter::new(dest);
+        let stderror = tokio::io::stderr();
+        let mut dest = tokio::io::BufWriter::new(stderror);
         let mut logs = docker.logs(
             &id,
             Some(bollard::container::LogsOptions {
                 follow: false,
                 stdout: true,
                 stderr: true,
-                tail: 200,
+                tail: "200",
                 ..Default::default()
             }),
         );
@@ -255,6 +256,8 @@ impl TenderdashDocker {
 
             dest.write_all(data).await.expect("cannot write logs");
         }
+
+        dest.flush().await.expect("cannot flush logs");
 
         Ok(())
     }

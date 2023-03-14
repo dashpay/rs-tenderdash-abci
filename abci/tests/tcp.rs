@@ -15,8 +15,8 @@ mod common;
 /// * Then Tenderdash sends Info request
 fn test_tcp_server() {
     use std::net::{Ipv4Addr, SocketAddrV4};
-    use tenderdash_abci::server::start_tcp;
 
+    use tenderdash_abci::server::start_tcp;
     let log_level = LevelFilter::DEBUG;
     tracing_subscriber::fmt().with_max_level(log_level).init();
 
@@ -25,12 +25,15 @@ fn test_tcp_server() {
     let addr = SocketAddrV4::new(Ipv4Addr::new(172, 17, 0, 1), 1234);
     let server = start_tcp(addr, app).expect("server failed");
     let socket_uri = format!("tcp://{}", addr.to_string());
-    let _td = common::docker::TenderdashDocker::new("fix-docker-init", &socket_uri);
+    let td = common::docker::TenderdashDocker::new("fix-docker-init", &socket_uri);
 
     match server.handle_connection() {
         Ok(_) => (),
         Err(e) => {
-            assert!(e.to_string().contains(INFO_CALLED_ERROR));
+            if !e.to_string().contains(INFO_CALLED_ERROR) {
+                td.print_logs();
+                panic!("Invalid error {:?}", e);
+            }
         },
     };
 }

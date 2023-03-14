@@ -7,7 +7,7 @@ use bollard::{
 };
 use flex_error::{define_error, DisplayError};
 use futures::StreamExt;
-use tokio::{runtime::Runtime, time::timeout};
+use tokio::{io::AsyncWriteExt, runtime::Runtime, time::timeout};
 use tracing::{debug, error, info};
 use url::Url;
 
@@ -27,8 +27,8 @@ impl TenderdashDocker {
     /// # Arguments
     ///
     /// * `tag` - Docker tag to use; provide empty string to use default
-    /// * `app_address` - address of ABCI app server; either 'tcp://1.2.3.4:4567' or 'unix:///path/to/file'
-    ///
+    /// * `app_address` - address of ABCI app server; either 'tcp://1.2.3.4:4567' or
+    ///   'unix:///path/to/file'
     pub(crate) fn new(tag: &str, app_address: &str) -> TenderdashDocker {
         // let tag = String::from(tenderdash_proto::VERSION);
         let tag = if tag.is_empty() {
@@ -85,7 +85,7 @@ impl TenderdashDocker {
             tokio::signal::ctrl_c().await.unwrap();
             error!("Received ctrl+c, removing Tenderdash container");
 
-            let stopped = timeout(Duration::from_secs(15), Self::stop(id, &docker))
+            let stopped = timeout(Duration::from_secs(15), Self::stop(&id, &docker))
                 .await
                 .expect("timeout removing tenderdash container");
             if stopped.is_err() {
@@ -185,7 +185,50 @@ impl TenderdashDocker {
         Ok(())
     }
 
-    async fn stop(id: String, docker: &Docker) -> Result<(), Error> {
+    /// Print 200 most recent logs from Tenderdash on standard error.
+    pub fn print_logs(&self) {
+        let id = &self.id;
+
+        if !id.is_empty() {
+            debug!("Printing Tenderdash logs");
+            let rt = &self.runtime;
+            let docker = &self.docker;
+
+            rt.block_on(Self::emit_logs(id, docker))
+                .expect("cannot emit logs");
+        }
+    }
+
+    async fn emit_logs(id: &str, docker: &Docker) -> Result<(), Error> {
+        let stderror = tokio::io::stderr();
+        let mut dest = tokio::io::BufWriter::new(stderror);
+
+        let mut logs = docker.logs(
+            &id,
+            Some(bollard::container::LogsOptions {
+                follow: false,
+                stdout: true,
+                stderr: true,
+                tail: "200",
+                ..Default::default()
+            }),
+        );
+
+        while let Some(log) = logs.next().await {
+            let log = log.unwrap();
+
+            let data = log.to_string() + "\n";
+            let data = data.as_bytes();
+
+            dest.write_all(data).await.expect("cannot write logs");
+        }
+
+        dest.flush().await.expect("cannot flush logs");
+
+        Ok(())
+    }
+
+    async fn stop(id: &str, docker: &Docker) -> Result<(), Error> {
         debug!("Stopping Tenderdash container");
         docker
             .remove_container(
@@ -204,12 +247,11 @@ impl TenderdashDocker {
 impl Drop for TenderdashDocker {
     fn drop(&mut self) {
         if !self.id.is_empty() {
-            let _ = self
-                .runtime
-                .block_on(Self::stop(self.id.clone(), &self.docker));
+            let _ = self.runtime.block_on(Self::stop(&self.id, &self.docker));
         }
     }
 }
+
 define_error!(
 Error {
     Docker

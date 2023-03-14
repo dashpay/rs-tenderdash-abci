@@ -1,4 +1,5 @@
 use std::path::Path;
+
 use tenderdash_abci::{error::Error, server::start_unix, RequestDispatcher};
 use tenderdash_proto::abci::request::Value;
 use tracing_subscriber::filter::LevelFilter;
@@ -29,12 +30,15 @@ fn test_unix_socket_server() {
     fs::set_permissions(socket, perms).expect("set perms");
 
     let socket_uri = format!("unix://{}", socket.to_str().unwrap());
-    let _td = common::docker::TenderdashDocker::new("fix-docker-init", &socket_uri);
+    let td = common::docker::TenderdashDocker::new("fix-docker-init", &socket_uri);
 
     match server.handle_connection() {
         Ok(_) => (),
         Err(e) => {
-            assert!(e.to_string().contains(INFO_CALLED_ERROR));
+            if !e.to_string().contains(INFO_CALLED_ERROR) {
+                td.print_logs();
+                panic!("Invalid error {:?}", e);
+            }
         },
     };
 }

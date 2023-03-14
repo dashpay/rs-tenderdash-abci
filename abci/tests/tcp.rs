@@ -1,6 +1,5 @@
 use tenderdash_abci::{error::Error, RequestDispatcher};
 use tenderdash_proto::abci::request::Value;
-use tracing_subscriber::filter::LevelFilter;
 
 const INFO_CALLED_ERROR: &str = "info method called";
 
@@ -18,8 +17,7 @@ fn test_tcp_server() {
 
     use tenderdash_abci::server::start_tcp;
 
-    let log_level = LevelFilter::DEBUG;
-    tracing_subscriber::fmt().with_max_level(log_level).init();
+    tracing_subscriber::fmt::init();
 
     let app = TestDispatcher {};
     // we assume the host uses default Docker network configuration, with the host using

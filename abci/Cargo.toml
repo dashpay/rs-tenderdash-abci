@@ -37,5 +37,5 @@ tracing-subscriber = { version = "0.3", optional = true, default-features = fals
 [dev-dependencies]
 bollard = { version = "0.14.0" }
 futures = { version = "0.3.26" }
-tokio = { version = "1", features = ["macros", "signal", "time"] }
+tokio = { version = "1", features = ["macros", "signal", "time", "io-std"] }
 url = { version = "2.3.1" }

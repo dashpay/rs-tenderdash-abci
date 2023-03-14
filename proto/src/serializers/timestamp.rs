@@ -10,8 +10,8 @@ use time::{
 use crate::{google::protobuf::Timestamp, prelude::*};
 
 /// Helper struct to serialize and deserialize Timestamp into an RFC3339-compatible string
-/// This is required because the serde `with` attribute is only available to fields of a struct but
-/// not the whole struct.
+/// This is required because the serde `with` attribute is only available to fields of a struct
+/// but not the whole struct.
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(transparent)]
 pub struct Rfc3339(#[serde(with = "crate::serializers::timestamp")] Timestamp);

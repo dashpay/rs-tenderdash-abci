@@ -52,7 +52,8 @@ impl Error {
     }
 }
 
-// FIXME: I think this should be generated somehow by the define_error! macro above, but it is not
+// FIXME: I think this should be generated somehow by the define_error! macro above, but it is
+// not
 impl From<std::io::Error> for Error {
     fn from(value: std::io::Error) -> Self {
         Error::io(value)

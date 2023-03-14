@@ -3,17 +3,20 @@ mod codec;
 pub mod tcp;
 pub mod unix;
 
-use crate::{
-    application::RequestDispatcher, server::codec::ServerCodec, server::tcp::TcpServer, Error,
-};
 use std::{
     io::{Read, Write},
     net::ToSocketAddrs,
     path::Path,
 };
-use tracing::{error, info};
 
+use tracing::{error, info};
 use unix::UnixSocketServer;
+
+use crate::{
+    application::RequestDispatcher,
+    server::{codec::ServerCodec, tcp::TcpServer},
+    Error,
+};
 
 /// The size of the read buffer for each incoming connection to the ABCI
 /// server (1MB).
@@ -21,8 +24,8 @@ pub const DEFAULT_SERVER_READ_BUF_SIZE: usize = 1024 * 1024;
 
 /// Create new TCP server and bind to TCP address/port.
 ///
-/// Use [`handle_connection()`] to accept connection and process all traffic in this connection.
-/// Each incoming connection will be processed using `app`.
+/// Use [`handle_connection()`] to accept connection and process all traffic in this
+/// connection. Each incoming connection will be processed using `app`.
 ///
 /// # Arguments
 ///
@@ -57,8 +60,8 @@ pub fn start_tcp<App: RequestDispatcher>(
 }
 
 /// start_unix creates new UnixSocketServer that binds to `socket_file`.
-/// Use [`handle_connection()`] to accept connection and process all traffic in this connection.
-/// Each incoming connection will be processed using `app`.
+/// Use [`handle_connection()`] to accept connection and process all traffic in this
+/// connection. Each incoming connection will be processed using `app`.
 ///
 /// # Arguments
 ///
@@ -68,8 +71,8 @@ pub fn start_tcp<App: RequestDispatcher>(
 ///
 /// # Return
 ///
-/// Returns [`UnixSocketServer`] which provides [`handle_connection()`] method. Call it in a loop
-/// to accept and process incoming connections.
+/// Returns [`UnixSocketServer`] which provides [`handle_connection()`] method. Call it in a
+/// loop to accept and process incoming connections.
 ///
 /// [`handle_connection()`]: unix::UnixSocketServer::handle_connection()
 ///

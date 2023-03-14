@@ -1,10 +1,10 @@
 //! ABCI application server interface.
 
-use crate::Error;
-use crate::RequestDispatcher;
-use std::os::unix::net::UnixListener;
-use std::{fs::remove_file, path::Path};
+use std::{fs::remove_file, os::unix::net::UnixListener, path::Path};
+
 use tracing::info;
+
+use crate::{Error, RequestDispatcher};
 
 /// A Unix socket-based server for serving a specific ABCI application.
 ///

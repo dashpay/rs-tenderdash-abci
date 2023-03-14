@@ -1,4 +1,5 @@
 use std::path::Path;
+
 use tenderdash_abci::{server::start_unix, Application};
 use tenderdash_proto::abci::{RequestEcho, RequestInfo, ResponseEcho, ResponseInfo};
 use tracing::info;

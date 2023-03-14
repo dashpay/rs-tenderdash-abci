@@ -4,7 +4,7 @@ use std::{
     collections::{BTreeMap, BTreeSet},
     mem,
     path::Path,
-    sync::{RwLock, RwLockReadGuard},
+    sync::{RwLock, RwLockWriteGuard},
 };
 
 use bincode::{Decode, Encode};
@@ -13,7 +13,10 @@ use blake2::{
     Blake2b, Digest,
 };
 use tenderdash_abci::{error::Error, server::start_unix, Application, RequestDispatcher};
-use tenderdash_proto::abci as proto;
+use tenderdash_proto::{
+    abci::{self as proto, ExecTxResult},
+    types,
+};
 use tracing::{debug, error};
 
 const SOCKET: &str = "/tmp/abci.sock";
@@ -117,7 +120,7 @@ impl RequestDispatcher for TestDispatcher<'_> {
             proto::request::Value::FinalizeBlock(req) => {
                 proto::response::Value::FinalizeBlock(self.abci_app.finalize_block(req));
                 // Shudown ABCI application after one block
-                return Err(Error::malformed_server_response());
+                return Err(Error::generic(INFO_CALLED_ERROR.to_string()));
             },
             proto::request::Value::ExtendVote(req) => {
                 proto::response::Value::ExtendVote(self.abci_app.extend_vote(req))
@@ -223,14 +226,14 @@ impl<'a> KVStoreABCI<'a> {
         KVStoreABCI { kvstore }
     }
 
-    fn read_kvstore(&self) -> RwLockReadGuard<KVStore> {
-        self.kvstore.read().expect("kvstore lock is poisoned")
+    fn lock_kvstore(&self) -> RwLockWriteGuard<KVStore> {
+        self.kvstore.write().expect("kvstore lock is poisoned")
     }
 }
 
 impl Application for KVStoreABCI<'_> {
     fn info(&self, _request: proto::RequestInfo) -> proto::ResponseInfo {
-        let kvstore_lock = self.read_kvstore();
+        let kvstore_lock = self.lock_kvstore();
 
         proto::ResponseInfo {
             data: "kvstore-rs".to_string(),
@@ -245,7 +248,7 @@ impl Application for KVStoreABCI<'_> {
         // Do nothing special as we're working with a simple example
         proto::ResponseInitChain {
             app_hash: self
-                .read_kvstore()
+                .lock_kvstore()
                 .calculate_persisted_state_hash()
                 .to_vec(),
             ..Default::default()
@@ -256,7 +259,7 @@ impl Application for KVStoreABCI<'_> {
         &self,
         request: proto::RequestPrepareProposal,
     ) -> proto::ResponsePrepareProposal {
-        let kvstore_lock = self.read_kvstore();
+        let mut kvstore_lock = self.lock_kvstore();
         // Check if the node is up to date and ready for the next block
         if request.height != (kvstore_lock.last_block_height() + 1) as i64 {
             error!(
@@ -306,13 +309,14 @@ impl Application for KVStoreABCI<'_> {
 
         // Put both local and proposed transactions into staging area
         let joined_transactions = pending_local_transactions.union(&td_proposed_transactions);
-        self.kvstore
-            .write()
-            .expect("ksvstore lock is poisoned")
-            .pending_operations = joined_transactions.cloned().collect();
+
+        let tx_results = tx_results_accept(joined_transactions.clone().count());
+
+        kvstore_lock.pending_operations = joined_transactions.cloned().collect();
 
         proto::ResponsePrepareProposal {
             tx_records,
+            tx_results,
             app_hash: kvstore_lock.calculate_uncommited_state_hash().to_vec(),
             ..Default::default()
         }
@@ -322,7 +326,7 @@ impl Application for KVStoreABCI<'_> {
         &self,
         request: proto::RequestProcessProposal,
     ) -> proto::ResponseProcessProposal {
-        let kvstore_lock = self.read_kvstore();
+        let mut kvstore_lock = self.lock_kvstore();
 
         // Check if the node is up to date and ready for the next block
         if request.height != (kvstore_lock.last_block_height() + 1) as i64 {
@@ -345,33 +349,55 @@ impl Application for KVStoreABCI<'_> {
             return Default::default();
         };
 
+        let tx_results = tx_results_accept(td_proposed_transactions.len());
+
         // For simplicity just agree with proposed transactions:
-        self.kvstore
-            .write()
-            .expect("ksvstore lock is poisoned")
-            .pending_operations = td_proposed_transactions;
+        kvstore_lock.pending_operations = td_proposed_transactions;
 
         let app_hash = kvstore_lock.calculate_uncommited_state_hash().to_vec();
 
         proto::ResponseProcessProposal {
             status: proto::response_process_proposal::ProposalStatus::Accept.into(),
-            tx_results: vec![proto::ExecTxResult {
-                code: 0,
-                data: app_hash.clone(), /* slightly less details about
-                                         * execution process, but
-                                         * should work */
-                ..Default::default()
-            }],
+            tx_results: tx_results,
             app_hash,
             ..Default::default()
         }
+    }
+
+    fn extend_vote(&self, request: proto::RequestExtendVote) -> proto::ResponseExtendVote {
+        // request.height
+        let height = request.height.to_be_bytes().to_vec();
+        proto::ResponseExtendVote {
+            vote_extensions: vec![proto::ExtendVoteExtension {
+                r#type: types::VoteExtensionType::ThresholdRecover as i32,
+                extension: height,
+            }],
+        }
+    }
+
+    fn verify_vote_extension(
+        &self,
+        request: proto::RequestVerifyVoteExtension,
+    ) -> proto::ResponseVerifyVoteExtension {
+        let height = request.height.to_be_bytes().to_vec();
+        let ext = request
+            .vote_extensions
+            .first()
+            .expect("missing vote extension");
+
+        let status = match ext.extension == height {
+            true => proto::response_verify_vote_extension::VerifyStatus::Accept as i32,
+            false => proto::response_verify_vote_extension::VerifyStatus::Reject as i32,
+        };
+
+        proto::ResponseVerifyVoteExtension { status }
     }
 
     fn finalize_block(
         &self,
         request: proto::RequestFinalizeBlock,
     ) -> proto::ResponseFinalizeBlock {
-        let kvstore_lock = self.read_kvstore();
+        let mut kvstore_lock = self.lock_kvstore();
 
         // Check if the node is up to date and ready for the next block
         if request.height != (kvstore_lock.last_block_height() + 1) as i64 {
@@ -383,10 +409,7 @@ impl Application for KVStoreABCI<'_> {
             return Default::default();
         }
 
-        self.kvstore
-            .write()
-            .expect("ksvstore lock is poisoned")
-            .commit();
+        kvstore_lock.commit();
 
         Default::default()
     }
@@ -396,4 +419,17 @@ fn decode_transaction(bytes: impl AsRef<[u8]>) -> Option<Operation> {
     bincode::decode_from_slice(bytes.as_ref(), bincode::config::standard())
         .map(|decoded| decoded.0)
         .ok()
+}
+
+fn tx_results_accept(len: usize) -> Vec<ExecTxResult> {
+    let mut tx_results = Vec::<ExecTxResult>::new();
+
+    for _ in 0..len {
+        tx_results.push(proto::ExecTxResult {
+            code: 0,
+            ..Default::default()
+        });
+    }
+
+    tx_results
 }

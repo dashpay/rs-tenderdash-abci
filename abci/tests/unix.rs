@@ -1,12 +1,10 @@
+mod common;
+
 use std::path::Path;
 
-use tenderdash_abci::{error::Error, server::start_unix, RequestDispatcher};
-use tenderdash_proto::abci::request::Value;
+use tenderdash_abci::{proto, start_unix, Error, RequestDispatcher};
 
 const SOCKET: &str = "/tmp/abci.sock";
-const INFO_CALLED_ERROR: &str = "info method called";
-
-mod common;
 
 #[cfg(feature = "docker-tests")]
 #[test]
@@ -35,12 +33,7 @@ fn test_unix_socket_server() {
     let socket_uri = format!("unix://{}", socket.to_str().unwrap());
     let _td = common::docker::TenderdashDocker::new("fix-docker-init", &socket_uri);
 
-    match server.handle_connection() {
-        Ok(_) => (),
-        Err(e) => {
-            assert!(e.to_string().contains(INFO_CALLED_ERROR));
-        },
-    };
+    assert!(matches!(server.handle_connection(), Ok(())));
 }
 
 /// Returns error containing string [`INFO_CALLED_ERROR`] when Tenderdash calls
@@ -51,15 +44,13 @@ pub struct TestDispatcher {}
 impl RequestDispatcher for TestDispatcher {
     fn handle(
         &self,
-        request: tenderdash_proto::abci::Request,
-    ) -> Result<tenderdash_proto::abci::Response, tenderdash_abci::Error> {
-        match request.value.unwrap() {
-            Value::Info(_) => {
-                return Err(Error::generic(String::from(INFO_CALLED_ERROR)));
-            },
-            _ => {
-                return Err(Error::malformed_server_response());
-            },
-        };
+        request: proto::abci::Request,
+    ) -> Result<Option<proto::abci::Response>, Error> {
+        // Assert that Info request will is received and close the connection
+        assert!(matches!(
+            request.value,
+            Some(proto::abci::request::Value::Info(_))
+        ));
+        Ok(None)
     }
 }

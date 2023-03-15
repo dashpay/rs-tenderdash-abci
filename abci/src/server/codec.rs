@@ -9,7 +9,7 @@ use std::io::{self, Read, Write};
 use bytes::{Buf, BufMut, BytesMut};
 use prost::{DecodeError, EncodeError, Message};
 
-use crate::{abci_proto, Error};
+use crate::{proto, Error};
 
 /// The maximum number of bytes we expect in a varint. We use this to check if
 /// we're encountering a decoding error for a varint.
@@ -27,7 +27,6 @@ pub struct Codec<S> {
 }
 
 impl<S> Codec<S> {
-    /// Constructor.
     pub fn new(stream: S, read_buf_size: usize) -> Self {
         Self {
             stream,
@@ -42,7 +41,7 @@ impl<S> Codec<S>
 where
     S: Read + Write,
 {
-    pub(crate) fn receive(&mut self) -> Result<Option<abci_proto::Request>, Error> {
+    pub(crate) fn receive(&mut self) -> Result<Option<proto::abci::Request>, Error> {
         loop {
             // Try to decode an incoming message from our buffer first
             if let Some(incoming) = decode_length_delimited(&mut self.read_buf)? {
@@ -61,7 +60,7 @@ where
     }
 
     /// Send a message using this codec.
-    pub(crate) fn send(&mut self, message: abci_proto::Response) -> Result<(), Error> {
+    pub(crate) fn send(&mut self, message: proto::abci::Response) -> Result<(), Error> {
         encode_length_delimited(message, &mut self.write_buf)?;
         while !self.write_buf.is_empty() {
             let bytes_written = self.stream.write(self.write_buf.as_ref())?;
@@ -83,7 +82,7 @@ where
 
 /// Encode the given message with a length prefix.
 pub fn encode_length_delimited<B>(
-    message: abci_proto::Response,
+    message: proto::abci::Response,
     mut dst: &mut B,
 ) -> Result<(), EncodeError>
 where
@@ -101,7 +100,7 @@ where
 /// Attempt to decode a message of type `M` from the given source buffer.
 pub fn decode_length_delimited(
     src: &mut BytesMut,
-) -> Result<Option<abci_proto::Request>, DecodeError> {
+) -> Result<Option<proto::abci::Request>, DecodeError> {
     let src_len = src.len();
     let mut tmp = src.clone().freeze();
     let encoded_len = match prost::encoding::decode_varint(&mut tmp) {
@@ -121,7 +120,7 @@ pub fn decode_length_delimited(
         src.advance(delim_len + (encoded_len as usize));
 
         let mut result_bytes = BytesMut::from(tmp.split_to(encoded_len as usize).as_ref());
-        let res = abci_proto::Request::decode(&mut result_bytes)?;
+        let res = proto::abci::Request::decode(&mut result_bytes)?;
 
         Ok(Some(res))
     }

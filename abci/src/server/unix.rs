@@ -15,7 +15,7 @@ use crate::{Error, RequestDispatcher};
 /// impl tenderdash_abci::Application for EchoApp{};
 ///
 /// let socket = std::path::Path::new("/tmp/abci.sock");
-/// let server = tenderdash_abci::server::start_unix(socket, EchoApp {}).expect("server failed");
+/// let server = tenderdash_abci::start_unix(socket, EchoApp {}).expect("server failed");
 ///
 /// loop {
 ///     match server.handle_connection() {

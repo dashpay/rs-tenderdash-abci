@@ -1,7 +1,7 @@
 //! Tenderdash ABCI Server.
 mod codec;
-pub mod tcp;
-pub mod unix;
+mod tcp;
+mod unix;
 
 use std::{
     io::{Read, Write},
@@ -9,7 +9,7 @@ use std::{
     path::Path,
 };
 
-use tracing::{error, info};
+use tracing::info;
 use unix::UnixSocketServer;
 
 use crate::{
@@ -20,7 +20,7 @@ use crate::{
 
 /// The size of the read buffer for each incoming connection to the ABCI
 /// server (1MB).
-pub const DEFAULT_SERVER_READ_BUF_SIZE: usize = 1024 * 1024;
+pub(crate) const DEFAULT_SERVER_READ_BUF_SIZE: usize = 1024 * 1024;
 
 /// Create new TCP server and bind to TCP address/port.
 ///
@@ -49,7 +49,7 @@ pub const DEFAULT_SERVER_READ_BUF_SIZE: usize = 1024 * 1024;
 /// impl tenderdash_abci::Application for MyAbciApplication {};
 /// let app = MyAbciApplication {};
 /// let addr =  std::net::SocketAddrV4::new(std::net::Ipv4Addr::new(172, 17, 0, 1), 1234);
-/// let server = tenderdash_abci::server::start_tcp(addr, app).expect("server failed");
+/// let server = tenderdash_abci::start_tcp(addr, app).expect("server failed");
 /// loop {
 ///     server.handle_connection();
 /// }
@@ -87,7 +87,7 @@ pub fn start_tcp<App: RequestDispatcher>(
 /// impl tenderdash_abci::Application for MyAbciApplication {};
 /// let app = MyAbciApplication {};
 /// let socket = std::path::Path::new("/tmp/abci.sock");
-/// let server = tenderdash_abci::server::start_unix(socket, app).expect("server failed");
+/// let server = tenderdash_abci::start_unix(socket, app).expect("server failed");
 /// loop {
 ///     server.handle_connection();
 /// }
@@ -116,15 +116,18 @@ where
 {
     let mut codec = Codec::new(stream, read_buf_size);
     info!("Listening for incoming requests from {}", name);
+
     loop {
         let Some(request) = codec.receive()? else {
             info!("Client {} terminated stream", name);
             return Ok(())
         };
-        let response = app.handle(request)?;
-        if let Err(e) = codec.send(response) {
-            error!("Failed sending response to client {}: {:?}", name, e);
-            return Err(e);
-        }
+        let Some(response) = app.handle(request)? else {
+            // `RequestDispatcher` decided to stop receiving new requests:
+            info!("ABCI Application is shutting down");
+            return Ok(());
+        };
+
+        codec.send(response)?;
     }
 }

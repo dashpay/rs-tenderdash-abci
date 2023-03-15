@@ -5,7 +5,6 @@ use bollard::{
     service::{CreateImageInfo, HostConfig},
     Docker, API_DEFAULT_VERSION,
 };
-use flex_error::{define_error, DisplayError};
 use futures::StreamExt;
 use tokio::{runtime::Runtime, time::timeout};
 use tracing::{debug, error, info};
@@ -101,7 +100,7 @@ impl TenderdashDocker {
         });
     }
 
-    async fn connect() -> Result<Docker, Error> {
+    async fn connect() -> Result<Docker, anyhow::Error> {
         debug!("Connecting to Docker server");
         let docker = Docker::connect_with_socket("/var/run/docker.sock", 120, API_DEFAULT_VERSION)?;
 
@@ -114,7 +113,7 @@ impl TenderdashDocker {
         Ok(docker)
     }
 
-    async fn image_pull(&self) -> Result<(), Error> {
+    async fn image_pull(&self) -> Result<(), anyhow::Error> {
         debug!("Fetching image {}", self.image);
         let image_responses = self.docker.create_image(
             Some(bollard::image::CreateImageOptions {
@@ -135,7 +134,7 @@ impl TenderdashDocker {
         Ok(())
     }
 
-    async fn create_container(&self, app_address: Url) -> Result<String, Error> {
+    async fn create_container(&self, app_address: Url) -> Result<String, anyhow::Error> {
         self.image_pull().await?;
 
         debug!("Creating container");
@@ -174,7 +173,7 @@ impl TenderdashDocker {
         Ok(id)
     }
 
-    async fn start_container(&self) -> Result<(), Error> {
+    async fn start_container(&self) -> Result<(), anyhow::Error> {
         debug!("Starting container");
         self.docker
             .start_container::<String>(
@@ -188,7 +187,7 @@ impl TenderdashDocker {
         Ok(())
     }
 
-    async fn stop(id: String, docker: &Docker) -> Result<(), Error> {
+    async fn stop(id: String, docker: &Docker) -> Result<(), anyhow::Error> {
         debug!("Stopping Tenderdash container");
         docker
             .remove_container(
@@ -211,19 +210,5 @@ impl Drop for TenderdashDocker {
                 .runtime
                 .block_on(Self::stop(self.id.clone(), &self.docker));
         }
-    }
-}
-define_error!(
-Error {
-    Docker
-        [DisplayError<bollard::errors::Error>]
-        | _ | { "Docker error" },
-});
-
-// FIXME: I think this should be generated somehow by the define_error! macro
-// above, but it is not
-impl From<bollard::errors::Error> for Error {
-    fn from(value: bollard::errors::Error) -> Self {
-        Error::docker(value)
     }
 }

@@ -7,7 +7,7 @@ use std::io;
 pub use application::{Application, RequestDispatcher};
 use prost::{DecodeError, EncodeError};
 pub use server::{start_tcp, start_unix};
-pub use tenderdash_proto::abci as abci_proto;
+pub use tenderdash_proto as proto;
 
 #[derive(Debug, thiserror::Error)]
 pub enum Error {

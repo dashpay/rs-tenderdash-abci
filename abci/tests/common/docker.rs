@@ -1,4 +1,4 @@
-use std::time::Duration;
+use std::{sync::Arc, time::Duration};
 
 use bollard::{
     container::{Config, RemoveContainerOptions},
@@ -250,6 +250,13 @@ impl Drop for TenderdashDocker {
             let _ = self.runtime.block_on(Self::stop(&self.id, &self.docker));
         }
     }
+}
+
+pub fn setup_td_logs_panic(td_docker: &Arc<TenderdashDocker>) {
+    let weak_ref = Arc::downgrade(td_docker);
+    std::panic::set_hook(Box::new(move |_| {
+        weak_ref.upgrade().map(|td| td.print_logs());
+    }));
 }
 
 define_error!(

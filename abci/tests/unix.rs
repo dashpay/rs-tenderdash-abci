@@ -1,4 +1,4 @@
-use std::path::Path;
+use std::{path::Path, sync::Arc};
 
 use tenderdash_abci::{error::Error, server::start_unix, RequestDispatcher};
 use tenderdash_proto::abci::request::Value;
@@ -30,7 +30,9 @@ fn test_unix_socket_server() {
     fs::set_permissions(socket, perms).expect("set perms");
 
     let socket_uri = format!("unix://{}", socket.to_str().unwrap());
-    let td = common::docker::TenderdashDocker::new("fix-docker-init", &socket_uri);
+    let td = Arc::new(common::docker::TenderdashDocker::new("fix-docker-init", &socket_uri));
+
+    common::docker::setup_td_logs_panic(&td);
 
     match server.handle_connection() {
         Ok(_) => (),

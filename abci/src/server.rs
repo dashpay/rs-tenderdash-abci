@@ -14,7 +14,7 @@ use unix::UnixSocketServer;
 
 use crate::{
     application::RequestDispatcher,
-    server::{codec::ServerCodec, tcp::TcpServer},
+    server::{codec::Codec, tcp::TcpServer},
     Error,
 };
 
@@ -114,24 +114,12 @@ where
     App: RequestDispatcher,
     S: Read + Write,
 {
-    let mut codec = ServerCodec::new(stream, read_buf_size);
+    let mut codec = Codec::new(stream, read_buf_size);
     info!("Listening for incoming requests from {}", name);
     loop {
-        let request = match codec.next() {
-            Some(result) => match result {
-                Ok(r) => r,
-                Err(e) => {
-                    error!(
-                        "Failed to read incoming request from client {}: {:?}",
-                        name, e
-                    );
-                    return Err(e);
-                },
-            },
-            None => {
-                info!("Client {} terminated stream", name);
-                return Err(Error::connection_terminated());
-            },
+        let Some(request) = codec.receive()? else {
+            info!("Client {} terminated stream", name);
+            return Ok(())
         };
         let response = app.handle(request)?;
         if let Err(e) = codec.send(response) {

@@ -1,6 +1,6 @@
 //! ABCI application server interface.
 
-use std::{fs::remove_file, os::unix::net::UnixListener, path::Path};
+use std::{fs, os::unix::net::UnixListener, path::Path};
 
 use tracing::info;
 
@@ -36,9 +36,9 @@ impl<App: RequestDispatcher> UnixSocketServer<App> {
         socket_file: &Path,
         read_buf_size: usize,
     ) -> Result<UnixSocketServer<App>, Error> {
-        _ = remove_file(socket_file);
+        fs::remove_file(socket_file).ok();
 
-        let listener = UnixListener::bind(socket_file).map_err(Error::io)?;
+        let listener = UnixListener::bind(socket_file)?;
         let socket_file = socket_file.to_path_buf();
         info!(
             "ABCI Unix server running at {:?}",
@@ -63,7 +63,7 @@ impl<App: RequestDispatcher> UnixSocketServer<App> {
     /// should not terminate.
     pub fn handle_connection(&self) -> Result<(), Error> {
         // let listener = self.listener;
-        let stream = self.listener.accept().map_err(Error::io)?;
+        let stream = self.listener.accept()?;
         let name = String::from("<unix socket>");
 
         info!("Incoming Unix connection");

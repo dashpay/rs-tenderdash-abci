@@ -16,12 +16,8 @@ runs:
     - name: Install protoc
       id: deps-protoc
       shell: bash
-      run: |
-        curl -Lo /tmp/protoc.zip \
-          https://github.com/protocolbuffers/protobuf/releases/download/v22.0/protoc-22.0-linux-x86_64.zip
-        unzip /tmp/protoc.zip -d ${HOME}/.local
-        echo "PROTOC=${HOME}/.local/bin/protoc" >> $GITHUB_ENV
-        export PATH="${PATH}:${HOME}/.local/bin"
+      run: sudo apt-get update && sudo apt-get install --yes protobuf-compiler
+
     - name: Rust cache
       uses: Swatinem/rust-cache@v2
       with:

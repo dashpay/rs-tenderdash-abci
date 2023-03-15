@@ -9,14 +9,11 @@ use std::{
     path::Path,
 };
 
+pub use tcp::TcpServer;
 use tracing::info;
-use unix::UnixSocketServer;
+pub use unix::UnixSocketServer;
 
-use crate::{
-    application::RequestDispatcher,
-    server::{codec::Codec, tcp::TcpServer},
-    Error,
-};
+use crate::{application::RequestDispatcher, server::codec::Codec, Error};
 
 /// The size of the read buffer for each incoming connection to the ABCI
 /// server (1MB).
@@ -40,7 +37,7 @@ pub(crate) const DEFAULT_SERVER_READ_BUF_SIZE: usize = 1024 * 1024;
 /// Returns [`TcpServer`] which provides [`handle_connection()`] method. Call it
 /// in a loop to accept and process incoming connections.
 ///
-/// [`handle_connection()`]: unix::TcpServer::handle_connection()
+/// [`handle_connection()`]: TcpServer::handle_connection()
 ///
 /// # Examples
 ///
@@ -93,14 +90,15 @@ pub fn start_tcp<App: RequestDispatcher>(
 /// }
 /// ```
 pub fn start_unix<App: RequestDispatcher>(
-    socket_file: &Path,
+    socket_file: impl AsRef<Path>,
     app: App,
 ) -> Result<UnixSocketServer<App>, Error> {
+    let socket_path = socket_file.as_ref();
     info!(
         "starting unix server on socket file {}",
-        socket_file.to_str().expect("invalid socket file")
+        socket_path.display()
     );
-    UnixSocketServer::bind(app, socket_file, DEFAULT_SERVER_READ_BUF_SIZE)
+    UnixSocketServer::bind(app, socket_path, DEFAULT_SERVER_READ_BUF_SIZE)
 }
 
 /// handle_client accepts one client connection and handles received messages.

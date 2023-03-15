@@ -6,9 +6,10 @@ use std::io;
 
 pub use application::{Application, RequestDispatcher};
 use prost::{DecodeError, EncodeError};
-pub use server::{start_tcp, start_unix};
+pub use server::{start_tcp, start_unix, TcpServer, UnixSocketServer};
 pub use tenderdash_proto as proto;
 
+/// Errors that may happen during protobuf communication
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
     #[error("connection error")]

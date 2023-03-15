@@ -3,6 +3,7 @@ mod common;
 use std::{
     collections::{BTreeMap, BTreeSet},
     mem,
+    ops::Deref,
     path::Path,
     sync::{RwLock, RwLockWriteGuard},
 };
@@ -18,6 +19,7 @@ use tenderdash_proto::{
     types,
 };
 use tracing::{debug, error};
+use tracing_subscriber::filter::LevelFilter;
 
 const SOCKET: &str = "/tmp/abci.sock";
 const INFO_CALLED_ERROR: &str = "info method called";
@@ -27,7 +29,9 @@ const INFO_CALLED_ERROR: &str = "info method called";
 fn test_kvstore() {
     use std::{fs, os::unix::prelude::PermissionsExt};
 
-    tracing_subscriber::fmt::init();
+    tracing_subscriber::fmt()
+        .with_max_level(LevelFilter::DEBUG)
+        .init();
 
     let kvstore = RwLock::new(KVStore::new());
     let abci_app = KVStoreABCI::new(&kvstore);
@@ -42,6 +46,9 @@ fn test_kvstore() {
     }]
     .into_iter()
     .collect();
+
+    let mut state_reference = BTreeMap::new();
+    state_reference.insert("ayy".to_owned(), "lmao".to_owned());
 
     let socket = Path::new(SOCKET);
     let app = TestDispatcher::new(abci_app);
@@ -60,7 +67,9 @@ fn test_kvstore() {
         },
     };
 
-    // TODO: check comitted state of kvstore
+    let kvstore_app = kvstore.into_inner().expect("kvstore lock is poisoned");
+    assert_eq!(kvstore_app.persisted_state, state_reference);
+    assert_eq!(kvstore_app.last_block_height, 1);
 }
 
 pub struct TestDispatcher<'a> {
@@ -99,14 +108,10 @@ impl RequestDispatcher for TestDispatcher<'_> {
                 proto::response::Value::OfferSnapshot(self.abci_app.offer_snapshot(req))
             },
             proto::request::Value::LoadSnapshotChunk(req) => {
-                proto::response::Value::LoadSnapshotChunk(
-                    self.abci_app.load_snapshot_chunk(req),
-                )
+                proto::response::Value::LoadSnapshotChunk(self.abci_app.load_snapshot_chunk(req))
             },
             proto::request::Value::ApplySnapshotChunk(req) => {
-                proto::response::Value::ApplySnapshotChunk(
-                    self.abci_app.apply_snapshot_chunk(req),
-                )
+                proto::response::Value::ApplySnapshotChunk(self.abci_app.apply_snapshot_chunk(req))
             },
             proto::request::Value::ListSnapshots(req) => {
                 proto::response::Value::ListSnapshots(self.abci_app.list_snapshots(req))
@@ -260,15 +265,7 @@ impl Application for KVStoreABCI<'_> {
         request: proto::RequestPrepareProposal,
     ) -> proto::ResponsePrepareProposal {
         let mut kvstore_lock = self.lock_kvstore();
-        // Check if the node is up to date and ready for the next block
-        if request.height != (kvstore_lock.last_block_height() + 1) as i64 {
-            error!(
-                "Proposed block height is {} when kvstore is on {}",
-                request.height,
-                kvstore_lock.last_block_height()
-            );
-            return Default::default();
-        }
+        assert_block_height(request.height, &kvstore_lock);
 
         // Decode proposed transactions
         let Some(td_proposed_transactions) = request
@@ -328,15 +325,7 @@ impl Application for KVStoreABCI<'_> {
     ) -> proto::ResponseProcessProposal {
         let mut kvstore_lock = self.lock_kvstore();
 
-        // Check if the node is up to date and ready for the next block
-        if request.height != (kvstore_lock.last_block_height() + 1) as i64 {
-            error!(
-                "Proposed block height is {} when kvstore is on {}",
-                request.height,
-                kvstore_lock.last_block_height()
-            );
-            return Default::default();
-        }
+        assert_block_height(request.height, &kvstore_lock);
 
         // Decode proposed transactions
         let Some(td_proposed_transactions) = request
@@ -393,21 +382,10 @@ impl Application for KVStoreABCI<'_> {
         proto::ResponseVerifyVoteExtension { status }
     }
 
-    fn finalize_block(
-        &self,
-        request: proto::RequestFinalizeBlock,
-    ) -> proto::ResponseFinalizeBlock {
+    fn finalize_block(&self, request: proto::RequestFinalizeBlock) -> proto::ResponseFinalizeBlock {
         let mut kvstore_lock = self.lock_kvstore();
 
-        // Check if the node is up to date and ready for the next block
-        if request.height != (kvstore_lock.last_block_height() + 1) as i64 {
-            error!(
-                "Proposed block height is {} when kvstore is on {}",
-                request.height,
-                kvstore_lock.last_block_height()
-            );
-            return Default::default();
-        }
+        assert_block_height(request.height, &kvstore_lock);
 
         kvstore_lock.commit();
 
@@ -432,4 +410,16 @@ fn tx_results_accept(len: usize) -> Vec<ExecTxResult> {
     }
 
     tx_results
+}
+
+/// Check if the node is up to date and ready for the next block
+fn assert_block_height(height: i64, kvstore: &impl Deref<Target = KVStore>) {
+    if height != (kvstore.last_block_height() + 1) as i64 {
+        error!(
+            "Proposed block height is {} when kvstore is on {}",
+            height,
+            kvstore.last_block_height()
+        );
+        panic!("non-recoverable, aborting");
+    }
 }

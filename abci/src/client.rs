@@ -56,10 +56,9 @@ macro_rules! perform {
     ($self:expr, $type:ident, $req:expr) => {
         match $self.perform(request::Value::$type($req))? {
             response::Value::$type(r) => Ok(r),
-            r => Err(
-                Error::unexpected_server_response_type(stringify!($type).to_string(), r)
-                    .into(),
-            ),
+            r => {
+                Err(Error::unexpected_server_response_type(stringify!($type).to_string(), r).into())
+            },
         }
     };
 }
@@ -91,10 +90,7 @@ impl Client {
     }
 
     /// Signal the beginning of a new block, prior to any `DeliverTx` calls.
-    pub fn begin_block(
-        &mut self,
-        req: RequestBeginBlock,
-    ) -> Result<ResponseBeginBlock, Error> {
+    pub fn begin_block(&mut self, req: RequestBeginBlock) -> Result<ResponseBeginBlock, Error> {
         perform!(self, BeginBlock, req)
     }
 

@@ -1,5 +1,5 @@
-//! tenderdash-proto library gives the developer access to the Tenderdash proto-defined
-//! structs.
+//! tenderdash-proto library gives the developer access to the Tenderdash
+//! proto-defined structs.
 
 #![no_std]
 #![deny(warnings, trivial_casts, trivial_numeric_casts, unused_import_braces)]
@@ -136,7 +136,8 @@ where
 
     /// Encode with a length-delimiter to a buffer in Protobuf format.
     ///
-    /// An error will be returned if the buffer does not have sufficient capacity.
+    /// An error will be returned if the buffer does not have sufficient
+    /// capacity.
     ///
     /// Uses [`prost::Message::encode_length_delimited`] after converting into
     /// its counterpart Protobuf data structure.

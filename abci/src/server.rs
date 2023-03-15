@@ -24,19 +24,21 @@ pub const DEFAULT_SERVER_READ_BUF_SIZE: usize = 1024 * 1024;
 
 /// Create new TCP server and bind to TCP address/port.
 ///
-/// Use [`handle_connection()`] to accept connection and process all traffic in this
-/// connection. Each incoming connection will be processed using `app`.
+/// Use [`handle_connection()`] to accept connection and process all traffic in
+/// this connection. Each incoming connection will be processed using `app`.
 ///
 /// # Arguments
 ///
-/// * `socket_file` - path to Unix socket file, for example: `/var/run/abci.sock`
-/// * `app` - request dispatcher, most likely implementation of Application trait
+/// * `socket_file` - path to Unix socket file, for example:
+///   `/var/run/abci.sock`
+/// * `app` - request dispatcher, most likely implementation of Application
+///   trait
 ///
 ///
 /// # Return
 ///
-/// Returns [`TcpServer`] which provides [`handle_connection()`] method. Call it in a loop
-/// to accept and process incoming connections.
+/// Returns [`TcpServer`] which provides [`handle_connection()`] method. Call it
+/// in a loop to accept and process incoming connections.
 ///
 /// [`handle_connection()`]: unix::TcpServer::handle_connection()
 ///
@@ -60,19 +62,21 @@ pub fn start_tcp<App: RequestDispatcher>(
 }
 
 /// start_unix creates new UnixSocketServer that binds to `socket_file`.
-/// Use [`handle_connection()`] to accept connection and process all traffic in this
-/// connection. Each incoming connection will be processed using `app`.
+/// Use [`handle_connection()`] to accept connection and process all traffic in
+/// this connection. Each incoming connection will be processed using `app`.
 ///
 /// # Arguments
 ///
-/// * `socket_file` - path to Unix socket file, for example: `/var/run/abci.sock`
-/// * `app` - request dispatcher, most likely implementation of Application trait
+/// * `socket_file` - path to Unix socket file, for example:
+///   `/var/run/abci.sock`
+/// * `app` - request dispatcher, most likely implementation of Application
+///   trait
 ///
 ///
 /// # Return
 ///
-/// Returns [`UnixSocketServer`] which provides [`handle_connection()`] method. Call it in a
-/// loop to accept and process incoming connections.
+/// Returns [`UnixSocketServer`] which provides [`handle_connection()`] method.
+/// Call it in a loop to accept and process incoming connections.
 ///
 /// [`handle_connection()`]: unix::UnixSocketServer::handle_connection()
 ///

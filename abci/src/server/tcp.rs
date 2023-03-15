@@ -29,7 +29,8 @@ impl<App: RequestDispatcher> TcpServer<App> {
 
     /// Process one incoming connection.
     ///
-    /// Returns when the connection is terminated or RequestDispatcher returns error.
+    /// Returns when the connection is terminated or RequestDispatcher returns
+    /// error.
     ///
     /// It is safe to call this method multiple times after it finishes;
     /// however, errors must be examined and handled, as the connection

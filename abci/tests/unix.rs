@@ -12,13 +12,18 @@ mod common;
 #[test]
 /// Feature: ABCI App socket server
 ///
-/// * Given that we have Tenderdash instance using Unix Sockets to communicate with ABCI APP
+/// * Given that we have Tenderdash instance using Unix Sockets to communicate
+///   with ABCI APP
 /// * When we estabilish connection with Tenderdash
 /// * Then Tenderdash sends Info request
 fn test_unix_socket_server() {
     use std::{fs, os::unix::prelude::PermissionsExt};
 
-    tracing_subscriber::fmt::init();
+    use tracing_subscriber::filter::LevelFilter;
+
+    tracing_subscriber::fmt()
+        .with_max_level(LevelFilter::DEBUG)
+        .init();
 
     let socket = Path::new(SOCKET);
     let app = TestDispatcher {};
@@ -38,8 +43,9 @@ fn test_unix_socket_server() {
     };
 }
 
-/// Returns error containing string [`INFO_CALLED_ERROR`] when Tenderdash calls Info()
-/// endpoint. All other requests return Error::malformed_server_response()
+/// Returns error containing string [`INFO_CALLED_ERROR`] when Tenderdash calls
+/// Info() endpoint. All other requests return
+/// Error::malformed_server_response()
 pub struct TestDispatcher {}
 
 impl RequestDispatcher for TestDispatcher {

@@ -12,7 +12,8 @@ pub trait Application {
         }
     }
 
-    /// Signals that messages queued on the client should be flushed to the server.
+    /// Signals that messages queued on the client should be flushed to the
+    /// server.
     fn flush(&self, _request: proto::RequestFlush) -> proto::ResponseFlush {
         proto::ResponseFlush {}
     }
@@ -118,16 +119,12 @@ impl<A: Application> RequestDispatcher for A {
         tracing::debug!("Incoming request: {:?}", request);
         let value = match request.value.unwrap() {
             proto::request::Value::Echo(req) => proto::response::Value::Echo(self.echo(req)),
-            proto::request::Value::Flush(req) => {
-                proto::response::Value::Flush(self.flush(req))
-            },
+            proto::request::Value::Flush(req) => proto::response::Value::Flush(self.flush(req)),
             proto::request::Value::Info(req) => proto::response::Value::Info(self.info(req)),
             proto::request::Value::InitChain(req) => {
                 proto::response::Value::InitChain(self.init_chain(req))
             },
-            proto::request::Value::Query(req) => {
-                proto::response::Value::Query(self.query(req))
-            },
+            proto::request::Value::Query(req) => proto::response::Value::Query(self.query(req)),
             proto::request::Value::CheckTx(req) => {
                 proto::response::Value::CheckTx(self.check_tx(req))
             },

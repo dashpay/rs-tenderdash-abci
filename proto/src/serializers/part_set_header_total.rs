@@ -1,10 +1,10 @@
-//! Serialize and deserialize part_set_header.total (from string or u32), (into u32 in
-//! part_set_header.total).
+//! Serialize and deserialize part_set_header.total (from string or u32), (into
+//! u32 in part_set_header.total).
 //!
-//! The deserializer is created for backwards compatibility: `total` was changed from a
-//! string-quoted integer value into an integer value without quotes in Tendermint Core
-//! v0.34.0. This deserializer allows backwards-compatibility by deserializing both ways.
-//! See also: <https://github.com/informalsystems/tendermint-rs/issues/679>
+//! The deserializer is created for backwards compatibility: `total` was changed
+//! from a string-quoted integer value into an integer value without quotes in
+//! Tendermint Core v0.34.0. This deserializer allows backwards-compatibility by
+//! deserializing both ways. See also: <https://github.com/informalsystems/tendermint-rs/issues/679>
 use core::{convert::TryFrom, fmt::Formatter};
 
 use serde::{

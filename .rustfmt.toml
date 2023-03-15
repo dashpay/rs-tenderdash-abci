@@ -1,7 +1,6 @@
 unstable_features = true
 
 # comments
-comment_width = 95
 normalize_comments = true
 wrap_comments = true
 
@@ -12,7 +11,6 @@ reorder_imports = true
 
 # strings
 format_strings = false
-max_width = 95
 match_block_trailing_comma = true
 
 trailing_comma = "Vertical"

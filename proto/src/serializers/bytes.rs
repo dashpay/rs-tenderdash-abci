@@ -65,8 +65,7 @@ pub mod base64string {
         T: AsRef<[u8]>,
     {
         let base64_bytes = base64::encode(value.as_ref());
-        let base64_string =
-            String::from_utf8(base64_bytes).map_err(serde::ser::Error::custom)?;
+        let base64_string = String::from_utf8(base64_bytes).map_err(serde::ser::Error::custom)?;
         serializer.serialize_str(&base64_string)
     }
 }
@@ -99,8 +98,7 @@ pub mod vec_base64string {
         let base64_strings = value
             .iter()
             .map(|v| {
-                String::from_utf8(base64::encode(v.as_ref()))
-                    .map_err(serde::ser::Error::custom)
+                String::from_utf8(base64::encode(v.as_ref())).map_err(serde::ser::Error::custom)
             })
             .collect::<Result<Vec<String>, S::Error>>()?;
         serializer.collect_seq(base64_strings)
@@ -130,8 +128,7 @@ pub mod option_base64string {
         T: AsRef<[u8]>,
     {
         let base64_bytes = base64::encode(value.as_ref());
-        let base64_string =
-            String::from_utf8(base64_bytes).map_err(serde::ser::Error::custom)?;
+        let base64_string = String::from_utf8(base64_bytes).map_err(serde::ser::Error::custom)?;
         serializer.serialize_str(&base64_string)
     }
 }

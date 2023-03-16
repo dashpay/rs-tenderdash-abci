@@ -2,14 +2,15 @@
 //!
 //! Serializers and deserializers for a transparent developer experience.
 //!
-//! CAUTION: There are no guarantees for backwards compatibility, this module should be considered
-//! an internal implementation detail which can vanish without further warning. Use at your own
-//! risk.
+//! CAUTION: There are no guarantees for backwards compatibility, this module
+//! should be considered an internal implementation detail which can vanish
+//! without further warning. Use at your own risk.
 //!
-//! All serializers are presented in a serializers::<Rust_nickname>::<JSON_representation_name>
-//! format.
+//! All serializers are presented in a
+//! serializers::<Rust_nickname>::<JSON_representation_name> format.
 //!
-//! This example shows how to serialize `Vec<u8>` into different types of strings:
+//! This example shows how to serialize `Vec<u8>` into different types of
+//! strings:
 //! ```ignore
 //! use serde::{Serialize, Deserialize};
 //! use crate::serializers;

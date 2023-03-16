@@ -1,6 +1,8 @@
-//! Serialize/deserialize `Option<T>` type where `T` has a serializer/deserializer.
-//! Use `null` if the received value equals the `Default` implementation.
-// Todo: Rename this serializer to something like "default_eq_none" to mirror its purpose better.
+//! Serialize/deserialize `Option<T>` type where `T` has a
+//! serializer/deserializer. Use `null` if the received value equals the
+//! `Default` implementation.
+// Todo: Rename this serializer to something like "default_eq_none" to mirror
+// its purpose better.
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
 /// Deserialize `Option<T>`

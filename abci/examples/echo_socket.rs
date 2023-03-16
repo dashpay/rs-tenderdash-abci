@@ -1,6 +1,6 @@
 use std::path::Path;
-use tenderdash_abci::{server::start_unix, Application};
-use tenderdash_proto::abci::{RequestEcho, RequestInfo, ResponseEcho, ResponseInfo};
+
+use tenderdash_abci::{proto, start_unix, Application};
 use tracing::info;
 use tracing_subscriber::filter::LevelFilter;
 
@@ -28,16 +28,16 @@ pub fn main() {
 pub struct EchoApp;
 
 impl Application for EchoApp {
-    fn echo(&self, request: RequestEcho) -> ResponseEcho {
+    fn echo(&self, request: proto::abci::RequestEcho) -> proto::abci::ResponseEcho {
         info!("received echo");
-        ResponseEcho {
+        proto::abci::ResponseEcho {
             message: request.message,
         }
     }
     /// Provide information about the ABCI application.
-    fn info(&self, _request: RequestInfo) -> ResponseInfo {
+    fn info(&self, _request: proto::abci::RequestInfo) -> proto::abci::ResponseInfo {
         info!("received info request");
-        ResponseInfo {
+        proto::abci::ResponseInfo {
             app_version: 1,
             data: String::from("Echo Socket App"),
             version: String::from("1.0.0"),

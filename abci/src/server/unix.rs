@@ -4,6 +4,7 @@ use std::{fs, os::unix::net::UnixListener, path::Path};
 
 use tracing::info;
 
+use super::Server;
 use crate::{Error, RequestDispatcher};
 
 /// A Unix socket-based server for serving a specific ABCI application.
@@ -24,7 +25,7 @@ use crate::{Error, RequestDispatcher};
 ///     };
 /// }
 /// ```
-pub struct UnixSocketServer<App: RequestDispatcher> {
+pub(super) struct UnixSocketServer<App: RequestDispatcher> {
     app: App,
     listener: UnixListener,
     read_buf_size: usize,
@@ -52,16 +53,10 @@ impl<App: RequestDispatcher> UnixSocketServer<App> {
         };
         Ok(server)
     }
+}
 
-    /// Process one incoming connection.
-    ///
-    /// Returns when the connection is terminated or RequestDispatcher returns
-    /// error.
-    ///
-    /// It is safe to call this method multiple times after it finishes;
-    /// however, errors must be examined and handled, as the connection
-    /// should not terminate.
-    pub fn handle_connection(&self) -> Result<(), Error> {
+impl<App: RequestDispatcher> Server for UnixSocketServer<App> {
+    fn handle_connection(&self) -> Result<(), Error> {
         // let listener = self.listener;
         let stream = self.listener.accept()?;
         let name = String::from("<unix socket>");

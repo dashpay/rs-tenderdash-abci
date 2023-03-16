@@ -6,7 +6,7 @@ use std::io;
 
 pub use application::{Application, RequestDispatcher};
 use prost::{DecodeError, EncodeError};
-pub use server::{start_tcp, start_unix, TcpServer, UnixSocketServer};
+pub use server::{start_server, BindAddress, Server};
 pub use tenderdash_proto as proto;
 
 /// Errors that may happen during protobuf communication

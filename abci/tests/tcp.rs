@@ -15,9 +15,9 @@ use tenderdash_abci::proto;
 /// * When we estabilish connection with Tenderdash
 /// * Then Tenderdash sends Info request
 fn test_tcp_server() {
-    use std::net::{Ipv4Addr, SocketAddrV4};
+    use std::net::{Ipv4Addr, SocketAddr, SocketAddrV4};
 
-    use tenderdash_abci::start_tcp;
+    use tenderdash_abci::start_server;
     use tracing_subscriber::filter::LevelFilter;
 
     tracing_subscriber::fmt()
@@ -27,9 +27,12 @@ fn test_tcp_server() {
     let app = TestDispatcher {};
     // we assume the host uses default Docker network configuration, with the host
     // using 172.17.0.1
+    // let addr = SocketAddr::V4(Ipv4Addr::new(172, 17, 0, 1), 1234);
     let addr = SocketAddrV4::new(Ipv4Addr::new(172, 17, 0, 1), 1234);
-    let server = start_tcp(addr, app).expect("server failed");
-    let socket_uri = format!("tcp://{}", addr.to_string());
+    let bind_address = tenderdash_abci::BindAddress::TCP(SocketAddr::V4(addr));
+
+    let server = start_server(&bind_address, app).expect("server failed");
+    let socket_uri = bind_address.to_string();
     let td = Arc::new(common::docker::TenderdashDocker::new(
         "fix-docker-init",
         &socket_uri,

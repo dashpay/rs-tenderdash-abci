@@ -4,7 +4,6 @@ use std::{
     collections::{BTreeMap, BTreeSet},
     mem,
     ops::Deref,
-    path::Path,
     sync::{RwLock, RwLockWriteGuard},
 };
 
@@ -13,7 +12,7 @@ use blake2::{
     digest::{consts::U32, FixedOutput},
     Blake2b, Digest,
 };
-use tenderdash_abci::{proto, start_unix, Application, Error, RequestDispatcher};
+use tenderdash_abci::{proto, start_server, Application, Error, RequestDispatcher};
 use tracing::{debug, error};
 use tracing_subscriber::filter::LevelFilter;
 
@@ -23,6 +22,8 @@ const SOCKET: &str = "/tmp/abci.sock";
 #[test]
 fn test_kvstore() {
     use std::{fs, os::unix::prelude::PermissionsExt};
+
+    use tenderdash_abci::BindAddress;
 
     tracing_subscriber::fmt()
         .with_max_level(LevelFilter::DEBUG)
@@ -45,17 +46,18 @@ fn test_kvstore() {
     let mut state_reference = BTreeMap::new();
     state_reference.insert("ayy".to_owned(), "lmao".to_owned());
 
-    let socket = Path::new(SOCKET);
+    let bind_address = BindAddress::UnixSocket(SOCKET.to_string());
     let app = TestDispatcher::new(abci_app);
-    let server = start_unix(socket, app).expect("server failed");
+    let server = start_server(&bind_address, app).expect("server failed");
 
     let perms = fs::Permissions::from_mode(0o777);
-    fs::set_permissions(socket, perms).expect("set perms");
+    fs::set_permissions(SOCKET, perms).expect("set perms");
 
-    let socket_uri = format!("unix://{}", socket.to_str().unwrap());
+    let socket_uri = bind_address.to_string();
     let _td = common::docker::TenderdashDocker::new("fix-docker-init", &socket_uri);
 
     assert!(matches!(server.handle_connection(), Ok(())));
+    drop(server);
 
     let kvstore_app = kvstore.into_inner().expect("kvstore lock is poisoned");
     assert_eq!(kvstore_app.persisted_state, state_reference);

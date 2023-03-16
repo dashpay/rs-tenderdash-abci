@@ -188,6 +188,7 @@ impl TenderdashDocker {
     }
 
     /// Print 200 most recent logs from Tenderdash on standard error.
+    #[allow(dead_code)]
     pub fn print_logs(&self) {
         let id = &self.id;
 
@@ -256,6 +257,7 @@ impl Drop for TenderdashDocker {
     }
 }
 /// Use custom panic handler to dump logs on panic
+#[allow(dead_code)]
 pub fn setup_td_logs_panic(td_docker: &Arc<TenderdashDocker>) {
     let weak_ref = Arc::downgrade(td_docker);
     std::panic::set_hook(Box::new(move |_| {

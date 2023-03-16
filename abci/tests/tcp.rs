@@ -1,6 +1,10 @@
+use std::sync::Arc;
+
+use tenderdash_abci::{Error, RequestDispatcher};
+
 mod common;
 
-use tenderdash_abci::{proto, Error, RequestDispatcher};
+use tenderdash_abci::proto;
 
 #[cfg(feature = "docker-tests")]
 #[test]
@@ -26,7 +30,12 @@ fn test_tcp_server() {
     let addr = SocketAddrV4::new(Ipv4Addr::new(172, 17, 0, 1), 1234);
     let server = start_tcp(addr, app).expect("server failed");
     let socket_uri = format!("tcp://{}", addr.to_string());
-    let _td = common::docker::TenderdashDocker::new("fix-docker-init", &socket_uri);
+    let td = Arc::new(common::docker::TenderdashDocker::new(
+        "fix-docker-init",
+        &socket_uri,
+    ));
+
+    common::docker::setup_td_logs_panic(&td);
 
     assert!(matches!(server.handle_connection(), Ok(())));
 }

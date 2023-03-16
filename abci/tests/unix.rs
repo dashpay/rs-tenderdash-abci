@@ -1,8 +1,8 @@
+use std::{path::Path, sync::Arc};
+
+use tenderdash_abci::{start_unix, Error, RequestDispatcher};
 mod common;
-
-use std::path::Path;
-
-use tenderdash_abci::{proto, start_unix, Error, RequestDispatcher};
+use tenderdash_abci::proto;
 
 const SOCKET: &str = "/tmp/abci.sock";
 
@@ -31,7 +31,12 @@ fn test_unix_socket_server() {
     fs::set_permissions(socket, perms).expect("set perms");
 
     let socket_uri = format!("unix://{}", socket.to_str().unwrap());
-    let _td = common::docker::TenderdashDocker::new("fix-docker-init", &socket_uri);
+    let td = Arc::new(common::docker::TenderdashDocker::new(
+        "fix-docker-init",
+        &socket_uri,
+    ));
+
+    common::docker::setup_td_logs_panic(&td);
 
     assert!(matches!(server.handle_connection(), Ok(())));
 }

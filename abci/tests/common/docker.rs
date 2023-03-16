@@ -1,4 +1,4 @@
-use std::time::Duration;
+use std::{sync::Arc, time::Duration};
 
 use bollard::{
     container::{Config, RemoveContainerOptions},
@@ -6,7 +6,7 @@ use bollard::{
     Docker, API_DEFAULT_VERSION,
 };
 use futures::StreamExt;
-use tokio::{runtime::Runtime, time::timeout};
+use tokio::{io::AsyncWriteExt, runtime::Runtime, time::timeout};
 use tracing::{debug, error, info};
 use url::Url;
 
@@ -187,6 +187,49 @@ impl TenderdashDocker {
         Ok(())
     }
 
+    /// Print 200 most recent logs from Tenderdash on standard error.
+    pub fn print_logs(&self) {
+        let id = &self.id;
+
+        if !id.is_empty() {
+            debug!("Printing Tenderdash logs");
+            let rt = &self.runtime;
+            let docker = &self.docker;
+
+            rt.block_on(Self::emit_logs(id, docker))
+                .expect("cannot emit logs");
+        }
+    }
+
+    async fn emit_logs(id: &str, docker: &Docker) -> Result<(), anyhow::Error> {
+        let stderror = tokio::io::stderr();
+        let mut dest = tokio::io::BufWriter::new(stderror);
+
+        let mut logs = docker.logs(
+            &id,
+            Some(bollard::container::LogsOptions {
+                follow: false,
+                stdout: true,
+                stderr: true,
+                tail: "200",
+                ..Default::default()
+            }),
+        );
+
+        while let Some(log) = logs.next().await {
+            let log = log.unwrap();
+
+            let data = log.to_string() + "\n";
+            let data = data.as_bytes();
+
+            dest.write_all(data).await.expect("cannot write logs");
+        }
+
+        dest.flush().await.expect("cannot flush logs");
+
+        Ok(())
+    }
+
     async fn stop(id: String, docker: &Docker) -> Result<(), anyhow::Error> {
         debug!("Stopping Tenderdash container");
         docker
@@ -211,4 +254,11 @@ impl Drop for TenderdashDocker {
                 .block_on(Self::stop(self.id.clone(), &self.docker));
         }
     }
+}
+/// Use custom panic handler to dump logs on panic
+pub fn setup_td_logs_panic(td_docker: &Arc<TenderdashDocker>) {
+    let weak_ref = Arc::downgrade(td_docker);
+    std::panic::set_hook(Box::new(move |_| {
+        weak_ref.upgrade().map(|td| td.print_logs());
+    }));
 }

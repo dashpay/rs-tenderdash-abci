@@ -21,8 +21,9 @@ pub(crate) const DEFAULT_SERVER_READ_BUF_SIZE: usize = 1024 * 1024;
 
 /// ABCI Server handle.
 ///
-/// Use [`handle_connection()`] to accept connection and process all traffic in
-/// this connection. Each incoming connection will be processed using `app`.
+/// Use [`Server::handle_connection()`] to accept connection and process all
+/// traffic in this connection. Each incoming connection will be processed using
+/// `app`.
 pub trait Server {
     /// Process one incoming connection.
     ///
@@ -35,7 +36,7 @@ pub trait Server {
     fn handle_connection(&self) -> Result<(), Error>;
 }
 
-// Address to listen on, either TCP address or Unix Socket path
+/// Address to listen on, either TCP address or Unix Socket path
 #[derive(Clone)]
 pub enum BindAddress {
     UnixSocket(String),

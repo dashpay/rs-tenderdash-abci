@@ -1,3 +1,17 @@
+//! Tenderdash ABCI Application library.
+//!
+//! ABCI Application is responsible for storage and implementation of
+//! application state.
+//!
+//! Use [[start_server]] to create a new server that will accept connections
+//! from Tenderdash.
+//!
+//! Run [Server::handle_connection()] in a loop to handle incoming server
+//! connections.
+//!
+//! Implement the [application::Application] trait with custom logic for
+//! blockchain processing. Expect messages defined in [proto::abci] crate.
+
 mod application;
 #[cfg(feature = "server")]
 mod server;

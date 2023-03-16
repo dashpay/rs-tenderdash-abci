@@ -8,23 +8,6 @@ use super::Server;
 use crate::{Error, RequestDispatcher};
 
 /// A Unix socket-based server for serving a specific ABCI application.
-///
-/// Examples:
-///
-/// ```no_run
-/// struct EchoApp {}
-/// impl tenderdash_abci::Application for EchoApp{};
-///
-/// let socket = std::path::Path::new("/tmp/abci.sock");
-/// let server = tenderdash_abci::start_unix(socket, EchoApp {}).expect("server failed");
-///
-/// loop {
-///     match server.handle_connection() {
-///         Ok(_) => {},
-///         Err(e) => tracing::error!("error {}", e),
-///     };
-/// }
-/// ```
 pub(super) struct UnixSocketServer<App: RequestDispatcher> {
     app: App,
     listener: UnixListener,

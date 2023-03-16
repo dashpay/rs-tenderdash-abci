@@ -83,8 +83,8 @@ impl Display for BindAddress {
 /// struct MyAbciApplication {};
 /// impl tenderdash_abci::Application for MyAbciApplication {};
 /// let app = MyAbciApplication {};
-/// let bind_address = BindAddress::UnixSocket("/tmp/abci.sock".to_string());
-/// let server = tenderdash_abci::start_server(bind_address, app).expect("server failed");
+/// let bind_address = tenderdash_abci::BindAddress::UnixSocket("/tmp/abci.sock".to_string());
+/// let server = tenderdash_abci::start_server(&bind_address, app).expect("server failed");
 /// loop {
 ///     server.handle_connection();
 /// }

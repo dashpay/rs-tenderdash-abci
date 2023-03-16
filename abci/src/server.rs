@@ -10,6 +10,7 @@ use std::{
     net::{Ipv4Addr, SocketAddr, SocketAddrV4},
 };
 
+use serde::{Deserialize, Serialize};
 use tracing::info;
 
 use self::{tcp::TcpServer, unix::UnixSocketServer};
@@ -37,11 +38,12 @@ pub trait Server {
 }
 
 /// Address to listen on, either TCP address or Unix Socket path
-#[derive(Clone)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub enum BindAddress {
     UnixSocket(String),
     TCP(SocketAddr),
 }
+
 impl Default for BindAddress {
     fn default() -> Self {
         let addr = SocketAddrV4::new(Ipv4Addr::new(127, 0, 0, 1), 6783);

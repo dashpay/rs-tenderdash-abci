@@ -2,9 +2,10 @@
 
 use std::net::{TcpListener, ToSocketAddrs};
 
-use super::{handle_client, DEFAULT_SERVER_READ_BUF_SIZE};
-use crate::{error::Error, RequestDispatcher};
 use tracing::info;
+
+use super::{handle_client, DEFAULT_SERVER_READ_BUF_SIZE};
+use crate::{Error, RequestDispatcher};
 
 /// A TCP-based server for serving a specific ABCI application.
 ///
@@ -19,8 +20,8 @@ impl<App: RequestDispatcher> TcpServer<App> {
     where
         Addr: ToSocketAddrs,
     {
-        let listener = TcpListener::bind(addr).map_err(Error::io)?;
-        let local_addr = listener.local_addr().map_err(Error::io)?.to_string();
+        let listener = TcpListener::bind(addr)?;
+        let local_addr = listener.local_addr()?;
         info!("ABCI server running at {}", local_addr);
         let server = TcpServer { app, listener };
         Ok(server)
@@ -28,13 +29,14 @@ impl<App: RequestDispatcher> TcpServer<App> {
 
     /// Process one incoming connection.
     ///
-    /// Returns when the connection is terminated or RequestDispatcher returns error.
+    /// Returns when the connection is terminated or RequestDispatcher returns
+    /// error.
     ///
     /// It is safe to call this method multiple times after it finishes;
     /// however, errors must be examined and handled, as the connection
     /// should not terminate.
     pub fn handle_connection(&self) -> Result<(), Error> {
-        let (stream, addr) = self.listener.accept().map_err(Error::io)?;
+        let (stream, addr) = self.listener.accept()?;
         let addr = addr.to_string();
         info!("Incoming connection from: {}", addr);
 

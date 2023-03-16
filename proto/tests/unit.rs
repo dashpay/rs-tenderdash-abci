@@ -30,7 +30,8 @@ impl TryFrom<RawBlockId> for BlockId {
     }
 }
 
-// Domain types MUST be able to convert to Protobuf messages without errors using the From trait.
+// Domain types MUST be able to convert to Protobuf messages without errors
+// using the From trait.
 impl From<BlockId> for RawBlockId {
     fn from(value: BlockId) -> Self {
         RawBlockId {

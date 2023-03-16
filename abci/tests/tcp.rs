@@ -1,29 +1,32 @@
 use std::sync::Arc;
 
-use tenderdash_abci::{error::Error, RequestDispatcher};
-use tenderdash_proto::abci::request::Value;
-use tracing_subscriber::filter::LevelFilter;
-
-const INFO_CALLED_ERROR: &str = "info method called";
+use tenderdash_abci::{Error, RequestDispatcher};
 
 mod common;
+
+use tenderdash_abci::proto;
 
 #[cfg(feature = "docker-tests")]
 #[test]
 /// Feature: ABCI App TCO server
 ///
-/// * Given that we have Tenderdash instance using TCP connection to communicate with ABCI APP
+/// * Given that we have Tenderdash instance using TCP connection to communicate
+///   with ABCI APP
 /// * When we estabilish connection with Tenderdash
 /// * Then Tenderdash sends Info request
 fn test_tcp_server() {
     use std::net::{Ipv4Addr, SocketAddrV4};
 
-    use tenderdash_abci::server::start_tcp;
-    let log_level = LevelFilter::DEBUG;
-    tracing_subscriber::fmt().with_max_level(log_level).init();
+    use tenderdash_abci::start_tcp;
+    use tracing_subscriber::filter::LevelFilter;
+
+    tracing_subscriber::fmt()
+        .with_max_level(LevelFilter::DEBUG)
+        .init();
 
     let app = TestDispatcher {};
-    // we assume the host uses default Docker network configuration, with the host using 172.17.0.1
+    // we assume the host uses default Docker network configuration, with the host
+    // using 172.17.0.1
     let addr = SocketAddrV4::new(Ipv4Addr::new(172, 17, 0, 1), 1234);
     let server = start_tcp(addr, app).expect("server failed");
     let socket_uri = format!("tcp://{}", addr.to_string());
@@ -34,33 +37,21 @@ fn test_tcp_server() {
 
     common::docker::setup_td_logs_panic(&td);
 
-    match server.handle_connection() {
-        Ok(_) => (),
-        Err(e) => {
-            if !e.to_string().contains(INFO_CALLED_ERROR) {
-                td.print_logs();
-                panic!("Invalid error {:?}", e);
-            }
-        },
-    };
+    assert!(matches!(server.handle_connection(), Ok(())));
 }
 
-/// Returns error containing string [`INFO_CALLED_ERROR`] when Tenderdash calls Info() endpoint.
-/// All other requests return Error::malformed_server_response()
 pub struct TestDispatcher {}
 
 impl RequestDispatcher for TestDispatcher {
     fn handle(
         &self,
-        request: tenderdash_proto::abci::Request,
-    ) -> Result<tenderdash_proto::abci::Response, tenderdash_abci::Error> {
-        match request.value.unwrap() {
-            Value::Info(_) => {
-                return Err(Error::generic(String::from(INFO_CALLED_ERROR)));
-            },
-            _ => {
-                return Err(Error::malformed_server_response());
-            },
-        };
+        request: proto::abci::Request,
+    ) -> Result<Option<proto::abci::Response>, Error> {
+        // Assert that Info request will is received and close the connection
+        assert!(matches!(
+            request.value,
+            Some(proto::abci::request::Value::Info(_))
+        ));
+        Ok(None)
     }
 }

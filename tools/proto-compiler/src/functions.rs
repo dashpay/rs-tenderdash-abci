@@ -1,16 +1,18 @@
-use crate::constants::DEFAULT_TENDERDASH_COMMITISH;
-use git2::{
-    build::{CheckoutBuilder, RepoBuilder},
-    AutotagOption, Commit, FetchOptions, Oid, Reference, Repository,
-};
 use std::{
     env,
     fs::{copy, create_dir_all, remove_dir_all, File},
     io::Write,
     path::{Path, PathBuf},
 };
+
+use git2::{
+    build::{CheckoutBuilder, RepoBuilder},
+    AutotagOption, Commit, FetchOptions, Oid, Reference, Repository,
+};
 use subtle_encoding::hex;
 use walkdir::WalkDir;
+
+use crate::constants::DEFAULT_TENDERDASH_COMMITISH;
 
 /// Clone or open+fetch a repository and check out a specific commitish
 /// In case of an existing repository, the origin remote will be set to `url`.

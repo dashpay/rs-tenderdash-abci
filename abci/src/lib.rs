@@ -1,18 +1,21 @@
 mod application;
-#[cfg(feature = "client")]
-mod client;
-pub mod error;
 #[cfg(feature = "server")]
-pub mod server;
+mod server;
 
-// Common exports
-// Example applications
-#[cfg(feature = "echo-app")]
-pub use application::echo::EchoApp;
-#[cfg(feature = "kvstore-app")]
-pub use application::kvstore::{KeyValueStoreApp, KeyValueStoreDriver};
-pub use application::Application;
-pub use application::RequestDispatcher;
-#[cfg(feature = "client")]
-pub use client::{Client, ClientBuilder};
-pub use error::Error;
+use std::io;
+
+pub use application::{Application, RequestDispatcher};
+use prost::{DecodeError, EncodeError};
+pub use server::{start_tcp, start_unix, TcpServer, UnixSocketServer};
+pub use tenderdash_proto as proto;
+
+/// Errors that may happen during protobuf communication
+#[derive(Debug, thiserror::Error)]
+pub enum Error {
+    #[error("connection error")]
+    Connection(#[from] io::Error),
+    #[error("cannot decode protobuf message")]
+    Decode(#[from] DecodeError),
+    #[error("cannot encode protobuf message")]
+    Encode(#[from] EncodeError),
+}

@@ -1,10 +1,10 @@
 //! ABCI application server interface.
 
-use crate::Error;
-use crate::RequestDispatcher;
-use std::os::unix::net::UnixListener;
-use std::{fs::remove_file, path::Path};
+use std::{fs, os::unix::net::UnixListener, path::Path};
+
 use tracing::info;
+
+use crate::{Error, RequestDispatcher};
 
 /// A Unix socket-based server for serving a specific ABCI application.
 ///
@@ -15,7 +15,7 @@ use tracing::info;
 /// impl tenderdash_abci::Application for EchoApp{};
 ///
 /// let socket = std::path::Path::new("/tmp/abci.sock");
-/// let server = tenderdash_abci::server::start_unix(socket, EchoApp {}).expect("server failed");
+/// let server = tenderdash_abci::start_unix(socket, EchoApp {}).expect("server failed");
 ///
 /// loop {
 ///     match server.handle_connection() {
@@ -36,9 +36,9 @@ impl<App: RequestDispatcher> UnixSocketServer<App> {
         socket_file: &Path,
         read_buf_size: usize,
     ) -> Result<UnixSocketServer<App>, Error> {
-        _ = remove_file(socket_file);
+        fs::remove_file(socket_file).ok();
 
-        let listener = UnixListener::bind(socket_file).map_err(Error::io)?;
+        let listener = UnixListener::bind(socket_file)?;
         let socket_file = socket_file.to_path_buf();
         info!(
             "ABCI Unix server running at {:?}",
@@ -55,14 +55,15 @@ impl<App: RequestDispatcher> UnixSocketServer<App> {
 
     /// Process one incoming connection.
     ///
-    /// Returns when the connection is terminated or RequestDispatcher returns error.
+    /// Returns when the connection is terminated or RequestDispatcher returns
+    /// error.
     ///
     /// It is safe to call this method multiple times after it finishes;
     /// however, errors must be examined and handled, as the connection
     /// should not terminate.
     pub fn handle_connection(&self) -> Result<(), Error> {
         // let listener = self.listener;
-        let stream = self.listener.accept().map_err(Error::io)?;
+        let stream = self.listener.accept()?;
         let name = String::from("<unix socket>");
 
         info!("Incoming Unix connection");

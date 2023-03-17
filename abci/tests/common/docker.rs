@@ -12,6 +12,8 @@ use url::Url;
 
 pub struct TenderdashDocker {
     id: String,
+    /// human-readable name of the container
+    name: String,
     docker: Docker,
     image: String,
     runtime: Runtime,
@@ -28,9 +30,10 @@ impl TenderdashDocker {
     /// # Arguments
     ///
     /// * `tag` - Docker tag to use; provide empty string to use default
-    /// * `app_address` - address of ABCI app server; either
-    ///   'tcp://1.2.3.4:4567' or 'unix:///path/to/file'
-    pub(crate) fn new(tag: &str, app_address: &str) -> TenderdashDocker {
+    /// * `app_address` - address of ABCI app server; for example,
+    ///   `tcp://172.17.0.1:4567`, `tcp://[::ffff:ac11:1]:5678` or
+    ///   `unix:///path/to/file`
+    pub(crate) fn new(container_name: &str, tag: &str, app_address: &str) -> TenderdashDocker {
         // let tag = String::from(tenderdash_proto::VERSION);
         let tag = if tag.is_empty() {
             tenderdash_proto::VERSION
@@ -56,6 +59,7 @@ impl TenderdashDocker {
 
         let mut td: TenderdashDocker = TenderdashDocker {
             id: Default::default(),
+            name: container_name.to_string(),
             docker,
             image: format!("dashpay/tenderdash:{}", tag),
             runtime,
@@ -162,7 +166,7 @@ impl TenderdashDocker {
             .docker
             .create_container::<String, String>(
                 Some(bollard::container::CreateContainerOptions {
-                    name: String::from("tenderdash"),
+                    name: self.name.clone(),
                     ..Default::default()
                 }),
                 container_config,

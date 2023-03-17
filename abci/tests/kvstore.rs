@@ -51,7 +51,7 @@ fn test_kvstore() {
     fs::set_permissions(SOCKET, perms).expect("set perms");
 
     let socket_uri = bind_address.to_string();
-    let _td = common::docker::TenderdashDocker::new("fix-docker-init", &socket_uri);
+    let _td = common::docker::TenderdashDocker::new("tenderdash", "fix-docker-init", &socket_uri);
 
     assert!(matches!(server.handle_connection(), Ok(())));
     drop(server);

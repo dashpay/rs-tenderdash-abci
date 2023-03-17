@@ -31,6 +31,7 @@ fn test_unix_socket_server() {
     fs::set_permissions(SOCKET, perms).expect("set perms");
 
     let td = Arc::new(common::docker::TenderdashDocker::new(
+        "tenderdash_unix",
         "fix-docker-init",
         &bind_address,
     ));

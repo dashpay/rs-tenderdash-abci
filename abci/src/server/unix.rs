@@ -15,15 +15,18 @@ pub(super) struct UnixSocketServer<App: RequestDispatcher> {
 }
 
 impl<App: RequestDispatcher> UnixSocketServer<App> {
-    pub(super) fn bind(
+    pub(super) fn bind<P>(
         app: App,
-        socket_file: &Path,
+        socket_file: P,
         read_buf_size: usize,
-    ) -> Result<UnixSocketServer<App>, Error> {
+    ) -> Result<UnixSocketServer<App>, Error>
+    where
+        P: AsRef<Path>,
+    {
+        let socket_file = socket_file.as_ref();
         fs::remove_file(socket_file).ok();
 
         let listener = UnixListener::bind(socket_file)?;
-        let socket_file = socket_file.to_path_buf();
         info!(
             "ABCI Unix server running at {:?}",
             socket_file.to_str().expect("wrong socket path")

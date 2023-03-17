@@ -22,9 +22,6 @@ const SOCKET: &str = "/tmp/abci.sock";
 #[test]
 fn test_kvstore() {
     use std::{fs, os::unix::prelude::PermissionsExt};
-
-    use tenderdash_abci::BindAddress;
-
     tracing_subscriber::fmt()
         .with_max_level(LevelFilter::DEBUG)
         .init();
@@ -46,7 +43,7 @@ fn test_kvstore() {
     let mut state_reference = BTreeMap::new();
     state_reference.insert("ayy".to_owned(), "lmao".to_owned());
 
-    let bind_address = BindAddress::UnixSocket(SOCKET.to_string());
+    let bind_address = format!("unix://{}", SOCKET);
     let app = TestDispatcher::new(abci_app);
     let server = start_server(&bind_address, app).expect("server failed");
 

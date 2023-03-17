@@ -4,7 +4,7 @@ use tenderdash_abci::{Error, RequestDispatcher};
 mod common;
 use std::{fs, os::unix::prelude::PermissionsExt};
 
-use tenderdash_abci::{proto, start_server, BindAddress};
+use tenderdash_abci::{proto, start_server};
 use tracing_subscriber::filter::LevelFilter;
 
 const SOCKET: &str = "/tmp/abci.sock";
@@ -22,7 +22,7 @@ fn test_unix_socket_server() {
         .with_max_level(LevelFilter::DEBUG)
         .init();
 
-    let bind_address = BindAddress::UnixSocket(SOCKET.to_string());
+    let bind_address = format!("unix://{}", SOCKET);
 
     let app = TestDispatcher {};
     let server = start_server(&bind_address, app).expect("server failed");
@@ -30,12 +30,9 @@ fn test_unix_socket_server() {
     let perms = fs::Permissions::from_mode(0o777);
     fs::set_permissions(SOCKET, perms).expect("set perms");
 
-    let socket_uri = bind_address.to_string();
-    assert_eq!(socket_uri, format!("unix://{}", SOCKET));
-
     let td = Arc::new(common::docker::TenderdashDocker::new(
         "fix-docker-init",
-        &socket_uri,
+        &bind_address,
     ));
 
     common::docker::setup_td_logs_panic(&td);

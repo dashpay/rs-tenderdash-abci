@@ -1,4 +1,4 @@
-use tenderdash_abci::{proto, start_server, Application, BindAddress};
+use tenderdash_abci::{proto, start_server, Application};
 use tracing::info;
 use tracing_subscriber::filter::LevelFilter;
 
@@ -11,7 +11,7 @@ pub fn main() {
     info!("Unix socket ABCI server example.");
     info!("This application listens on {SOCKET} and waits for incoming Tenderdash requests.");
 
-    let socket = BindAddress::UnixSocket(SOCKET.to_string());
+    let socket = format!("unix://{}", SOCKET);
     let server = start_server(&socket, EchoApp {}).expect("server failed");
     loop {
         match server.handle_connection() {

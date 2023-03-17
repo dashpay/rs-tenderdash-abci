@@ -3,15 +3,14 @@ mod codec;
 mod tcp;
 mod unix;
 
-use core::fmt;
 use std::{
-    fmt::Display,
     io::{Read, Write},
-    net::{Ipv4Addr, SocketAddr, SocketAddrV4},
+    net::{IpAddr, SocketAddr, SocketAddrV4, SocketAddrV6},
+    str::FromStr,
 };
 
-use serde::{Deserialize, Serialize};
 use tracing::info;
+use url::Host;
 
 use self::{tcp::TcpServer, unix::UnixSocketServer};
 use crate::{application::RequestDispatcher, server::codec::Codec, Error};
@@ -37,28 +36,6 @@ pub trait Server {
     fn handle_connection(&self) -> Result<(), Error>;
 }
 
-/// Address to listen on, either TCP address or Unix Socket path
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub enum BindAddress {
-    UnixSocket(String),
-    TCP(SocketAddr),
-}
-
-impl Default for BindAddress {
-    fn default() -> Self {
-        let addr = SocketAddrV4::new(Ipv4Addr::new(127, 0, 0, 1), 6783);
-        BindAddress::TCP(SocketAddr::V4(addr))
-    }
-}
-impl Display for BindAddress {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            BindAddress::UnixSocket(s) => write!(f, "unix://{s}"),
-            BindAddress::TCP(s) => write!(f, "tcp://").and_then(|_| s.fmt(f)),
-        }
-    }
-}
-
 /// Create new ABCI server and bind to provided address/port or socket.
 ///
 /// Use [`handle_connection()`] to accept connection and process all traffic in
@@ -66,8 +43,8 @@ impl Display for BindAddress {
 ///
 /// # Arguments
 ///
-/// * `address` - a [BindAddress], pointing either to TCP address and port or
-///   Unix socket
+/// * `address` - address in URI format, pointing either to TCP address and port
+///   (eg. `tcp://0.0.0.0:1234`) or Unix socket (`unix:///var/run/abci.sock`)
 /// * `app` - request dispatcher, most likely implementation of Application
 ///   trait
 ///
@@ -85,24 +62,43 @@ impl Display for BindAddress {
 /// struct MyAbciApplication {};
 /// impl tenderdash_abci::Application for MyAbciApplication {};
 /// let app = MyAbciApplication {};
-/// let bind_address = tenderdash_abci::BindAddress::UnixSocket("/tmp/abci.sock".to_string());
+/// let bind_address = "unix:///tmp/abci.sock";
 /// let server = tenderdash_abci::start_server(&bind_address, app).expect("server failed");
 /// loop {
 ///     server.handle_connection();
 /// }
 /// ```
-pub fn start_server<'a, App: RequestDispatcher + 'a>(
-    bind_address: &BindAddress,
+pub fn start_server<'a, App: RequestDispatcher + 'a, Addr>(
+    bind_address: Addr,
     app: App,
-) -> Result<Box<dyn Server + 'a>, crate::Error> {
-    let server = match bind_address {
-        BindAddress::TCP(addr) => Box::new(TcpServer::bind(app, addr)?) as Box<dyn Server + 'a>,
+) -> Result<Box<dyn Server + 'a>, crate::Error>
+where
+    Addr: AsRef<str>,
+{
+    let app_address = url::Url::parse(bind_address.as_ref()).expect("invalid app address");
+    if app_address.scheme() != "tcp" && app_address.scheme() != "unix" {
+        panic!("app_address must be either tcp:// or unix://");
+    }
 
-        BindAddress::UnixSocket(socket_file) => Box::new(UnixSocketServer::bind(
+    let server = match app_address.scheme() {
+        "tcp" => {
+            let host = app_address.host_str().unwrap();
+            let port = app_address.port().expect("tcp port is required");
+
+            let ip = IpAddr::from_str(host).expect("listen address isnot a valid IP: {host}");
+            let addr = match ip {
+                IpAddr::V4(a) => SocketAddr::V4(SocketAddrV4::new(a, port)),
+                IpAddr::V6(a) => SocketAddr::V6(SocketAddrV6::new(a, port, 0, 0)),
+            };
+
+            Box::new(TcpServer::bind(app, addr)?) as Box<dyn Server + 'a>
+        },
+        "unix" => Box::new(UnixSocketServer::bind(
             app,
-            socket_file.as_ref(),
+            app_address.path(),
             DEFAULT_SERVER_READ_BUF_SIZE,
         )?) as Box<dyn Server + 'a>,
+        _ => panic!("unsupported scheme {}", app_address.scheme()),
     };
 
     Ok(server)

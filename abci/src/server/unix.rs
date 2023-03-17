@@ -28,7 +28,9 @@ impl<App: RequestDispatcher> UnixSocketServer<App> {
 
         let listener = UnixListener::bind(socket_file)?;
         info!(
-            "ABCI Unix server running at {:?}",
+            "ABCI Unix server {} with proto {} running at {:?}",
+            env!("CARGO_PKG_VERSION"),
+            tenderdash_proto::VERSION,
             socket_file.to_str().expect("wrong socket path")
         );
 

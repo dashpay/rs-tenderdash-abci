@@ -130,7 +130,7 @@ where
 fn parse_tcp_uri(uri: url::Url) -> SocketAddr {
     let host = uri.host_str().unwrap();
     // remove '[' and ']' from ipv6 address, as per https://github.com/servo/rust-url/issues/770
-    let host = host.replace('[', "").replace(']', "");
+    let host = host.replace(['[', ']'], "");
     let port = uri.port().expect("missing tcp port");
 
     let ip = IpAddr::from_str(host.as_str())

@@ -10,7 +10,6 @@ use std::{
 };
 
 use tracing::info;
-use url::Host;
 
 use self::{tcp::TcpServer, unix::UnixSocketServer};
 use crate::{application::RequestDispatcher, server::codec::Codec, Error};
@@ -44,7 +43,8 @@ pub trait Server {
 /// # Arguments
 ///
 /// * `address` - address in URI format, pointing either to TCP address and port
-///   (eg. `tcp://0.0.0.0:1234`) or Unix socket (`unix:///var/run/abci.sock`)
+///   (eg. `tcp://0.0.0.0:1234`, `tcp://[::1]:1234`) or Unix socket
+///   (`unix:///var/run/abci.sock`)
 /// * `app` - request dispatcher, most likely implementation of Application
 ///   trait
 ///
@@ -82,23 +82,17 @@ where
 
     let server = match app_address.scheme() {
         "tcp" => {
-            let host = app_address.host_str().unwrap();
-            let port = app_address.port().expect("tcp port is required");
-
-            let ip = IpAddr::from_str(host).expect("listen address isnot a valid IP: {host}");
-            let addr = match ip {
-                IpAddr::V4(a) => SocketAddr::V4(SocketAddrV4::new(a, port)),
-                IpAddr::V6(a) => SocketAddr::V6(SocketAddrV6::new(a, port, 0, 0)),
-            };
-
-            Box::new(TcpServer::bind(app, addr)?) as Box<dyn Server + 'a>
+            Box::new(TcpServer::bind(app, parse_tcp_uri(app_address))?) as Box<dyn Server + 'a>
         },
         "unix" => Box::new(UnixSocketServer::bind(
             app,
             app_address.path(),
             DEFAULT_SERVER_READ_BUF_SIZE,
         )?) as Box<dyn Server + 'a>,
-        _ => panic!("unsupported scheme {}", app_address.scheme()),
+        _ => panic!(
+            "listen address uses unsupported scheme `{}`",
+            app_address.scheme()
+        ),
     };
 
     Ok(server)
@@ -130,5 +124,50 @@ where
         };
 
         codec.send(response)?;
+    }
+}
+
+fn parse_tcp_uri(uri: url::Url) -> SocketAddr {
+    let host = uri.host_str().unwrap();
+    // remove '[' and ']' from ipv6 address, as per https://github.com/servo/rust-url/issues/770
+    let host = host.replace("[", "").replace("]", "");
+    let port = uri.port().expect("missing tcp port");
+
+    let ip =
+        IpAddr::from_str(host.as_str()).expect(format!("invalid listen address {}", host).as_str());
+    match ip {
+        IpAddr::V4(a) => SocketAddr::V4(SocketAddrV4::new(a, port)),
+        IpAddr::V6(a) => SocketAddr::V6(SocketAddrV6::new(a, port, 0, 0)),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::server::parse_tcp_uri;
+
+    #[test]
+    fn test_parse_tcp_uri() {
+        struct TestCase<'a> {
+            uri: &'a str,
+            expect: &'a str,
+        }
+
+        let test_cases = [
+            TestCase {
+                uri: "tcp://0.0.0.0:1234",
+                expect: "0.0.0.0:1234",
+            },
+            TestCase {
+                uri: "tcp://[::1]:1234",
+                expect: "[::1]:1234",
+            },
+        ];
+
+        for test_case in test_cases {
+            let uri = url::Url::parse(test_case.uri).unwrap();
+
+            let addr = parse_tcp_uri(uri);
+            assert_eq!(test_case.expect, addr.to_string());
+        }
     }
 }

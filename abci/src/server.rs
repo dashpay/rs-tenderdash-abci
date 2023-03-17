@@ -133,8 +133,8 @@ fn parse_tcp_uri(uri: url::Url) -> SocketAddr {
     let host = host.replace('[', "").replace(']', "");
     let port = uri.port().expect("missing tcp port");
 
-    let ip =
-        IpAddr::from_str(host.as_str()).expect(format!("invalid listen address {}", host).as_str());
+    let ip = IpAddr::from_str(host.as_str())
+        .unwrap_or_else(|e| panic!("invalid listen address {}: {}", host, e));
     match ip {
         IpAddr::V4(a) => SocketAddr::V4(SocketAddrV4::new(a, port)),
         IpAddr::V6(a) => SocketAddr::V6(SocketAddrV6::new(a, port, 0, 0)),

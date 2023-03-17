@@ -33,12 +33,16 @@ impl TenderdashDocker {
     /// * `app_address` - address of ABCI app server; for example,
     ///   `tcp://172.17.0.1:4567`, `tcp://[::ffff:ac11:1]:5678` or
     ///   `unix:///path/to/file`
-    pub(crate) fn new(container_name: &str, tag: &str, app_address: &str) -> TenderdashDocker {
+    pub(crate) fn new(
+        container_name: &str,
+        tag: Option<&str>,
+        app_address: &str,
+    ) -> TenderdashDocker {
         // let tag = String::from(tenderdash_proto::VERSION);
-        let tag = if tag.is_empty() {
-            tenderdash_proto::VERSION
-        } else {
-            tag
+        let tag = match tag {
+            None => tenderdash_proto::VERSION,
+            Some("") => tenderdash_proto::VERSION,
+            Some(tag) => tag,
         };
 
         let app_address = url::Url::parse(app_address).expect("invalid app address");

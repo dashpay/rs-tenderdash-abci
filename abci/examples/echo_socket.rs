@@ -1,6 +1,4 @@
-use std::path::Path;
-
-use tenderdash_abci::{proto, start_unix, Application};
+use tenderdash_abci::{proto, start_server, Application};
 use tracing::info;
 use tracing_subscriber::filter::LevelFilter;
 
@@ -13,8 +11,8 @@ pub fn main() {
     info!("Unix socket ABCI server example.");
     info!("This application listens on {SOCKET} and waits for incoming Tenderdash requests.");
 
-    let socket = Path::new(SOCKET);
-    let server = start_unix(socket, EchoApp {}).expect("server failed");
+    let socket = format!("unix://{}", SOCKET);
+    let server = start_server(&socket, EchoApp {}).expect("server failed");
     loop {
         match server.handle_connection() {
             Ok(_) => {},

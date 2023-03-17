@@ -1,8 +1,11 @@
-use std::{path::Path, sync::Arc};
+use std::sync::Arc;
 
-use tenderdash_abci::{start_unix, Error, RequestDispatcher};
+use tenderdash_abci::{Error, RequestDispatcher};
 mod common;
-use tenderdash_abci::proto;
+use std::{fs, os::unix::prelude::PermissionsExt};
+
+use tenderdash_abci::{proto, start_server};
+use tracing_subscriber::filter::LevelFilter;
 
 const SOCKET: &str = "/tmp/abci.sock";
 
@@ -15,25 +18,22 @@ const SOCKET: &str = "/tmp/abci.sock";
 /// * When we estabilish connection with Tenderdash
 /// * Then Tenderdash sends Info request
 fn test_unix_socket_server() {
-    use std::{fs, os::unix::prelude::PermissionsExt};
-
-    use tracing_subscriber::filter::LevelFilter;
-
     tracing_subscriber::fmt()
         .with_max_level(LevelFilter::DEBUG)
         .init();
 
-    let socket = Path::new(SOCKET);
+    let bind_address = format!("unix://{}", SOCKET);
+
     let app = TestDispatcher {};
-    let server = start_unix(socket, app).expect("server failed");
+    let server = start_server(&bind_address, app).expect("server failed");
 
     let perms = fs::Permissions::from_mode(0o777);
-    fs::set_permissions(socket, perms).expect("set perms");
+    fs::set_permissions(SOCKET, perms).expect("set perms");
 
-    let socket_uri = format!("unix://{}", socket.to_str().unwrap());
     let td = Arc::new(common::docker::TenderdashDocker::new(
+        "tenderdash_unix",
         "fix-docker-init",
-        &socket_uri,
+        &bind_address,
     ));
 
     common::docker::setup_td_logs_panic(&td);

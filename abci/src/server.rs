@@ -158,8 +158,16 @@ mod tests {
                 expect: "0.0.0.0:1234",
             },
             TestCase {
+                uri: "tcp://[::]:1234",
+                expect: "[::]:1234",
+            },
+            TestCase {
                 uri: "tcp://[::1]:1234",
                 expect: "[::1]:1234",
+            },
+            TestCase {
+                uri: "tcp://[::ffff:ac11:1]:5678",
+                expect: "[::ffff:172.17.0.1]:5678",
             },
         ];
 

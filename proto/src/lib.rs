@@ -37,8 +37,10 @@ pub mod serializers;
 
 use prelude::*;
 
-/// Version of Tenderdash Proto bindings
-pub const VERSION: &str = env!("CARGO_PKG_VERSION");
+/// Version of Tenderdash server used to generate protobuf configs
+pub const TENDERDASH_VERSION: &str = env!("CARGO_PKG_VERSION");
+
+pub use tenderdash::meta::ABCI_VERSION;
 
 /// Allows for easy Google Protocol Buffers encoding and decoding of domain
 /// types with validation.

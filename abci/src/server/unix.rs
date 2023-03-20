@@ -30,7 +30,7 @@ impl<App: RequestDispatcher> UnixSocketServer<App> {
         info!(
             "ABCI Unix server {} with proto {} running at {:?}",
             env!("CARGO_PKG_VERSION"),
-            tenderdash_proto::VERSION,
+            tenderdash_proto::TENDERDASH_VERSION,
             socket_file.to_str().expect("wrong socket path")
         );
 

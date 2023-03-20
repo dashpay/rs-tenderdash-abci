@@ -25,7 +25,7 @@ impl<App: RequestDispatcher> TcpServer<App> {
         info!(
             "ABCI TCP server  {} with proto {} running at {}",
             env!("CARGO_PKG_VERSION"),
-            tenderdash_proto::VERSION,
+            tenderdash_proto::TENDERDASH_VERSION,
             local_addr
         );
         let server = TcpServer { app, listener };

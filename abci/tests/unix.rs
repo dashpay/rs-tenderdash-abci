@@ -32,7 +32,7 @@ fn test_unix_socket_server() {
 
     let td = Arc::new(common::docker::TenderdashDocker::new(
         "tenderdash_unix",
-        "fix-docker-init",
+        None,
         &bind_address,
     ));
 

@@ -22,7 +22,12 @@ impl<App: RequestDispatcher> TcpServer<App> {
     {
         let listener = TcpListener::bind(addr)?;
         let local_addr = listener.local_addr()?;
-        info!("ABCI server running at {}", local_addr);
+        info!(
+            "ABCI TCP server  {} with proto {} running at {}",
+            env!("CARGO_PKG_VERSION"),
+            tenderdash_proto::ABCI_VERSION,
+            local_addr
+        );
         let server = TcpServer { app, listener };
         Ok(server)
     }

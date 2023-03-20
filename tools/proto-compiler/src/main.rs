@@ -4,7 +4,8 @@ use tempfile::tempdir;
 
 mod functions;
 use functions::{
-    copy_files, fetch_commitish, find_proto_files, generate_tenderdash_lib, tenderdash_commitish,
+    abci_version, copy_files, fetch_commitish, find_proto_files, generate_tenderdash_lib,
+    tenderdash_commitish,
 };
 
 mod constants;
@@ -72,12 +73,17 @@ fn main() {
         ".google.protobuf.Timestamp",
         "super::super::google::protobuf::Timestamp",
     );
+
+    println!("[info] => Determining ABCI protocol version.");
+    let abci_ver = abci_version(tenderdash_dir);
+
     println!("[info] => Creating structs.");
     pb.compile_protos(&protos, &proto_includes_paths).unwrap();
 
     println!("[info] => Removing old structs and copying new structs.");
     copy_files(&out_dir, &target_dir); // This panics if it fails.
-    generate_tenderdash_lib(&out_dir, &tenderdash_lib_target);
+
+    generate_tenderdash_lib(&out_dir, &tenderdash_lib_target, &abci_ver);
 
     println!("[info] => Done!");
 }

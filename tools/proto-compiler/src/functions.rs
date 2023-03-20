@@ -1,6 +1,6 @@
 use std::{
     env,
-    fs::{copy, create_dir_all, remove_dir_all, File},
+    fs::{copy, create_dir_all, read_to_string, remove_dir_all, File},
     io::Write,
     path::{Path, PathBuf},
 };
@@ -213,8 +213,27 @@ pub fn find_proto_files(proto_paths: Vec<PathBuf>) -> Vec<PathBuf> {
     protos
 }
 
+pub fn abci_version<T: AsRef<Path>>(dir: T) -> String {
+    let mut file_path = dir.as_ref().to_path_buf();
+    file_path.push("version/version.go");
+
+    let contents = read_to_string(&file_path).expect("cannot read version/version.go");
+    use regex::Regex;
+
+    let re = Regex::new(r##"(?m)^\s+ABCISemVer\s*=\s*"([^"]+)"\s+*$"##).unwrap();
+    let captures = re
+        .captures(&contents)
+        .expect("cannot find ABCISemVer in version/version.go");
+
+    captures
+        .get(1)
+        .expect("ABCISemVer not found in version/version.go")
+        .as_str()
+        .to_string()
+}
+
 /// Create tenderdash.rs with library information
-pub fn generate_tenderdash_lib(prost_dir: &Path, tenderdash_lib_target: &Path) {
+pub fn generate_tenderdash_lib(prost_dir: &Path, tenderdash_lib_target: &Path, abci_version: &str) {
     let mut file_names = WalkDir::new(prost_dir)
         .into_iter()
         .filter_map(|e| e.ok())
@@ -263,12 +282,20 @@ pub fn generate_tenderdash_lib(prost_dir: &Path, tenderdash_lib_target: &Path) {
 
     // Add meta
     content = format!(
-        "{}\npub mod meta {{\n{}pub const REPOSITORY: &str = \"{}\";\n{}pub const COMMITISH: &str = \"{}\";\n}}\n",
+        "{}
+pub mod meta {{
+    pub const REPOSITORY: &str = \"{}\";
+    pub const COMMITISH: &str = \"{}\";
+    /// Semantic version of ABCI protocol
+    pub const ABCI_VERSION: &str = \"{}\";
+    /// Version of Tenderdash server used to generate protobuf configs
+    pub const TENDERDASH_VERSION: &str = env!(\"CARGO_PKG_VERSION\");
+}}
+",
         content,
-        tab,
         crate::constants::TENDERDASH_REPO,
-        tab,
         tenderdash_commitish(),
+        abci_version,
     );
 
     let mut file =

@@ -56,7 +56,7 @@ fn tcp_server_test(test_name: &str, bind_address: &str) {
 
     let td = Arc::new(common::docker::TenderdashDocker::new(
         &container_name,
-        "fix-docker-init",
+        None,
         &socket_uri,
     ));
 

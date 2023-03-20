@@ -288,6 +288,8 @@ pub fn generate_tenderdash_lib(prost_dir: &Path, tenderdash_lib_target: &Path, a
             \tpub const COMMITISH: &str = \"{}\";\n\
             \t/// Semantic version of ABCI protocol\n\
             \tpub const ABCI_VERSION: &str = \"{}\";\n\
+            \t/// Version of Tenderdash server used to generate protobuf configs\n\
+            \tpub const TENDERDASH_VERSION: &str = env!(\"CARGO_PKG_VERSION\");\n\
         }}
         ",
         content,

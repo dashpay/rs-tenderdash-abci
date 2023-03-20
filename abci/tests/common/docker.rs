@@ -40,8 +40,8 @@ impl TenderdashDocker {
     ) -> TenderdashDocker {
         // let tag = String::from(tenderdash_proto::VERSION);
         let tag = match tag {
-            None => tenderdash_proto::TENDERDASH_VERSION,
-            Some("") => tenderdash_proto::TENDERDASH_VERSION,
+            None => tenderdash_proto::meta::TENDERDASH_VERSION,
+            Some("") => tenderdash_proto::meta::TENDERDASH_VERSION,
             Some(tag) => tag,
         };
 

@@ -282,16 +282,16 @@ pub fn generate_tenderdash_lib(prost_dir: &Path, tenderdash_lib_target: &Path, a
 
     // Add meta
     content = format!(
-        "{}\
-        pub mod meta {{\n\
-            \tpub const REPOSITORY: &str = \"{}\";\n\
-            \tpub const COMMITISH: &str = \"{}\";\n\
-            \t/// Semantic version of ABCI protocol\n\
-            \tpub const ABCI_VERSION: &str = \"{}\";\n\
-            \t/// Version of Tenderdash server used to generate protobuf configs\n\
-            \tpub const TENDERDASH_VERSION: &str = env!(\"CARGO_PKG_VERSION\");\n\
-        }}
-        ",
+        "{}
+pub mod meta {{
+    pub const REPOSITORY: &str = \"{}\";
+    pub const COMMITISH: &str = \"{}\";
+    /// Semantic version of ABCI protocol
+    pub const ABCI_VERSION: &str = \"{}\";
+    /// Version of Tenderdash server used to generate protobuf configs
+    pub const TENDERDASH_VERSION: &str = env!(\"CARGO_PKG_VERSION\");
+}}
+",
         content,
         crate::constants::TENDERDASH_REPO,
         tenderdash_commitish(),

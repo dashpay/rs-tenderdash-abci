@@ -6,10 +6,11 @@ mod unix;
 use std::{
     io::{Read, Write},
     net::{IpAddr, SocketAddr, SocketAddrV4, SocketAddrV6},
+    panic::RefUnwindSafe,
     str::FromStr,
 };
 
-use tracing::info;
+use tracing::{error, info};
 
 use self::{tcp::TcpServer, unix::UnixSocketServer};
 use crate::{application::RequestDispatcher, server::codec::Codec, Error};
@@ -23,7 +24,7 @@ pub(crate) const DEFAULT_SERVER_READ_BUF_SIZE: usize = 1024 * 1024;
 /// Use [`Server::handle_connection()`] to accept connection and process all
 /// traffic in this connection. Each incoming connection will be processed using
 /// `app`.
-pub trait Server {
+pub trait Server: RefUnwindSafe {
     /// Process one incoming connection.
     ///
     /// Returns when the connection is terminated or RequestDispatcher returns
@@ -114,7 +115,7 @@ where
 
     loop {
         let Some(request) = codec.receive()? else {
-            info!("Client {} terminated stream", name);
+            error!("Client {} terminated stream", name);
             return Ok(())
         };
         let Some(response) = app.handle(request)? else {

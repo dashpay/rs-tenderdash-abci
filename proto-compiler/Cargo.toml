@@ -3,6 +3,7 @@ name = "tenderdash-proto-compiler"
 version = "0.1.0"
 authors = ["Informal Systems <hello@informal.systems>"]
 edition = "2021"
+description = "Internal tool to download and build tenderdash protobuf definitions; used by proto/build.rs"
 publish = false
 
 [lib]

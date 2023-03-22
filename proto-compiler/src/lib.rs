@@ -16,16 +16,10 @@ pub fn proto_compile() -> Result<(), ()> {
     let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
     let tenderdash_lib_target = root
         .join("..")
-        .join("..")
         .join("proto")
         .join("src")
         .join("tenderdash.rs");
-    let target_dir = root
-        .join("..")
-        .join("..")
-        .join("proto")
-        .join("src")
-        .join("prost");
+    let target_dir = root.join("..").join("proto").join("src").join("prost");
     let out_dir = var("OUT_DIR")
         .map(PathBuf::from)
         .or_else(|_| tempdir().map(|d| d.into_path()))

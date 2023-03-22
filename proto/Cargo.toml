@@ -39,4 +39,4 @@ flex-error = { version = "0.4.4", default-features = false }
 [dev-dependencies]
 serde_json = { version = "1.0", default-features = false, features = ["alloc"] }
 [build-dependencies]
-tenderdash-proto-compiler = { path = "../tools/proto-compiler" }
+tenderdash-proto-compiler = { path = "../proto-compiler" }

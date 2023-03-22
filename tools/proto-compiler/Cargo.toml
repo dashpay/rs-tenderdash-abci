@@ -5,6 +5,8 @@ authors = ["Informal Systems <hello@informal.systems>"]
 edition = "2021"
 publish = false
 
+[lib]
+
 [dependencies]
 walkdir = { version = "2.3" }
 prost-build = { version = "0.11" }

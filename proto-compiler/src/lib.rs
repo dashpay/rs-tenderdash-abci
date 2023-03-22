@@ -14,11 +14,12 @@ use functions::{
 mod constants;
 use constants::{CUSTOM_FIELD_ATTRIBUTES, CUSTOM_TYPE_ATTRIBUTES, TENDERDASH_REPO};
 
-#[derive(Debug)]
-pub struct Error {}
-
-/// Import and compile protobuf definitions for Tenderdash
-pub fn proto_compile() -> Result<(), Error> {
+/// Import and compile protobuf definitions for Tenderdash.
+///
+/// Checkouts tenderdash repository to ../target/tenderdash and generates
+/// Rust protobuf definitions in ../proto/src/prost/ and
+/// ../proto/src/tenderdash.rs
+pub fn proto_compile() {
     let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
     let tenderdash_lib_target = root
         .join("..")
@@ -91,6 +92,4 @@ pub fn proto_compile() -> Result<(), Error> {
     generate_tenderdash_lib(&out_dir, &tenderdash_lib_target, &abci_ver);
 
     println!("[info] => Done!");
-
-    Ok(())
 }

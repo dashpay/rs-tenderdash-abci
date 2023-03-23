@@ -17,7 +17,9 @@ use crate::constants::DEFAULT_TENDERDASH_COMMITISH;
 /// Clone or open+fetch a repository and check out a specific commitish
 /// In case of an existing repository, the origin remote will be set to `url`.
 pub fn fetch_commitish(dir: &Path, url: &str, commitish: &str) {
-    let repo = if dir.exists() {
+    let mut dotgit = dir.to_path_buf();
+    dotgit.push(".git");
+    let repo = if dotgit.is_dir() {
         fetch_existing(dir, url)
     } else {
         clone_new(dir, url)
@@ -130,8 +132,9 @@ fn find_reference_or_commit<'a>(
         tried_origin = true;
         if try_reference.is_err() {
             // Remote branch not found, last chance: try as a commit ID
-            // Note: Oid::from_str() currently does an incorrect conversion and cuts the second half
-            // of the ID. We are falling back on Oid::from_bytes() for now.
+            // Note: Oid::from_str() currently does an incorrect conversion and cuts the
+            // second half of the ID. We are falling back on Oid::from_bytes()
+            // for now.
             let commitish_vec = hex::decode(commitish).unwrap_or_else(|_| {
                 hex::decode_upper(commitish).expect(
                     "TENDERDASH_COMMITISH refers to non-existing or invalid git branch/tag/commit",

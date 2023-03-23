@@ -21,7 +21,8 @@ const HEXSTRING: &str = r#"#[serde(with = "crate::serializers::bytes::hexstring"
 const BASE64STRING: &str = r#"#[serde(with = "crate::serializers::bytes::base64string")]"#;
 const VEC_BASE64STRING: &str = r#"#[serde(with = "crate::serializers::bytes::vec_base64string")]"#;
 const OPTIONAL: &str = r#"#[serde(with = "crate::serializers::optional")]"#;
-// const BYTES_SKIP_IF_EMPTY: &str = r#"#[serde(skip_serializing_if = "bytes::Bytes::is_empty")]"#;
+// const BYTES_SKIP_IF_EMPTY: &str = r#"#[serde(skip_serializing_if =
+// "bytes::Bytes::is_empty")]"#;
 const NULLABLEVECARRAY: &str = r#"#[serde(with = "crate::serializers::txs")]"#;
 const NULLABLE: &str = r#"#[serde(with = "crate::serializers::nullable")]"#;
 const ALIAS_POWER_QUOTED: &str =
@@ -34,7 +35,8 @@ const RENAME_SRPUBKEY: &str = r#"#[serde(rename = "tenderdash/PubKeySr25519", wi
 const RENAME_DUPLICATEVOTE: &str = r#"#[serde(rename = "tenderdash/DuplicateVoteEvidence")]"#;
 const RENAME_LIGHTCLIENTATTACK: &str =
     r#"#[serde(rename = "tenderdash/LightClientAttackEvidence")]"#;
-// const EVIDENCE_VARIANT: &str = r#"#[serde(from = "crate::serializers::evidence::EvidenceVariant",
+// const EVIDENCE_VARIANT: &str = r#"#[serde(from =
+// "crate::serializers::evidence::EvidenceVariant",
 // into = "crate::serializers::evidence::EvidenceVariant")]"#;
 const ALIAS_VALIDATOR_POWER_QUOTED: &str =
     r#"#[serde(alias = "ValidatorPower", with = "crate::serializers::from_str")]"#;
@@ -42,12 +44,12 @@ const ALIAS_TOTAL_VOTING_POWER_QUOTED: &str =
     r#"#[serde(alias = "TotalVotingPower", with = "crate::serializers::from_str")]"#;
 const ALIAS_TIMESTAMP: &str = r#"#[serde(alias = "Timestamp")]"#;
 const ALIAS_PARTS: &str = r#"#[serde(alias = "parts")]"#;
-
+const DERIVE_FROM: &str = r#"#[derive(derive_more::From)]"#;
 /// Custom type attributes applied on top of protobuf structs
-/// The first item in the tuple defines the message where the annotation should apply and
-/// the second item is the string that should be added as annotation.
-/// The first item is a path as defined in the prost_build::Config::btree_map here:
-/// <https://docs.rs/prost-build/0.6.1/prost_build/struct.Config.html#method.btree_map>
+/// The first item in the tuple defines the message where the annotation should
+/// apply and the second item is the string that should be added as annotation.
+/// The first item is a path as defined in the prost_build::Config::btree_map
+/// here: <https://docs.rs/prost-build/0.6.1/prost_build/struct.Config.html#method.btree_map>
 pub static CUSTOM_TYPE_ATTRIBUTES: &[(&str, &str)] = &[
     (".tendermint.libs.bits.BitArray", SERIALIZED),
     (".tendermint.types.EvidenceParams", SERIALIZED),
@@ -83,13 +85,14 @@ pub static CUSTOM_TYPE_ATTRIBUTES: &[(&str, &str)] = &[
     // (".tendermint.types.Evidence", EVIDENCE_VARIANT),
     (".tendermint.types.TxProof", SERIALIZED),
     (".tendermint.crypto.Proof", SERIALIZED),
+    (".tendermint.abci.Response.value", DERIVE_FROM),
 ];
 
 /// Custom field attributes applied on top of protobuf fields in (a) struct(s)
-/// The first item in the tuple defines the field where the annotation should apply and
-/// the second item is the string that should be added as annotation.
-/// The first item is a path as defined in the prost_build::Config::btree_map here:
-/// <https://docs.rs/prost-build/0.6.1/prost_build/struct.Config.html#method.btree_map>
+/// The first item in the tuple defines the field where the annotation should
+/// apply and the second item is the string that should be added as annotation.
+/// The first item is a path as defined in the prost_build::Config::btree_map
+/// here: <https://docs.rs/prost-build/0.6.1/prost_build/struct.Config.html#method.btree_map>
 pub static CUSTOM_FIELD_ATTRIBUTES: &[(&str, &str)] = &[
     (
         ".tendermint.types.EvidenceParams.max_bytes",

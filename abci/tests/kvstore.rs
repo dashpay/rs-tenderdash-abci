@@ -12,7 +12,8 @@ use blake2::{
     digest::{consts::U32, FixedOutput},
     Blake2b, Digest,
 };
-use tenderdash_abci::{proto, start_server, Application, Error, RequestDispatcher};
+use proto::abci::{self, ResponseException};
+use tenderdash_abci::{check_version, proto, start_server, Application, RequestDispatcher};
 use tracing::{debug, error};
 use tracing_subscriber::filter::LevelFilter;
 
@@ -72,69 +73,19 @@ impl<'a> TestDispatcher<'a> {
 }
 
 impl RequestDispatcher for TestDispatcher<'_> {
-    fn handle(
-        &self,
-        request: proto::abci::Request,
-    ) -> Result<Option<proto::abci::Response>, Error> {
+    fn handle(&self, request: proto::abci::Request) -> Option<abci::Response> {
         debug!("Incoming request: {:?}", request);
-        let value = match request.value.unwrap() {
-            proto::abci::request::Value::Echo(req) => {
-                proto::abci::response::Value::Echo(self.abci_app.echo(req))
-            },
-            proto::abci::request::Value::Flush(req) => {
-                proto::abci::response::Value::Flush(self.abci_app.flush(req))
-            },
-            proto::abci::request::Value::Info(req) => {
-                proto::abci::response::Value::Info(self.abci_app.info(req))
-            },
-            proto::abci::request::Value::InitChain(req) => {
-                proto::abci::response::Value::InitChain(self.abci_app.init_chain(req))
-            },
-            proto::abci::request::Value::Query(req) => {
-                proto::abci::response::Value::Query(self.abci_app.query(req))
-            },
-            proto::abci::request::Value::CheckTx(req) => {
-                proto::abci::response::Value::CheckTx(self.abci_app.check_tx(req))
-            },
-            proto::abci::request::Value::OfferSnapshot(req) => {
-                proto::abci::response::Value::OfferSnapshot(self.abci_app.offer_snapshot(req))
-            },
-            proto::abci::request::Value::LoadSnapshotChunk(req) => {
-                proto::abci::response::Value::LoadSnapshotChunk(
-                    self.abci_app.load_snapshot_chunk(req),
-                )
-            },
-            proto::abci::request::Value::ApplySnapshotChunk(req) => {
-                proto::abci::response::Value::ApplySnapshotChunk(
-                    self.abci_app.apply_snapshot_chunk(req),
-                )
-            },
-            proto::abci::request::Value::ListSnapshots(req) => {
-                proto::abci::response::Value::ListSnapshots(self.abci_app.list_snapshots(req))
-            },
-            proto::abci::request::Value::PrepareProposal(req) => {
-                proto::abci::response::Value::PrepareProposal(self.abci_app.prepare_proposal(req))
-            },
-            proto::abci::request::Value::ProcessProposal(req) => {
-                proto::abci::response::Value::ProcessProposal(self.abci_app.process_proposal(req))
-            },
-            proto::abci::request::Value::FinalizeBlock(req) => {
-                proto::abci::response::Value::FinalizeBlock(self.abci_app.finalize_block(req));
-                // Shudown ABCI application after one block
-                return Ok(None);
-            },
-            proto::abci::request::Value::ExtendVote(req) => {
-                proto::abci::response::Value::ExtendVote(self.abci_app.extend_vote(req))
-            },
-            proto::abci::request::Value::VerifyVoteExtension(req) => {
-                proto::abci::response::Value::VerifyVoteExtension(
-                    self.abci_app.verify_vote_extension(req),
-                )
-            },
-        };
 
-        debug!("Response: {:?}", value);
-        Ok(Some(proto::abci::Response { value: Some(value) }))
+        if let Some(proto::abci::request::Value::FinalizeBlock(req)) = request.value {
+            self.abci_app
+                .finalize_block(req)
+                .expect("finalize block failed");
+
+            // Shudown ABCI application after one block
+            return None;
+        }
+        // We use generic dispatcher implementation here
+        self.abci_app.handle(request)
     }
 }
 
@@ -234,36 +185,49 @@ impl<'a> KVStoreABCI<'a> {
 }
 
 impl Application for KVStoreABCI<'_> {
-    fn info(&self, _request: proto::abci::RequestInfo) -> proto::abci::ResponseInfo {
+    fn info(
+        &self,
+        request: proto::abci::RequestInfo,
+    ) -> Result<abci::ResponseInfo, abci::ResponseException> {
         let kvstore_lock = self.lock_kvstore();
 
-        proto::abci::ResponseInfo {
+        if !check_version(&request.abci_version) {
+            return Err(abci::ResponseException {
+                error: format!(
+                    "version mismatch: tenderdash {} vs our {}",
+                    request.version,
+                    crate::proto::ABCI_VERSION
+                ),
+            });
+        }
+        
+        Ok(abci::ResponseInfo {
             data: "kvstore-rs".to_string(),
             version: "0.1.0".to_string(),
             app_version: 1,
             last_block_height: kvstore_lock.last_block_height() as i64,
             last_block_app_hash: kvstore_lock.calculate_persisted_state_hash().to_vec(),
-        }
+        })
     }
 
     fn init_chain(
         &self,
         _request: proto::abci::RequestInitChain,
-    ) -> proto::abci::ResponseInitChain {
+    ) -> Result<abci::ResponseInitChain, abci::ResponseException> {
         // Do nothing special as we're working with a simple example
-        proto::abci::ResponseInitChain {
+        Ok(abci::ResponseInitChain {
             app_hash: self
                 .lock_kvstore()
                 .calculate_persisted_state_hash()
                 .to_vec(),
             ..Default::default()
-        }
+        })
     }
 
     fn prepare_proposal(
         &self,
         request: proto::abci::RequestPrepareProposal,
-    ) -> proto::abci::ResponsePrepareProposal {
+    ) -> Result<abci::ResponsePrepareProposal, abci::ResponseException> {
         let mut kvstore_lock = self.lock_kvstore();
         assert_block_height(request.height, &kvstore_lock);
 
@@ -275,7 +239,7 @@ impl Application for KVStoreABCI<'_> {
             .collect::<Option<BTreeSet<Operation>>>()
         else {
             error!("Cannot decode transactions");
-            return Default::default();
+            return Err(abci::ResponseException {error:"cannot decode transactions".to_string()});
         };
 
         // Mark transactions that should be added to the proposed transactions
@@ -300,8 +264,8 @@ impl Application for KVStoreABCI<'_> {
             .collect();
 
         let Some(tx_records) = tx_records_encoded else {
-            error!("Cannot encode transactions");
-            return Default::default()
+            error!("cannot encode transactions");
+            return Err(ResponseException{error:"cannot encode transactions".to_string()});
         };
 
         // Put both local and proposed transactions into staging area
@@ -311,18 +275,18 @@ impl Application for KVStoreABCI<'_> {
 
         kvstore_lock.pending_operations = joined_transactions.cloned().collect();
 
-        proto::abci::ResponsePrepareProposal {
+        Ok(abci::ResponsePrepareProposal {
             tx_records,
             tx_results,
             app_hash: kvstore_lock.calculate_uncommited_state_hash().to_vec(),
             ..Default::default()
-        }
+        })
     }
 
     fn process_proposal(
         &self,
         request: proto::abci::RequestProcessProposal,
-    ) -> proto::abci::ResponseProcessProposal {
+    ) -> Result<abci::ResponseProcessProposal, abci::ResponseException> {
         let mut kvstore_lock = self.lock_kvstore();
 
         assert_block_height(request.height, &kvstore_lock);
@@ -334,8 +298,7 @@ impl Application for KVStoreABCI<'_> {
             .map(decode_transaction)
             .collect::<Option<BTreeSet<Operation>>>()
         else {
-            error!("Cannot decode transactions");
-            return Default::default();
+            return Err(ResponseException{error:"cannot decode transactions".to_string()});
         };
 
         let tx_results = tx_results_accept(td_proposed_transactions.len());
@@ -345,32 +308,33 @@ impl Application for KVStoreABCI<'_> {
 
         let app_hash = kvstore_lock.calculate_uncommited_state_hash().to_vec();
 
-        proto::abci::ResponseProcessProposal {
-            status: proto::abci::response_process_proposal::ProposalStatus::Accept.into(),
+        Ok(abci::ResponseProcessProposal {
+            status: abci::response_process_proposal::ProposalStatus::Accept.into(),
             tx_results,
             app_hash,
             ..Default::default()
-        }
+        })
     }
 
     fn extend_vote(
         &self,
         request: proto::abci::RequestExtendVote,
-    ) -> proto::abci::ResponseExtendVote {
+    ) -> Result<abci::ResponseExtendVote, abci::ResponseException> {
         // request.height
         let height = request.height.to_be_bytes().to_vec();
-        proto::abci::ResponseExtendVote {
+
+        Ok(abci::ResponseExtendVote {
             vote_extensions: vec![proto::abci::ExtendVoteExtension {
                 r#type: proto::types::VoteExtensionType::ThresholdRecover as i32,
                 extension: height,
             }],
-        }
+        })
     }
 
     fn verify_vote_extension(
         &self,
         request: proto::abci::RequestVerifyVoteExtension,
-    ) -> proto::abci::ResponseVerifyVoteExtension {
+    ) -> Result<abci::ResponseVerifyVoteExtension, abci::ResponseException> {
         let height = request.height.to_be_bytes().to_vec();
         let ext = request
             .vote_extensions
@@ -378,24 +342,24 @@ impl Application for KVStoreABCI<'_> {
             .expect("missing vote extension");
 
         let status = match ext.extension == height {
-            true => proto::abci::response_verify_vote_extension::VerifyStatus::Accept as i32,
-            false => proto::abci::response_verify_vote_extension::VerifyStatus::Reject as i32,
+            true => abci::response_verify_vote_extension::VerifyStatus::Accept as i32,
+            false => abci::response_verify_vote_extension::VerifyStatus::Reject as i32,
         };
 
-        proto::abci::ResponseVerifyVoteExtension { status }
+        Ok(abci::ResponseVerifyVoteExtension { status })
     }
 
     fn finalize_block(
         &self,
         request: proto::abci::RequestFinalizeBlock,
-    ) -> proto::abci::ResponseFinalizeBlock {
+    ) -> Result<abci::ResponseFinalizeBlock, abci::ResponseException> {
         let mut kvstore_lock = self.lock_kvstore();
 
         assert_block_height(request.height, &kvstore_lock);
 
         kvstore_lock.commit();
 
-        Default::default()
+        Ok(Default::default())
     }
 }
 

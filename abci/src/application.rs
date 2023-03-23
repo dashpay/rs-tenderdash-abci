@@ -1,111 +1,141 @@
 //! ABCI application interface.
 use std::panic::RefUnwindSafe;
 
-use crate::{proto, Error};
+use tracing::debug;
+
+use crate::proto::{
+    abci,
+    abci::{request, response},
+};
 
 /// An ABCI application.
 pub trait Application {
     /// Echo back the same message as provided in the request.
-    fn echo(&self, request: proto::abci::RequestEcho) -> proto::abci::ResponseEcho {
-        proto::abci::ResponseEcho {
+    fn echo(
+        &self,
+        request: abci::RequestEcho,
+    ) -> Result<abci::ResponseEcho, abci::ResponseException> {
+        Ok(abci::ResponseEcho {
             message: request.message,
-        }
+        })
     }
 
     /// Signals that messages queued on the client should be flushed to the
     /// server.
-    fn flush(&self, _request: proto::abci::RequestFlush) -> proto::abci::ResponseFlush {
-        proto::abci::ResponseFlush {}
+    fn flush(
+        &self,
+        _request: abci::RequestFlush,
+    ) -> Result<abci::ResponseFlush, abci::ResponseException> {
+        Ok(Default::default())
     }
 
     /// Provide information about the ABCI application.
-    fn info(&self, _request: proto::abci::RequestInfo) -> proto::abci::ResponseInfo {
-        Default::default()
+    fn info(
+        &self,
+        request: abci::RequestInfo,
+    ) -> Result<abci::ResponseInfo, abci::ResponseException> {
+        if !check_version(&request.abci_version) {
+            return Err(abci::ResponseException {
+                error: format!(
+                    "version mismatch: tenderdash {} vs our {}",
+                    request.version,
+                    crate::proto::ABCI_VERSION
+                ),
+            });
+        }
+
+        Ok(Default::default())
     }
 
     /// Called once upon genesis.
     fn init_chain(
         &self,
-        _request: proto::abci::RequestInitChain,
-    ) -> proto::abci::ResponseInitChain {
-        Default::default()
+        _request: abci::RequestInitChain,
+    ) -> Result<abci::ResponseInitChain, abci::ResponseException> {
+        Ok(Default::default())
     }
 
     /// Query the application for data at the current or past height.
-    fn query(&self, _request: proto::abci::RequestQuery) -> proto::abci::ResponseQuery {
-        Default::default()
+    fn query(
+        &self,
+        _request: abci::RequestQuery,
+    ) -> Result<abci::ResponseQuery, abci::ResponseException> {
+        Ok(Default::default())
     }
 
     /// Check the given transaction before putting it into the local mempool.
-    fn check_tx(&self, _request: proto::abci::RequestCheckTx) -> proto::abci::ResponseCheckTx {
-        Default::default()
+    fn check_tx(
+        &self,
+        _request: abci::RequestCheckTx,
+    ) -> Result<abci::ResponseCheckTx, abci::ResponseException> {
+        Ok(Default::default())
     }
 
     /// Used during state sync to discover available snapshots on peers.
     fn list_snapshots(
         &self,
-        _request: proto::abci::RequestListSnapshots,
-    ) -> proto::abci::ResponseListSnapshots {
-        Default::default()
+        _request: abci::RequestListSnapshots,
+    ) -> Result<abci::ResponseListSnapshots, abci::ResponseException> {
+        Ok(Default::default())
     }
 
     /// Called when bootstrapping the node using state sync.
     fn offer_snapshot(
         &self,
-        _request: proto::abci::RequestOfferSnapshot,
-    ) -> proto::abci::ResponseOfferSnapshot {
-        Default::default()
+        _request: abci::RequestOfferSnapshot,
+    ) -> Result<abci::ResponseOfferSnapshot, abci::ResponseException> {
+        Ok(Default::default())
     }
 
     /// Used during state sync to retrieve chunks of snapshots from peers.
     fn load_snapshot_chunk(
         &self,
-        _request: proto::abci::RequestLoadSnapshotChunk,
-    ) -> proto::abci::ResponseLoadSnapshotChunk {
-        Default::default()
+        _request: abci::RequestLoadSnapshotChunk,
+    ) -> Result<abci::ResponseLoadSnapshotChunk, abci::ResponseException> {
+        Ok(Default::default())
     }
 
     /// Apply the given snapshot chunk to the application's state.
     fn apply_snapshot_chunk(
         &self,
-        _request: proto::abci::RequestApplySnapshotChunk,
-    ) -> proto::abci::ResponseApplySnapshotChunk {
-        Default::default()
+        _request: abci::RequestApplySnapshotChunk,
+    ) -> Result<abci::ResponseApplySnapshotChunk, abci::ResponseException> {
+        Ok(Default::default())
     }
 
     fn extend_vote(
         &self,
-        _request: proto::abci::RequestExtendVote,
-    ) -> proto::abci::ResponseExtendVote {
-        Default::default()
+        _request: abci::RequestExtendVote,
+    ) -> Result<abci::ResponseExtendVote, abci::ResponseException> {
+        Ok(Default::default())
     }
 
     fn finalize_block(
         &self,
-        _request: proto::abci::RequestFinalizeBlock,
-    ) -> proto::abci::ResponseFinalizeBlock {
-        Default::default()
+        _request: abci::RequestFinalizeBlock,
+    ) -> Result<abci::ResponseFinalizeBlock, abci::ResponseException> {
+        Ok(Default::default())
     }
 
     fn prepare_proposal(
         &self,
-        _request: proto::abci::RequestPrepareProposal,
-    ) -> proto::abci::ResponsePrepareProposal {
-        Default::default()
+        _request: abci::RequestPrepareProposal,
+    ) -> Result<abci::ResponsePrepareProposal, abci::ResponseException> {
+        Ok(Default::default())
     }
 
     fn process_proposal(
         &self,
-        _request: proto::abci::RequestProcessProposal,
-    ) -> proto::abci::ResponseProcessProposal {
-        Default::default()
+        _request: abci::RequestProcessProposal,
+    ) -> Result<abci::ResponseProcessProposal, abci::ResponseException> {
+        Ok(Default::default())
     }
 
     fn verify_vote_extension(
         &self,
-        _request: proto::abci::RequestVerifyVoteExtension,
-    ) -> proto::abci::ResponseVerifyVoteExtension {
-        Default::default()
+        _request: abci::RequestVerifyVoteExtension,
+    ) -> Result<abci::ResponseVerifyVoteExtension, abci::ResponseException> {
+        Ok(Default::default())
     }
 }
 
@@ -115,66 +145,132 @@ pub trait RequestDispatcher: RefUnwindSafe {
     ///
     /// `RequestDispatcher` can indicate that it will no longer process new
     /// requests by returning `None` variant.
-    fn handle(&self, request: proto::abci::Request)
-        -> Result<Option<proto::abci::Response>, Error>;
+    fn handle(&self, request: abci::Request) -> Option<abci::Response>;
+}
+
+#[derive(Debug)]
+/// Response generated by application endpoint
+enum Response {
+    Message(abci::response::Value),
+    Exception(abci::response::Value),
+}
+
+impl<T: Into<abci::response::Value>> From<Result<T, abci::ResponseException>> for Response {
+    fn from(value: Result<T, abci::ResponseException>) -> Self {
+        match value {
+            Ok(v) => Response::Message(v.into()),
+            Err(e) => Response::Exception(e.into()),
+        }
+    }
 }
 
 // Implement `RequestDispatcher` for all `Application`s.
 impl<A: Application + RefUnwindSafe> RequestDispatcher for A {
-    fn handle(
-        &self,
-        request: proto::abci::Request,
-    ) -> Result<Option<proto::abci::Response>, Error> {
-        tracing::trace!("Incoming request: {:?}", request);
-        let value = match request.value.unwrap() {
-            proto::abci::request::Value::Echo(req) => {
-                proto::abci::response::Value::Echo(self.echo(req))
-            },
-            proto::abci::request::Value::Flush(req) => {
-                proto::abci::response::Value::Flush(self.flush(req))
-            },
-            proto::abci::request::Value::Info(req) => {
-                proto::abci::response::Value::Info(self.info(req))
-            },
-            proto::abci::request::Value::InitChain(req) => {
-                proto::abci::response::Value::InitChain(self.init_chain(req))
-            },
-            proto::abci::request::Value::Query(req) => {
-                proto::abci::response::Value::Query(self.query(req))
-            },
-            proto::abci::request::Value::CheckTx(req) => {
-                proto::abci::response::Value::CheckTx(self.check_tx(req))
-            },
-            proto::abci::request::Value::OfferSnapshot(req) => {
-                proto::abci::response::Value::OfferSnapshot(self.offer_snapshot(req))
-            },
-            proto::abci::request::Value::LoadSnapshotChunk(req) => {
-                proto::abci::response::Value::LoadSnapshotChunk(self.load_snapshot_chunk(req))
-            },
-            proto::abci::request::Value::ApplySnapshotChunk(req) => {
-                proto::abci::response::Value::ApplySnapshotChunk(self.apply_snapshot_chunk(req))
-            },
-            proto::abci::request::Value::ListSnapshots(req) => {
-                proto::abci::response::Value::ListSnapshots(self.list_snapshots(req))
-            },
-            proto::abci::request::Value::PrepareProposal(req) => {
-                proto::abci::response::Value::PrepareProposal(self.prepare_proposal(req))
-            },
-            proto::abci::request::Value::ProcessProposal(req) => {
-                proto::abci::response::Value::ProcessProposal(self.process_proposal(req))
-            },
-            proto::abci::request::Value::FinalizeBlock(req) => {
-                proto::abci::response::Value::FinalizeBlock(self.finalize_block(req))
-            },
-            proto::abci::request::Value::ExtendVote(req) => {
-                proto::abci::response::Value::ExtendVote(self.extend_vote(req))
-            },
-            proto::abci::request::Value::VerifyVoteExtension(req) => {
-                proto::abci::response::Value::VerifyVoteExtension(self.verify_vote_extension(req))
-            },
-        };
-        tracing::trace!("Sending response: {:?}", value);
+    fn handle(&self, request: abci::Request) -> Option<abci::Response> {
+        tracing::trace!(?request, "received request");
 
-        Ok(Some(proto::abci::Response { value: Some(value) }))
+        let response: Response = match request.value.unwrap() {
+            request::Value::Echo(req) => self.echo(req).into(),
+            request::Value::Flush(req) => self.flush(req).into(),
+            request::Value::Info(req) => self.info(req).into(),
+            request::Value::InitChain(req) => self.init_chain(req).into(),
+            request::Value::Query(req) => self.query(req).into(),
+            request::Value::CheckTx(req) => self.check_tx(req).into(),
+            request::Value::OfferSnapshot(req) => self.offer_snapshot(req).into(),
+            request::Value::LoadSnapshotChunk(req) => self.load_snapshot_chunk(req).into(),
+            request::Value::ApplySnapshotChunk(req) => self.apply_snapshot_chunk(req).into(),
+            request::Value::ListSnapshots(req) => self.list_snapshots(req).into(),
+            request::Value::PrepareProposal(req) => self.prepare_proposal(req).into(),
+            request::Value::ProcessProposal(req) => self.process_proposal(req).into(),
+            request::Value::FinalizeBlock(req) => self.finalize_block(req).into(),
+            request::Value::ExtendVote(req) => self.extend_vote(req).into(),
+            request::Value::VerifyVoteExtension(req) => self.verify_vote_extension(req).into(),
+        };
+
+        let response = match response {
+            Response::Message(v) => v,
+            Response::Exception(e) => response::Value::from(e),
+        };
+
+        tracing::trace!(?response, "Sending response");
+
+        Some(abci::Response {
+            value: Some(response),
+        })
+    }
+}
+
+/// Check if ABCI version sent by Tenderdash matches version of linked protobuf
+/// data objects.
+///
+/// You should use this function inside [Application::info()] handler, to ensure
+/// that the protocol versions match. Match is determined based on Semantic
+/// Versioning rules, as defined for '^' operator.
+///
+/// ## Examples
+///
+/// ```should_panic
+/// use tenderdash_abci::{check_version, Application};
+/// use tenderdash_abci::proto::abci::{RequestInfo, ResponseInfo, ResponseException};
+///
+/// # let request = RequestInfo{
+/// #  abci_version: String::from("108.234.356"),
+/// #  ..Default::default()
+/// # };
+/// struct AbciApp{}
+///
+/// impl tenderdash_abci::Application for AbciApp {
+///   fn info(&self, request: RequestInfo) -> Result<ResponseInfo, ResponseException> {
+///     if !check_version(&request.abci_version) {
+///       panic!("abci version mismatch");
+///     }
+///     Ok(Default::default())
+///   }
+/// }
+///
+/// # let app = AbciApp{};
+/// # app.info(request);
+/// ```
+pub fn check_version(tenderdash_version: &str) -> bool {
+    match_versions(tenderdash_version, tenderdash_proto::ABCI_VERSION)
+}
+
+fn match_versions(tenderdash_abci_requirement: &str, our_abci_version: &str) -> bool {
+    let our_version =
+        semver::Version::parse(our_abci_version).expect("cannot parse protobuf library version");
+
+    let require = String::from("^") + tenderdash_abci_requirement;
+    let td_version =
+        semver::VersionReq::parse(require.as_str()).expect("cannot parse tenderdash version");
+
+    debug!("ABCI version: required: {}, our: {}", require, our_version);
+
+    td_version.matches(&our_version)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::match_versions;
+
+    /// test_versions! {} (td_version, our_version, expected); }
+    macro_rules! test_versions {
+        ($($name:ident: $value:expr,)*) => {
+        $(
+            #[test]
+            fn $name() {
+                let (td, our, expect) = $value;
+                assert_eq!(match_versions(td, our),expect);
+            }
+        )*
+        }
+    }
+
+    test_versions! {
+        test_versions_td_newer: ("0.1.2-dev.1", "0.1.0", false),
+        test_versions_equal: ("0.1.0","0.1.0",true),
+        test_versions_td_older: ("0.1.0","0.1.2",true),
+        test_versions_equal_dev: ("0.1.0-dev.1","0.1.0-dev.1",true),
+        test_versions_our_newer_dev: ("0.1.0-dev.1", "0.1.0-dev.2",true),
+        test_versions_our_dev:("0.1.0","0.1.0-dev.1",false),
     }
 }

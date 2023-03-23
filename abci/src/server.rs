@@ -13,7 +13,7 @@ use std::{
 use tracing::{error, info};
 
 use self::{tcp::TcpServer, unix::UnixSocketServer};
-use crate::{application::RequestDispatcher, server::codec::Codec, Error};
+use crate::{application::RequestDispatcher, proto::abci, server::codec::Codec, Error};
 
 /// The size of the read buffer for each incoming connection to the ABCI
 /// server (1MB).
@@ -118,11 +118,16 @@ where
             error!("Client {} terminated stream", name);
             return Ok(())
         };
-        let Some(response) = app.handle(request)? else {
+
+        let Some(response) = app.handle(request.clone())  else {
             // `RequestDispatcher` decided to stop receiving new requests:
             info!("ABCI Application is shutting down");
             return Ok(());
         };
+
+        if let Some(abci::response::Value::Exception(ex)) = response.value.clone() {
+            error!(error = ex.error, ?request, "error processing request")
+        }
 
         codec.send(response)?;
     }

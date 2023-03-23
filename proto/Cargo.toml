@@ -36,6 +36,7 @@ time = { version = "0.3", default-features = false, features = [
 ] }
 flex-error = { version = "0.4.4", default-features = false }
 chrono = { version = "0.4.24", default-features = false }
+derive_more = { version = "0.99.17" }
 
 [dev-dependencies]
 serde_json = { version = "1.0", default-features = false, features = ["alloc"] }

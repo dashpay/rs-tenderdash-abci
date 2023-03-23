@@ -1,4 +1,4 @@
-use tenderdash_abci::{proto, start_server, Application};
+use tenderdash_abci::{proto::abci, start_server, Application};
 use tracing::info;
 use tracing_subscriber::filter::LevelFilter;
 
@@ -26,21 +26,13 @@ pub fn main() {
 pub struct EchoApp;
 
 impl Application for EchoApp {
-    fn echo(&self, request: proto::abci::RequestEcho) -> proto::abci::ResponseEcho {
+    fn echo(
+        &self,
+        request: abci::RequestEcho,
+    ) -> Result<abci::ResponseEcho, abci::ResponseException> {
         info!("received echo");
-        proto::abci::ResponseEcho {
+        Ok(abci::ResponseEcho {
             message: request.message,
-        }
-    }
-    /// Provide information about the ABCI application.
-    fn info(&self, _request: proto::abci::RequestInfo) -> proto::abci::ResponseInfo {
-        info!("received info request");
-        proto::abci::ResponseInfo {
-            app_version: 1,
-            data: String::from("Echo Socket App"),
-            version: String::from("1.0.0"),
-            last_block_app_hash: Vec::from([0; 32]),
-            last_block_height: 0,
-        }
+        })
     }
 }

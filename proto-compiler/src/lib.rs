@@ -1,4 +1,7 @@
-use std::{env::var, path::PathBuf};
+use std::{
+    env::{self, var},
+    path::PathBuf,
+};
 
 use tempfile::tempdir;
 
@@ -11,27 +14,30 @@ use functions::{
 mod constants;
 use constants::{CUSTOM_FIELD_ATTRIBUTES, CUSTOM_TYPE_ATTRIBUTES, TENDERDASH_REPO};
 
-fn main() {
+/// Import and compile protobuf definitions for Tenderdash.
+///
+/// Checkouts tenderdash repository to ../target/tenderdash and generates
+/// Rust protobuf definitions in ../proto/src/prost/ and
+/// ../proto/src/tenderdash.rs
+pub fn proto_compile() {
     let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
     let tenderdash_lib_target = root
-        .join("..")
         .join("..")
         .join("proto")
         .join("src")
         .join("tenderdash.rs");
-    let target_dir = root
-        .join("..")
-        .join("..")
-        .join("proto")
-        .join("src")
-        .join("prost");
+    let target_dir = root.join("..").join("proto").join("src").join("prost");
     let out_dir = var("OUT_DIR")
         .map(PathBuf::from)
         .or_else(|_| tempdir().map(|d| d.into_path()))
         .unwrap();
+
+    let cargo_target_dir = match env::var("CARGO_TARGET_DIR") {
+        Ok(s) => PathBuf::from(s),
+        Err(_) => root.join("..").join("target"),
+    };
     let tenderdash_dir = PathBuf::from(var("TENDERDASH_DIR").unwrap_or_else(|_| {
-        root.join("..")
-            .join("target")
+        cargo_target_dir
             .join("tenderdash")
             .to_str()
             .unwrap()

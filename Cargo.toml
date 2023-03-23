@@ -1,3 +1,3 @@
 [workspace]
 
-members = ["abci", "tools/proto-compiler", "proto"]
+members = ["abci", "proto-compiler", "proto"]

@@ -1,26 +1,12 @@
-use std::{
-    env,
-    path::Path,
-    process::{exit, Command},
-};
+use std::env;
 
 fn main() {
-    let manifest_dir = Path::new(env!("CARGO_MANIFEST_DIR"));
     let version = env!("CARGO_PKG_VERSION");
-    let proto_compiler_dir = manifest_dir.join("..").join("tools").join("proto-compiler");
 
-    let output = Command::new("cargo")
-        .current_dir(proto_compiler_dir)
-        .env("TENDERDASH_COMMITISH", "v".to_owned() + version)
-        .arg("run")
-        .output()
-        .expect("failed to generate protobuf files with Cargo");
+    env::set_var("TENDERDASH_COMMITISH", "v".to_owned() + version);
+    tenderdash_proto_compiler::proto_compile();
 
-    if !output.status.success() {
-        println!("{}", String::from_utf8_lossy(&output.stdout));
-        eprintln!("{}", String::from_utf8_lossy(&output.stderr));
-        exit(output.status.code().unwrap());
-    }
-
+    println!("cargo:rerun-if-changed=../proto-compiler/src");
+    println!("cargo:rerun-if-changed=Cargo.toml");
     println!("cargo:rerun-if-env-changed=CARGO_PKG_VERSION");
 }

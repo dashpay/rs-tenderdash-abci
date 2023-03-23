@@ -27,6 +27,20 @@ impl From<Rfc3339> for Timestamp {
     }
 }
 
+pub trait ToMilis {
+    /// Convert protobuf timestamp into miliseconds since epoch
+    fn to_milis(&self) -> u64;
+}
+
+impl ToMilis for Timestamp {
+    /// Convert protobuf timestamp into miliseconds since epoch
+    fn to_milis(&self) -> u64 {
+        chrono::NaiveDateTime::from_timestamp_opt(self.seconds, self.nanos as u32)
+            .unwrap()
+            .timestamp_millis() as u64
+    }
+}
+
 /// Deserialize string into Timestamp
 pub fn deserialize<'de, D>(deserializer: D) -> Result<Timestamp, D::Error>
 where

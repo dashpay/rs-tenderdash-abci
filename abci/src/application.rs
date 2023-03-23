@@ -1,4 +1,6 @@
 //! ABCI application interface.
+use std::panic::RefUnwindSafe;
+
 use crate::{proto, Error};
 
 /// An ABCI application.
@@ -107,7 +109,7 @@ pub trait Application {
     }
 }
 
-pub trait RequestDispatcher {
+pub trait RequestDispatcher: RefUnwindSafe {
     /// Executes the relevant application method based on the type of the
     /// request, and produces the corresponding response.
     ///
@@ -118,12 +120,12 @@ pub trait RequestDispatcher {
 }
 
 // Implement `RequestDispatcher` for all `Application`s.
-impl<A: Application> RequestDispatcher for A {
+impl<A: Application + RefUnwindSafe> RequestDispatcher for A {
     fn handle(
         &self,
         request: proto::abci::Request,
     ) -> Result<Option<proto::abci::Response>, Error> {
-        tracing::debug!("Incoming request: {:?}", request);
+        tracing::trace!("Incoming request: {:?}", request);
         let value = match request.value.unwrap() {
             proto::abci::request::Value::Echo(req) => {
                 proto::abci::response::Value::Echo(self.echo(req))
@@ -171,6 +173,7 @@ impl<A: Application> RequestDispatcher for A {
                 proto::abci::response::Value::VerifyVoteExtension(self.verify_vote_extension(req))
             },
         };
+        tracing::trace!("Sending response: {:?}", value);
 
         Ok(Some(proto::abci::Response { value: Some(value) }))
     }

@@ -5,9 +5,6 @@ FROM rust:bullseye
 
 RUN apt-get update \
     &&  apt-get install --yes \
-        build-essential \
-        libclang-dev \
-        libssl-dev \
         protobuf-compiler \
         git \
         bash \
@@ -20,11 +17,11 @@ RUN
 
 # Build the app, using extensive caching of dependencies.
 # See https://doc.rust-lang.org/cargo/guide/cargo-home.html#caching-the-cargo-home-in-ci
-RUN --mount=type=cache,sharing=shared,target=${CARGO_HOME}/.crates.toml \
-    --mount=type=cache,sharing=shared,target=${CARGO_HOME}/.crates2.json \
-    --mount=type=cache,sharing=shared,target=${CARGO_HOME}/registry/index \
-    --mount=type=cache,sharing=shared,target=${CARGO_HOME}/registry/cache \
-    --mount=type=cache,sharing=shared,target=${CARGO_HOME}/git/db \
+RUN --mount=type=cache,sharing=private,target=${CARGO_HOME}/.crates.toml \
+    --mount=type=cache,sharing=private,target=${CARGO_HOME}/.crates2.json \
+    --mount=type=cache,sharing=private,target=${CARGO_HOME}/registry/index \
+    --mount=type=cache,sharing=private,target=${CARGO_HOME}/registry/cache \
+    --mount=type=cache,sharing=private,target=${CARGO_HOME}/git/db \
     cargo add --git https://github.com/dashpay/rs-tenderdash-abci tenderdash-abci \
     && cargo build
 

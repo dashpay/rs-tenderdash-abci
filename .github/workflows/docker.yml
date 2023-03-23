@@ -35,9 +35,9 @@ jobs:
           platforms: linux/amd64,linux/arm64
           push: false
           cache-from: |
-            type=gha,scope=buildkit-${TARGETPLATFORM}
+            type=gha
           cache-to: |
-            type=gha,mode=max,scope=buildkit-${TARGETPLATFORM}
+            type=gha,mode=max
 
       - name: Show Docker image digest
         run: echo ${{ steps.docker_build.outputs.digest }}

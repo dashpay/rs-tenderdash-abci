@@ -1,0 +1,43 @@
+---
+name: Docker
+
+on:
+  pull_request:
+    paths-ignore:
+      - "docs/**"
+  push:
+    paths-ignore:
+      - "docs/**"
+    branches:
+      - master
+      - "v*.*.*"
+
+jobs:
+  build:
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@master
+        with:
+          platforms: all
+
+      - name: Set up Docker Build
+        uses: docker/setup-buildx-action@v2.4.1
+
+      - name: Build Docker sample image
+        id: docker_build
+        uses: docker/build-push-action@v4.0.0
+        with:
+          context: .
+          file: ./Dockerfile
+          platforms: linux/amd64,linux/arm64
+          push: false
+          cache-from: |
+            type=gha
+          cache-to: |
+            type=gha,mode=max
+
+      - name: Show Docker image digest
+        run: echo ${{ steps.docker_build.outputs.digest }}

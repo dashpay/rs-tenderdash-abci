@@ -43,7 +43,7 @@ jobs:
           context: .
           file: ./Dockerfile
           build-args: |
-            REVISION=${GITHUB_REF}
+            REVISION=${{ GITHUB_REF }}
           platforms: ${{ env.build_platforms }}
           push: false
           cache-from: |

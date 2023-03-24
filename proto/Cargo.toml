@@ -4,8 +4,15 @@ version = "0.12.0-dev.1"
 edition = "2021"
 license = "Apache-2.0"
 repository = "https://github.com/dashpay/rs-tenderdash-abci/tree/main/proto"
+documentation = "https://dashpay.github.io/rs-tenderdash-abci/tenderdash_proto/"
 readme = "README.md"
-categories = ["cryptography", "cryptography::cryptocurrencies", "database"]
+categories = [
+    "cryptography",
+    "cryptography::cryptocurrencies",
+    "database",
+    "dash",
+    "tenderdash",
+]
 keywords = ["blockchain", "tenderdash", "proto"]
 
 description = """

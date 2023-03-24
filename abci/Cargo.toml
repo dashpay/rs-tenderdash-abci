@@ -5,8 +5,10 @@ edition = "2021"
 license = "Apache-2.0"
 readme = "README.md"
 categories = ["cryptography::cryptocurrencies", "network-programming"]
-keywords = ["abci", "blockchain", "bft", "consensus", "tendermint"]
+keywords = ["abci", "blockchain", "bft", "consensus", "tendermint", "dash"]
 repository = "https://github.com/dashpay/rs-tenderdash-abci/tree/main/abci"
+documentation = "https://dashpay.github.io/rs-tenderdash-abci/tenderdash_abci/"
+
 description = """tenderdash-abci provides a simple framework with which to build\
 low-level applications on top of Tenderdash."""
 

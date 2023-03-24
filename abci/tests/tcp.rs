@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use tenderdash_abci::{Error, RequestDispatcher};
+use tenderdash_abci::RequestDispatcher;
 
 mod common;
 
@@ -68,15 +68,12 @@ fn tcp_server_test(test_name: &str, bind_address: &str) {
 pub struct TestDispatcher {}
 
 impl RequestDispatcher for TestDispatcher {
-    fn handle(
-        &self,
-        request: proto::abci::Request,
-    ) -> Result<Option<proto::abci::Response>, Error> {
+    fn handle(&self, request: proto::abci::Request) -> Option<proto::abci::Response> {
         // Assert that Info request will is received and close the connection
         assert!(matches!(
             request.value,
             Some(proto::abci::request::Value::Info(_))
         ));
-        Ok(None)
+        None
     }
 }

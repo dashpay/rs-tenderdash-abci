@@ -18,7 +18,7 @@ mod server;
 
 use std::io;
 
-pub use application::{Application, RequestDispatcher};
+pub use application::{check_version, Application, RequestDispatcher};
 use prost::{DecodeError, EncodeError};
 pub use server::{start_server, Server};
 pub use tenderdash_proto as proto;

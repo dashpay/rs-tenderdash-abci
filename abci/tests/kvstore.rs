@@ -200,7 +200,7 @@ impl Application for KVStoreABCI<'_> {
                 ),
             });
         }
-        
+
         Ok(abci::ResponseInfo {
             data: "kvstore-rs".to_string(),
             version: "0.1.0".to_string(),

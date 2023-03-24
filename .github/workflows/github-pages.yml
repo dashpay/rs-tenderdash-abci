@@ -41,7 +41,12 @@ jobs:
 
       - name: Generate index page
         shell: bash
-        run: cp README.md target/doc/
+        run: |
+          cat >  target/doc/index.html << EOF
+          <html><head><meta http-equiv="refresh" content="0; url=tenderdash_abci/" /></head>
+          <body><a href="tenderdash_abci/">Click here</a></body>
+          </html>
+          EOF
 
       - name: Upload docs
         uses: actions/upload-pages-artifact@v1

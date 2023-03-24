@@ -37,7 +37,7 @@ jobs:
         shell: bash
         env:
           RUSTDOCFLAGS: "--cfg docsrs"
-        run: cargo doc --no-deps --all-features
+        run: cargo doc --no-deps --all-features  --workspace --exclude tenderdash-proto-compiler
 
       - name: Generate index page
         shell: bash

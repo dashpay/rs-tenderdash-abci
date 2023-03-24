@@ -1,3 +1,6 @@
+//! Convert Tenderdash ABCI++ protocol buffers (protobuf3) definitions to Rust.
+//!
+//! This tool is for internal use. Used by tenderdash-proto/build.rs.
 use std::{
     env::{self, var},
     path::PathBuf,
@@ -14,7 +17,7 @@ use functions::{
 mod constants;
 use constants::{CUSTOM_FIELD_ATTRIBUTES, CUSTOM_TYPE_ATTRIBUTES, TENDERDASH_REPO};
 
-/// Import and compile protobuf definitions for Tenderdash.
+/// Internal tool to download and compile protobuf definitions for Tenderdash.
 ///
 /// Checkouts tenderdash repository to ../target/tenderdash and generates
 /// Rust protobuf definitions in ../proto/src/prost/ and

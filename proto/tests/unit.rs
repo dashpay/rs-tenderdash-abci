@@ -1,6 +1,7 @@
 use core::convert::TryFrom;
 
 use tenderdash_proto::{
+    abci::ResponseException,
     types::{BlockId as RawBlockId, PartSetHeader as RawPartSetHeader},
     Protobuf,
 };
@@ -118,4 +119,17 @@ pub fn protobuf_struct_conveniences_example() {
     );
     let new_domain_type = BlockId::decode_length_delimited_vec(&wire).unwrap();
     assert_eq!(my_domain_type, new_domain_type);
+}
+
+#[test]
+pub fn test_response_exception_from() {
+    assert_eq!(ResponseException::from("string").error, "string");
+    assert_eq!(
+        ResponseException::from(String::from("string")).error,
+        "string"
+    );
+    assert_eq!(
+        ResponseException::from(&String::from("string")).error,
+        "string"
+    );
 }

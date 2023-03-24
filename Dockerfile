@@ -3,12 +3,12 @@
 # We use Debian base image, as Alpine has some segmentation fault issue
 FROM rust:bullseye
 
-RUN apt-get update \
-    &&  apt-get install --yes \
+RUN apt-get --quiet update \
+    &&  apt-get --quiet install --yes \
         protobuf-compiler \
         git \
         bash \
-    && apt-get clean
+    && apt-get --quiet clean
 
 # Create a dummy package
 RUN cargo init /usr/src/abci-app

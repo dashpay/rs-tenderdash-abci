@@ -26,6 +26,16 @@ jobs:
       - name: Set up Docker Build
         uses: docker/setup-buildx-action@v2.4.1
 
+      # ARM build takes very long time, so we build PRs for AMD64 only
+      - name: Select target platform
+        id: select_platforms
+        run: |
+          if  [[ "${GITHUB_EVENT_NAME}" == "pull_request" ] ; then
+            echo "build_platforms=linux/amd64" >> $GITHUB_ENV
+          else
+            echo "build_platforms=linux/amd64,linux/arm64" >> $GITHUB_ENV
+          fi
+
       - name: Build Docker sample image
         id: docker_build
         uses: docker/build-push-action@v4.0.0
@@ -34,7 +44,7 @@ jobs:
           file: ./Dockerfile
           build-args: |
             REVISION=${GITHUB_REF}
-          platforms: linux/amd64,linux/arm64
+          platforms: ${{ env.build_platforms }}
           push: false
           cache-from: |
             type=gha

@@ -39,11 +39,12 @@ SHELL ["/bin/bash", "-c"]
 
 # Add tenderdash-abci as a dependency and build the package
 #
-# Two notes here:
+# Some notes here:
 # 1. All these --mount... are to cache reusable info between runs.
 # See https://doc.rust-lang.org/cargo/guide/cargo-home.html#caching-the-cargo-home-in-ci
 # 2. We add `--config net.git-fetch-with-cli=true` to address ARM build issue,
 # see https://github.com/rust-lang/cargo/issues/10781#issuecomment-1441071052
+# 3. To preserve space on github cache, we call `cargo clean`.
 RUN --mount=type=cache,sharing=shared,target=/root/.cache/sccache \
     --mount=type=cache,sharing=shared,target=${CARGO_HOME}/.crates.toml \
     --mount=type=cache,sharing=shared,target=${CARGO_HOME}/.crates2.json \
@@ -52,4 +53,5 @@ RUN --mount=type=cache,sharing=shared,target=/root/.cache/sccache \
     --mount=type=cache,sharing=shared,target=${CARGO_HOME}/git/db \
     cargo add --config net.git-fetch-with-cli=true \
         --git https://github.com/dashpay/rs-tenderdash-abci --rev "${REVISION}" tenderdash-abci && \
-    cargo build --config net.git-fetch-with-cli=true
+    cargo build --config net.git-fetch-with-cli=true && \
+    cargo clean

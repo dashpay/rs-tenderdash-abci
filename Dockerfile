@@ -10,12 +10,10 @@ RUN apt-get --quiet update \
         bash \
     && apt-get --quiet clean
 
+RUN rustup install stable
+
 # Create a dummy package
 RUN cargo init /usr/src/abci-app
 WORKDIR /usr/src/abci-app
-RUN 
-
-# Build the app, using extensive caching of dependencies.
-# See https://doc.rust-lang.org/cargo/guide/cargo-home.html#caching-the-cargo-home-in-ci
-RUN cargo add --git https://github.com/dashpay/rs-tenderdash-abci tenderdash-abci \
-    && cargo build
+RUN cargo add --git https://github.com/dashpay/rs-tenderdash-abci tenderdash-abci
+RUN cargo build

@@ -1,13 +1,9 @@
 ---
-name: Rust
+name: Github Pages
 
 on:
   pull_request:
-    paths-ignore:
-      - "docs/**"
   push:
-    paths-ignore:
-      - "docs/**"
     branches:
       - master
       - "v*.*.*"
@@ -20,27 +16,34 @@ jobs:
           GITHUB_TOKEN: "${{ secrets.GITHUB_TOKEN }}"
     if: "!startsWith(github.ref, 'refs/tags/') && github.ref != 'refs/heads/master'"
 
-  fmt:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v2
-      - uses: ./.github/actions/deps
-      - name: Check code formatting
-        shell: bash
-        run: cargo fmt --all -- --check
-
   docs:
-    # TODO: we need permissions to enable github-pages env
     # environment:
     #   name: github-pages
     #   url: ${{ steps.deployment.outputs.page_url }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
+
       - uses: ./.github/actions/deps
 
-      - name: Check documentation generation
+      - name: Setup Pages
+        uses: actions/configure-pages@v3
+
+      - name: Generate documentation
         shell: bash
         env:
           RUSTDOCFLAGS: "--cfg docsrs"
         run: cargo doc --no-deps --all-features
+
+      - name: Generate index page
+        shell: bash
+        run: cp README.md target/doc/
+
+      - name: Upload docs
+        uses: actions/upload-pages-artifact@v1
+        with:
+          path: "target/doc"
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v1

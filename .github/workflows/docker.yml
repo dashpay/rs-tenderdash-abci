@@ -33,7 +33,7 @@ jobs:
           context: .
           file: ./Dockerfile
           #linux/amd64,linux/arm64
-          platforms: linux/arm64
+          platforms: linux/amd64,linux/arm64
           push: false
           cache-from: |
             type=gha

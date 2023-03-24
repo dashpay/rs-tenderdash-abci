@@ -124,6 +124,12 @@ pub fn protobuf_struct_conveniences_example() {
 #[test]
 pub fn test_response_exception_from() {
     assert_eq!(ResponseException::from("string").error, "string");
-    assert_eq!(ResponseException::from(String::from("string")).error, "string");
-    assert_eq!(ResponseException::from(&String::from("string")).error, "string");
+    assert_eq!(
+        ResponseException::from(String::from("string")).error,
+        "string"
+    );
+    assert_eq!(
+        ResponseException::from(&String::from("string")).error,
+        "string"
+    );
 }

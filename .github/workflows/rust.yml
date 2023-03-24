@@ -53,8 +53,9 @@ jobs:
         with:
           # Upload entire repository
           path: "target/doc"
+        if: ${{ github.ref_name == 'master' }}
 
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v1
-        if: github.ref_name == 'master'
+        if: ${{ github.ref_name == 'master' }}

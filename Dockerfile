@@ -6,8 +6,8 @@ FROM rust:bullseye
 RUN --mount=type=cache,sharing=locked,target=/var/lib/apt/lists \
     --mount=type=cache,sharing=locked,target=/var/cache/apt \
     rm -f /etc/apt/apt.conf.d/docker-clean && \
-    apt-get update --quiet && \
-    apt-get install --quiet --yes \
+    apt-get update -qq && \
+    apt-get install -qq --yes \
         protobuf-compiler \
         git \
         wget \
@@ -31,6 +31,12 @@ ARG RUSTC_WRAPPER=/usr/bin/sccache
 RUN cargo init /usr/src/abci-app
 WORKDIR /usr/src/abci-app
 
+
+# revspec or SHA of commit/branch/tag to use
+ARG REVISION="refs/heads/master"
+
+SHELL ["/bin/bash", "-c"]
+
 # Add tenderdash-abci as a dependency and build the package
 #
 # Two notes here:
@@ -44,5 +50,6 @@ RUN --mount=type=cache,sharing=shared,target=/root/.cache/sccache \
     --mount=type=cache,sharing=shared,target=${CARGO_HOME}/registry/index \
     --mount=type=cache,sharing=shared,target=${CARGO_HOME}/registry/cache \
     --mount=type=cache,sharing=shared,target=${CARGO_HOME}/git/db \
-    cargo add --config net.git-fetch-with-cli=true --git https://github.com/dashpay/rs-tenderdash-abci tenderdash-abci && \
+    cargo add --config net.git-fetch-with-cli=true \
+        --git https://github.com/dashpay/rs-tenderdash-abci --rev "${REVISION}" tenderdash-abci && \
     cargo build --config net.git-fetch-with-cli=true

@@ -32,7 +32,8 @@ jobs:
         with:
           context: .
           file: ./Dockerfile
-          #linux/amd64,linux/arm64
+          build-args: |
+            REVISION=${GITHUB_REF}
           platforms: linux/amd64,linux/arm64
           push: false
           cache-from: |

@@ -30,12 +30,30 @@ jobs:
         run: cargo fmt --all -- --check
 
   docs:
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
+
       - uses: ./.github/actions/deps
-      - name: Check documentation generation
+
+      - name: Setup Pages
+        uses: actions/configure-pages@v3
+
+      - name: Generate documentation
         shell: bash
         env:
           RUSTDOCFLAGS: "--cfg docsrs"
         run: cargo doc --no-deps --all-features
+
+      - name: Upload docs
+        uses: actions/upload-pages-artifact@v1
+        with:
+          # Upload entire repository
+          path: "target/doc"
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v1

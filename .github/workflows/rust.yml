@@ -30,9 +30,10 @@ jobs:
         run: cargo fmt --all -- --check
 
   docs:
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
+    # TODO: we need permissions to enable github-pages env
+    # environment:
+    #   name: github-pages
+    #   url: ${{ steps.deployment.outputs.page_url }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
@@ -47,6 +48,10 @@ jobs:
         env:
           RUSTDOCFLAGS: "--cfg docsrs"
         run: cargo doc --no-deps --all-features
+
+      - name: Generate index page
+        shell: bash
+        run: cp README.md target/doc/
 
       - name: Upload docs
         uses: actions/upload-pages-artifact@v1

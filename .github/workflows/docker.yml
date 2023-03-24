@@ -30,7 +30,7 @@ jobs:
       - name: Select target platform
         id: select_platforms
         run: |
-          if  [[ "${GITHUB_EVENT_NAME}" == "pull_request" ] ; then
+          if  [[ "${GITHUB_EVENT_NAME}" == "pull_request" ]] ; then
             echo "build_platforms=linux/amd64" >> $GITHUB_ENV
           else
             echo "build_platforms=linux/amd64,linux/arm64" >> $GITHUB_ENV

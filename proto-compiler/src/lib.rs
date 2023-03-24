@@ -57,9 +57,6 @@ pub fn proto_compile() {
 
     let mut pb = prost_build::Config::new();
 
-    // Use shared Bytes buffers for ABCI messages:
-    pb.bytes([".tenderdash.abci"]);
-
     // Compile proto files with added annotations, exchange prost_types to our own
     pb.out_dir(&out_dir);
     for type_attribute in CUSTOM_TYPE_ATTRIBUTES {

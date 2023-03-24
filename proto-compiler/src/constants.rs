@@ -23,6 +23,7 @@ const VEC_BASE64STRING: &str = r#"#[serde(with = "crate::serializers::bytes::vec
 const OPTIONAL: &str = r#"#[serde(with = "crate::serializers::optional")]"#;
 // const BYTES_SKIP_IF_EMPTY: &str = r#"#[serde(skip_serializing_if =
 // "bytes::Bytes::is_empty")]"#;
+const DERIVE_FROM_FORWARD: &str = r#"#[from(forward)]"#;
 const NULLABLEVECARRAY: &str = r#"#[serde(with = "crate::serializers::txs")]"#;
 const NULLABLE: &str = r#"#[serde(with = "crate::serializers::nullable")]"#;
 const ALIAS_POWER_QUOTED: &str =
@@ -45,6 +46,7 @@ const ALIAS_TOTAL_VOTING_POWER_QUOTED: &str =
 const ALIAS_TIMESTAMP: &str = r#"#[serde(alias = "Timestamp")]"#;
 const ALIAS_PARTS: &str = r#"#[serde(alias = "parts")]"#;
 const DERIVE_FROM: &str = r#"#[derive(derive_more::From)]"#;
+const DERIVE_FROM_STR: &str = r#"#[derive(derive_more::FromStr)]"#;
 /// Custom type attributes applied on top of protobuf structs
 /// The first item in the tuple defines the message where the annotation should
 /// apply and the second item is the string that should be added as annotation.
@@ -76,6 +78,8 @@ pub static CUSTOM_TYPE_ATTRIBUTES: &[(&str, &str)] = &[
     (".tendermint.crypto.PublicKey.sum", TYPE_TAG),
     (".tendermint.types.Evidence.sum", TYPE_TAG),
     (".tendermint.abci.ResponseInfo", SERIALIZED),
+    (".tendermint.abci.ResponseException", DERIVE_FROM),
+    (".tendermint.abci.ResponseException", DERIVE_FROM_STR),
     (".tendermint.types.CanonicalBlockID", SERIALIZED),
     (".tendermint.types.CanonicalPartSetHeader", SERIALIZED),
     (".tendermint.types.Validator", SERIALIZED),
@@ -114,6 +118,10 @@ pub static CUSTOM_FIELD_ATTRIBUTES: &[(&str, &str)] = &[
     (
         ".tendermint.abci.ResponseInfo.last_block_app_hash",
         HEXSTRING,
+    ),
+    (
+        ".tendermint.abci.ResponseException.error",
+        DERIVE_FROM_FORWARD,
     ),
     (".tendermint.types.BlockID.hash", HEXSTRING),
     (".tendermint.types.BlockID.part_set_header", ALIAS_PARTS),

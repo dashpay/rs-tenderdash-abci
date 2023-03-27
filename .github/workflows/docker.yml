@@ -34,7 +34,7 @@ jobs:
         uses: docker/build-push-action@v4.0.0
         with:
           context: .
-          file: ./Dockerfile-${{ matrix.version }}
+          file: ./Dockerfile-${{ matrix.os }}
           build-args: REVISION=${{ github.ref }}
           platforms: linux/amd64 # ,linux/arm64
           push: false

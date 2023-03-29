@@ -3,7 +3,6 @@ use std::{
     fs::{copy, create_dir_all, read_to_string, remove_dir_all, File},
     io::{self, Write},
     path::{Path, PathBuf},
-    process::ExitStatus,
 };
 
 use walkdir::WalkDir;

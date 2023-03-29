@@ -23,6 +23,7 @@ jobs:
   fmt:
     runs-on: ubuntu-latest
     steps:
+      - uses: actions/checkout@v2
       - uses: ./.github/actions/deps
       - name: Check code formatting
         shell: bash
@@ -31,6 +32,7 @@ jobs:
   docs:
     runs-on: ubuntu-latest
     steps:
+      - uses: actions/checkout@v2
       - uses: ./.github/actions/deps
       - name: Check documentation generation
         shell: bash

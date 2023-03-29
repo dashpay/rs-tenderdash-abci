@@ -1,0 +1,4 @@
+[submodule "tenderdash"]
+	path = tenderdash
+	url = https://github.com/dashpay/tenderdash
+	branch = v0.12.0-dev.1

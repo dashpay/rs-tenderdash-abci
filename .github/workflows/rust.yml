@@ -24,8 +24,6 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
-        with:
-          submodules: true
       - uses: ./.github/actions/deps
       - name: Check code formatting
         shell: bash
@@ -35,8 +33,6 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
-        with:
-          submodules: true
       - uses: ./.github/actions/deps
       - name: Check documentation generation
         shell: bash

@@ -40,7 +40,7 @@ pub fn proto_compile() {
 
     let commitish = tenderdash_commitish();
     println!("[info] => Fetching {TENDERDASH_REPO} at {commitish} into {tenderdash_dir:?}");
-    fetch_commitish(&PathBuf::from(&workspace), TENDERDASH_REPO, &commitish); // This panics if it fails.
+    fetch_commitish(&PathBuf::from(&tenderdash_dir), TENDERDASH_REPO, &commitish); // This panics if it fails.
 
     let proto_paths = vec![tenderdash_dir.join("proto").join("tendermint").join("abci")];
     let proto_includes_paths = vec![tenderdash_dir.join("proto"), thirdparty_dir];

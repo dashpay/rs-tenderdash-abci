@@ -15,22 +15,22 @@ use crate::constants::DEFAULT_TENDERDASH_COMMITISH;
 /// on cargo to decide wherther or not to call it. It means
 /// we will not be called too frequently, so the fetch will
 /// not happen too often.
-pub fn fetch_commitish(workspace_dir: &Path, url: &str, commitish: &str) {
+pub fn fetch_commitish(tenderdash_dir: &Path, url: &str, commitish: &str) {
     println!(
         "  [info] => Cloning {} into {} folder",
         url,
-        workspace_dir.join("tenderdash").to_string_lossy()
+        tenderdash_dir.join("tenderdash").to_string_lossy()
     );
-    std::env::set_current_dir(workspace_dir).expect("cannot change directory to root dir");
-    let dir = "tenderdash";
+    // std::env::set_current_dir(workspace_dir).expect("cannot change directory to
+    // root dir");
+
     // We use `git` executable as we need --depth option,  not supported by git2
     // crate
     let output = std::process::Command::new("git")
-        .arg("submodule")
-        .arg("set-branch")
-        .arg("--branch")
+        .arg("-C")
+        .arg(tenderdash_dir)
+        .arg("checkout")
         .arg(commitish)
-        .arg(dir)
         .output()
         .expect("cannot select git branch/tag");
 
@@ -38,20 +38,6 @@ pub fn fetch_commitish(workspace_dir: &Path, url: &str, commitish: &str) {
         io::stdout().write_all(&output.stdout).unwrap();
         io::stderr().write_all(&output.stderr).unwrap();
         panic!("git submodule set-branch failed: {}", output.status);
-    }
-
-    let output = std::process::Command::new("git")
-        .arg("submodule")
-        .arg("update")
-        .arg("--depth=1")
-        .arg("--force")
-        .arg(dir)
-        .output()
-        .expect("cannot update git branch");
-    if !output.status.success() {
-        io::stdout().write_all(&output.stdout).unwrap();
-        io::stderr().write_all(&output.stderr).unwrap();
-        panic!("git submodule update failed: {}", output.status);
     }
 }
 

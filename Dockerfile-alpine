@@ -13,7 +13,6 @@ RUN apk add --no-cache \
         sccache \
         bash
 
-
 SHELL ["/bin/bash", "-c"]
 
 # one of: aarch_64, x86_64
@@ -29,17 +28,12 @@ RUN if [[ "$BUILDPLATFORM" == "linux/arm64" ]] ; then export PROTOC_ARCH=aarch_6
     rm /tmp/protoc.zip && \
     ln -s /opt/protoc/bin/protoc /usr/bin/
 
-# Install sccache - build cache for Rust.
-# This is optional, but it will speed up the build process 
-#
-# ARG SCCACHE_URL="https://github.com/mozilla/sccache/releases/download/v0.4.0/sccache-v0.4.0-x86_64-unknown-linux-musl.tar.gz"
-# RUN wget -q -O /tmp/sccache.tar.gz ${SCCACHE_URL} \
-#     && mkdir -p /tmp/sccache \
-#     && tar -z -C /tmp/sccache -xf /tmp/sccache.tar.gz \
-#     && mv /tmp/sccache/sccache*/sccache /usr/bin/sccache \
-#     && rm -r /tmp/sccache.tar.gz /tmp/sccache
 # Set RUSTC_WRAPPER=/usr/bin/sccache to enable `sccache` caching.
 ARG RUSTC_WRAPPER=/usr/bin/sccache
+# These should be set for Github Actions caching
+ARG SCCACHE_GHA_ENABLED
+ARG ACTIONS_CACHE_URL
+ARG ACTIONS_RUNTIME_TOKEN
 
 # Create a dummy package
 RUN cargo init /usr/src/abci-app

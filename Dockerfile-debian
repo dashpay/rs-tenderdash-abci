@@ -24,8 +24,13 @@ RUN wget -q -O /tmp/sccache.tar.gz ${SCCACHE_URL} \
     && tar -z -C /tmp/sccache -xf /tmp/sccache.tar.gz \
     && mv /tmp/sccache/sccache*/sccache /usr/bin/sccache \
     && rm -r /tmp/sccache.tar.gz /tmp/sccache
+
 # Set RUSTC_WRAPPER=/usr/bin/sccache to enable `sccache` caching.
 ARG RUSTC_WRAPPER=/usr/bin/sccache
+# These should be set for Github Actions caching
+ARG SCCACHE_GHA_ENABLED
+ARG ACTIONS_CACHE_URL
+ARG ACTIONS_RUNTIME_TOKEN
 
 # Create a dummy package
 RUN cargo init /usr/src/abci-app

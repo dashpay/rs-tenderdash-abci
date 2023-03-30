@@ -31,6 +31,7 @@ pub fn fetch_commitish(tenderdash_dir: &Path, url: &str, commitish: &str) {
             .arg("-C")
             .arg(tenderdash_dir)
             .arg("fetch")
+            .arg("--update-shallow")
             .arg("--depth=1")
             .arg("origin")
             .arg(commitish),

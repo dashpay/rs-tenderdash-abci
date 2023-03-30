@@ -24,23 +24,37 @@ pub fn fetch_commitish(tenderdash_dir: &Path, url: &str, commitish: &str) {
     // std::env::set_current_dir(workspace_dir).expect("cannot change directory to
     // root dir");
 
-    // We use `git` executable as we need --depth option,  not supported by git2
+    // We use `git` executable as we need --depth option, not supported by git2
     // crate
-    let output = std::process::Command::new("git")
-        .arg("-C")
-        .arg(tenderdash_dir)
-        .arg("checkout")
-        .arg(commitish)
-        .output()
-        .expect("cannot select git branch/tag");
+    exec(
+        std::process::Command::new("git")
+            .arg("-C")
+            .arg(tenderdash_dir)
+            .arg("fetch")
+            .arg("--depth=1")
+            .arg("origin")
+            .arg(commitish),
+    );
+
+    exec(
+        std::process::Command::new("git")
+            .arg("-C")
+            .arg(tenderdash_dir)
+            .arg("checkout")
+            .arg(commitish),
+    );
+}
+
+/// Execute the command, panic on any error
+fn exec(cmd: &mut std::process::Command) {
+    let output = cmd.output().expect("command execution failed");
 
     if !output.status.success() {
         io::stdout().write_all(&output.stdout).unwrap();
         io::stderr().write_all(&output.stderr).unwrap();
-        panic!("git submodule set-branch failed: {}", output.status);
+        panic!("git command {:?} failed: {}", cmd, output.status);
     }
 }
-
 /// Copy generated files to target folder
 pub fn copy_files(src_dir: &Path, target_dir: &Path) {
     // Remove old compiled files

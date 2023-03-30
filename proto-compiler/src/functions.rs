@@ -24,6 +24,11 @@ pub fn fetch_commitish(tenderdash_dir: &Path, cache_dir: &Path, url: &str, commi
         tenderdash_dir.to_string_lossy()
     );
 
+    // ensure cache dir exists
+    if !cache_dir.is_dir() {
+        std::fs::create_dir_all(cache_dir).expect("cannot create cache directory");
+    }
+
     let archive_file = cache_dir.join(format!("tenderdash-{}.zip", commitish));
     // Unzip Tenderdash sources to tmpdir and move to target/tenderdash
     let tmpdir = tempfile::tempdir().expect("cannot create temporary dir to extract archive");

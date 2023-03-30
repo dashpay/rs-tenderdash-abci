@@ -29,6 +29,16 @@ pub fn fetch_commitish(tenderdash_dir: &Path, url: &str, commitish: &str) {
     exec(
         std::process::Command::new("git")
             .arg("-C")
+            .arg(tenderdash_dir.join(".."))
+            .arg("submodule")
+            .arg("update")
+            .arg("--init")
+            .arg("--depth=1")
+            .arg("tenderdash"),
+    );
+    exec(
+        std::process::Command::new("git")
+            .arg("-C")
             .arg(tenderdash_dir)
             .arg("fetch")
             .arg("--tags")

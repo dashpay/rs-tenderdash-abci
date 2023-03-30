@@ -26,4 +26,4 @@ jobs:
       - uses: ./.github/actions/deps
       - name: Build source code
         shell: bash
-        run: cargo build --all-features
+        run: echo "$SCCACHE_GHA_ENABLED" ;  cargo build --all-features

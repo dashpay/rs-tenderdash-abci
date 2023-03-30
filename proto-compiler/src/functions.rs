@@ -19,7 +19,7 @@ pub fn fetch_commitish(tenderdash_dir: &Path, url: &str, commitish: &str) {
     println!(
         "  [info] => Cloning {} into {} folder",
         url,
-        tenderdash_dir.join("tenderdash").to_string_lossy()
+        tenderdash_dir.to_string_lossy()
     );
     // std::env::set_current_dir(workspace_dir).expect("cannot change directory to
     // root dir");
@@ -31,6 +31,7 @@ pub fn fetch_commitish(tenderdash_dir: &Path, url: &str, commitish: &str) {
             .arg("-C")
             .arg(tenderdash_dir)
             .arg("fetch")
+            .arg("--tags")
             .arg("--update-shallow")
             .arg("--depth=1")
             .arg("origin")

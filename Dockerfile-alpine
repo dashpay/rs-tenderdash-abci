@@ -54,8 +54,6 @@ ARG REVISION="refs/heads/master"
 # see https://github.com/rust-lang/cargo/issues/10781#issuecomment-1441071052
 # 3. To preserve space on github cache, we call `cargo clean`.
 RUN --mount=type=cache,sharing=shared,target=/root/.cache/sccache \
-    --mount=type=cache,sharing=shared,target=${CARGO_HOME}/.crates.toml \
-    --mount=type=cache,sharing=shared,target=${CARGO_HOME}/.crates2.json \
     --mount=type=cache,sharing=shared,target=${CARGO_HOME}/registry/index \
     --mount=type=cache,sharing=shared,target=${CARGO_HOME}/registry/cache \
     --mount=type=cache,sharing=shared,target=${CARGO_HOME}/git/db \

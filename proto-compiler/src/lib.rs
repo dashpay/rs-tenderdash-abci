@@ -18,29 +18,42 @@ use constants::{CUSTOM_FIELD_ATTRIBUTES, CUSTOM_TYPE_ATTRIBUTES, TENDERDASH_REPO
 /// ../proto/src/tenderdash.rs
 pub fn proto_compile() {
     let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
-    let workspace = root.join("..");
 
     let tenderdash_lib_target = root
         .join("..")
         .join("proto")
         .join("src")
         .join("tenderdash.rs");
+
     let target_dir = root.join("..").join("proto").join("src").join("prost");
+
     let out_dir = var("OUT_DIR")
         .map(PathBuf::from)
         .or_else(|_| tempdir().map(|d| d.into_path()))
         .unwrap();
 
-    let tenderdash_dir = PathBuf::from(
-        var("TENDERDASH_DIR")
-            .unwrap_or_else(|_| workspace.join("tenderdash").to_str().unwrap().to_string()),
-    );
+    let cargo_target_dir = match std::env::var("CARGO_TARGET_DIR") {
+        Ok(s) => PathBuf::from(s),
+        Err(_) => root.join("..").join("target"),
+    };
+    let tenderdash_dir = PathBuf::from(var("TENDERDASH_DIR").unwrap_or_else(|_| {
+        cargo_target_dir
+            .join("tenderdash")
+            .to_str()
+            .unwrap()
+            .to_string()
+    }));
 
     let thirdparty_dir = root.join("third_party");
 
     let commitish = tenderdash_commitish();
     println!("[info] => Fetching {TENDERDASH_REPO} at {commitish} into {tenderdash_dir:?}");
-    fetch_commitish(&PathBuf::from(&tenderdash_dir), TENDERDASH_REPO, &commitish); // This panics if it fails.
+    fetch_commitish(
+        &PathBuf::from(&tenderdash_dir),
+        &cargo_target_dir,
+        TENDERDASH_REPO,
+        &commitish,
+    ); // This panics if it fails.
 
     let proto_paths = vec![tenderdash_dir.join("proto").join("tendermint").join("abci")];
     let proto_includes_paths = vec![tenderdash_dir.join("proto"), thirdparty_dir];

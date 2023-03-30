@@ -1,5 +1,0 @@
-[submodule "tenderdash"]
-path = tenderdash
-url = https://github.com/dashpay/tenderdash
-shallow = true
-fetchRecurseSubmodules = false

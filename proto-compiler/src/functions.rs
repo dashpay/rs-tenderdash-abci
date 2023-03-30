@@ -1,7 +1,7 @@
 use std::{
     env,
     fs::{copy, create_dir_all, read_to_string, remove_dir_all, File},
-    io::{self, Write},
+    io::Write,
     path::{Path, PathBuf},
 };
 
@@ -15,58 +15,74 @@ use crate::constants::DEFAULT_TENDERDASH_COMMITISH;
 /// on cargo to decide wherther or not to call it. It means
 /// we will not be called too frequently, so the fetch will
 /// not happen too often.
-pub fn fetch_commitish(tenderdash_dir: &Path, url: &str, commitish: &str) {
+pub fn fetch_commitish(tenderdash_dir: &Path, cache_dir: &Path, url: &str, commitish: &str) {
+    let url = format!("{url}/archive/{commitish}.zip");
+
     println!(
-        "  [info] => Cloning {} into {} folder",
+        "  [info] => Downloading and extracting {} into {}",
         url,
         tenderdash_dir.to_string_lossy()
     );
-    // std::env::set_current_dir(workspace_dir).expect("cannot change directory to
-    // root dir");
 
-    // We use `git` executable as we need --depth option, not supported by git2
-    // crate
-    exec(
-        std::process::Command::new("git")
-            .arg("-C")
-            .arg(tenderdash_dir.join(".."))
-            .arg("submodule")
-            .arg("update")
-            .arg("--init")
-            .arg("--depth=1")
-            .arg("tenderdash"),
-    );
-    exec(
-        std::process::Command::new("git")
-            .arg("-C")
-            .arg(tenderdash_dir)
-            .arg("fetch")
-            .arg("--tags")
-            .arg("--update-shallow")
-            .arg("--depth=1")
-            .arg("origin")
-            .arg(commitish),
-    );
+    let archive_file = cache_dir.join(format!("tenderdash-{}.zip", commitish));
+    // Unzip Tenderdash sources to tmpdir and move to target/tenderdash
+    let tmpdir = tempfile::tempdir().expect("cannot create temporary dir to extract archive");
+    download_and_unzip(&url, archive_file.as_path(), tmpdir.path());
 
-    exec(
-        std::process::Command::new("git")
-            .arg("-C")
-            .arg(tenderdash_dir)
-            .arg("checkout")
-            .arg(commitish),
-    );
+    // Downloaded zip contains subdirectory like tenderdash-0.12.0-dev.1. We need to
+    // move its contents to target/tederdash, so that we get correct paths like
+    // target/tenderdash/version/version.go
+    let src_dir = find_subdir(tmpdir.path(), "tenderdash-");
+
+    let options = fs_extra::dir::CopyOptions::new().content_only(true);
+
+    fs_extra::dir::create(tenderdash_dir, true).expect("cannot create destination directory");
+    fs_extra::dir::move_dir(src_dir, tenderdash_dir, &options)
+        .expect("cannot move tenderdash directory");
 }
 
-/// Execute the command, panic on any error
-fn exec(cmd: &mut std::process::Command) {
-    let output = cmd.output().expect("command execution failed");
+/// Download file from URL and unzip it to `dest_dir`
+fn download_and_unzip(url: &str, archive_file: &Path, dest_dir: &Path) {
+    // We download only if the file does not exist
+    if !archive_file.is_file() {
+        let mut file = File::create(archive_file).expect("cannot create file");
 
-    if !output.status.success() {
-        io::stdout().write_all(&output.stdout).unwrap();
-        io::stderr().write_all(&output.stderr).unwrap();
-        panic!("git command {:?} failed: {}", cmd, output.status);
+        let mut rb = reqwest::blocking::get(url).expect("cannot download archive");
+        if !rb.status().is_success() {
+            panic!(
+                "cannot download tenderdash sources from {url}: {:?}",
+                rb.status()
+            )
+        }
+        rb.copy_to(&mut file).expect("cannot save downloaded data");
+        file.flush().expect("flush of archive file failed");
     }
+
+    let file = File::open(archive_file).expect("cannot open downloaded zip");
+    let mut archive = zip::ZipArchive::new(&file).expect("cannot open zip archive");
+
+    archive.extract(dest_dir).expect("cannot extract archive");
 }
+/// Find a subdirectory of a parent path which has provided name prefix
+fn find_subdir(parent: &Path, name_prefix: &str) -> PathBuf {
+    let dir_content = fs_extra::dir::get_dir_content(parent).expect("cannot ls tmp dir");
+    let mut src_dir = String::new();
+    for directory in dir_content.directories {
+        let directory = Path::new(&directory)
+            .file_name()
+            .expect("cannot extract dir name");
+        println!("{:?}", directory);
+        if directory.to_string_lossy().starts_with(name_prefix) {
+            src_dir = directory.to_string_lossy().into();
+            break;
+        };
+    }
+    if src_dir.is_empty() {
+        panic!("cannot find extracted Tenderdash sources")
+    }
+    parent.join(src_dir)
+}
+
 /// Copy generated files to target folder
 pub fn copy_files(src_dir: &Path, target_dir: &Path) {
     // Remove old compiled files

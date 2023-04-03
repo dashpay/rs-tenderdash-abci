@@ -6,7 +6,6 @@ mod unix;
 use std::{
     io::{Read, Write},
     net::{IpAddr, SocketAddr, SocketAddrV4, SocketAddrV6},
-    panic::RefUnwindSafe,
     str::FromStr,
 };
 
@@ -24,7 +23,7 @@ pub(crate) const DEFAULT_SERVER_READ_BUF_SIZE: usize = 1024 * 1024;
 /// Use [`Server::handle_connection()`] to accept connection and process all
 /// traffic in this connection. Each incoming connection will be processed using
 /// `app`.
-pub trait Server: RefUnwindSafe {
+pub trait Server {
     /// Process one incoming connection.
     ///
     /// Returns when the connection is terminated or RequestDispatcher returns

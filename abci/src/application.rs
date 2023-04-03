@@ -1,5 +1,4 @@
 //! ABCI application interface.
-use std::panic::RefUnwindSafe;
 
 use tracing::debug;
 
@@ -139,7 +138,7 @@ pub trait Application {
     }
 }
 
-pub trait RequestDispatcher: RefUnwindSafe {
+pub trait RequestDispatcher {
     /// Executes the relevant application method based on the type of the
     /// request, and produces the corresponding response.
     ///
@@ -149,7 +148,7 @@ pub trait RequestDispatcher: RefUnwindSafe {
 }
 
 // Implement `RequestDispatcher` for all `Application`s.
-impl<A: Application + RefUnwindSafe> RequestDispatcher for A {
+impl<A: Application> RequestDispatcher for A {
     fn handle(&self, request: abci::Request) -> Option<abci::Response> {
         tracing::trace!(?request, "received request");
 

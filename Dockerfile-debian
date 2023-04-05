@@ -50,7 +50,7 @@ SHELL ["/bin/bash", "-c"]
 # 2. We add `--config net.git-fetch-with-cli=true` to address ARM build issue,
 # see https://github.com/rust-lang/cargo/issues/10781#issuecomment-1441071052
 # 3. To preserve space on github cache, we call `cargo clean`.
-# 4. We set SCCACHE_SERVER_PORT and RUSTC to avoid conflicts during parallel builds
+# 4. We set SCCACHE_SERVER_PORT to avoid conflicts during parallel builds
 RUN --mount=type=cache,sharing=shared,target=/root/.cache/sccache \
     --mount=type=cache,sharing=shared,target=${CARGO_HOME}/registry/index \
     --mount=type=cache,sharing=shared,target=${CARGO_HOME}/registry/cache \

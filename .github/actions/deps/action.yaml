@@ -32,8 +32,10 @@ runs:
     - name: Rust cache
       uses: Swatinem/rust-cache@v2
       with:
-        cache-directories: |
-          proto/src/prost
+        # Don't cache ./target, as it takes tons of space, use sccache instead.
+        cache-targets: false
+        # We set a shared key, as our cache is reusable between jobs
+        shared-key: rust-cargo
     - name: Compile Protobuf definitions
       shell: bash
       run: cargo build -p tenderdash-proto

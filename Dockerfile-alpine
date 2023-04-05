@@ -53,11 +53,12 @@ ARG REVISION="refs/heads/master"
 # 2. We add `--config net.git-fetch-with-cli=true` to address ARM build issue,
 # see https://github.com/rust-lang/cargo/issues/10781#issuecomment-1441071052
 # 3. To preserve space on github cache, we call `cargo clean`.
+# 4. We set SCCACHE_SERVER_PORT and RUSTC to avoid conflicts during parallel builds
 RUN --mount=type=cache,sharing=shared,target=/root/.cache/sccache \
     --mount=type=cache,sharing=shared,target=${CARGO_HOME}/registry/index \
     --mount=type=cache,sharing=shared,target=${CARGO_HOME}/registry/cache \
     --mount=type=cache,sharing=shared,target=${CARGO_HOME}/git/db \
-    cargo add --config net.git-fetch-with-cli=true \
+    SCCACHE_SERVER_PORT=$((RANDOM+1025)) RUSTC=$(rustup which rustc) cargo add --config net.git-fetch-with-cli=true \
         --git https://github.com/dashpay/rs-tenderdash-abci --rev "${REVISION}" tenderdash-abci && \
     cargo build --config net.git-fetch-with-cli=true && \
     cargo run --config net.git-fetch-with-cli=true && \

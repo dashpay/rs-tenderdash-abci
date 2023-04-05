@@ -59,8 +59,10 @@ RUN --mount=type=cache,sharing=shared,target=/root/.cache/sccache \
     --mount=type=cache,sharing=shared,target=${CARGO_HOME}/registry/index \
     --mount=type=cache,sharing=shared,target=${CARGO_HOME}/registry/cache \
     --mount=type=cache,sharing=shared,target=${CARGO_HOME}/git/db \
-    SCCACHE_SERVER_PORT=$((RANDOM+1025)) RUSTC=$(rustup which rustc) cargo add --config net.git-fetch-with-cli=true \
+    SCCACHE_SERVER_PORT=$((RANDOM+1025)) cargo add --config net.git-fetch-with-cli=true \
         --git https://github.com/dashpay/rs-tenderdash-abci --rev "${REVISION}" tenderdash-abci && \
     cargo build --config net.git-fetch-with-cli=true && \
     cargo run --config net.git-fetch-with-cli=true && \
-    cargo clean
+    cargo clean && \
+    sccache --show-stats
+

@@ -51,15 +51,10 @@ fn download_and_unzip(url: &str, archive_file: &Path, dest_dir: &Path) {
     // We download only if the file does not exist
     if !archive_file.is_file() {
         let mut file = File::create(archive_file).expect("cannot create file");
-
-        let mut rb = reqwest::blocking::get(url).expect("cannot download archive");
-        if !rb.status().is_success() {
-            panic!(
-                "cannot download tenderdash sources from {url}: {:?}",
-                rb.status()
-            )
-        }
-        rb.copy_to(&mut file).expect("cannot save downloaded data");
+        let rb = ureq::get(url).call().expect("cannot download archive");
+        // let mut rb = reqwest::blocking::get(url).expect("cannot download archive");
+        let mut reader = rb.into_reader();
+        std::io::copy(&mut reader, &mut file).expect("cannot save downloaded data");
         file.flush().expect("flush of archive file failed");
     }
 

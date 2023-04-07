@@ -22,11 +22,20 @@ runs:
         unzip /tmp/protoc.zip -d ${HOME}/.local
         echo "PROTOC=${HOME}/.local/bin/protoc" >> $GITHUB_ENV
         export PATH="${PATH}:${HOME}/.local/bin"
+    - name: Setup sccache
+      uses: mozilla-actions/sccache-action@v0.0.3
+    - name: Set sccache variables
+      shell: bash
+      run: |
+        echo SCCACHE_GHA_ENABLED=true >> $GITHUB_ENV
+        echo RUSTC_WRAPPER=sccache >> $GITHUB_ENV
     - name: Rust cache
       uses: Swatinem/rust-cache@v2
       with:
-        cache-directories: |
-          proto/src/prost
-    - name: Compile Protobuf definitions
+        # Don't cache ./target, as it takes tons of space, use sccache instead.
+        cache-targets: false
+        # We set a shared key, as our cache is reusable between jobs
+        shared-key: rust-cargo
+    - name: "Compile Protobuf definitions (needed by fmt, doc, etc.)"
       shell: bash
       run: cargo build -p tenderdash-proto

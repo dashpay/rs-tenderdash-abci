@@ -1,0 +1,62 @@
+# This is an example Dockerfile, demonstrating build process of rs-tenderdash-abci
+
+# We use Debian base image, as Alpine has some segmentation fault issue
+FROM rust:bullseye
+
+RUN --mount=type=cache,sharing=locked,target=/var/lib/apt/lists \
+    --mount=type=cache,sharing=locked,target=/var/cache/apt \
+    rm -f /etc/apt/apt.conf.d/docker-clean && \
+    apt-get update -qq && \
+    apt-get install -qq --yes \
+        protobuf-compiler \
+        git \
+        wget \
+        bash
+
+
+#
+# Install sccache - build cache for Rust.
+# This is optional, but it will speed up the build process 
+#
+ARG SCCACHE_URL="https://github.com/mozilla/sccache/releases/download/v0.4.0/sccache-v0.4.0-x86_64-unknown-linux-musl.tar.gz"
+RUN wget -q -O /tmp/sccache.tar.gz ${SCCACHE_URL} \
+    && mkdir -p /tmp/sccache \
+    && tar -z -C /tmp/sccache -xf /tmp/sccache.tar.gz \
+    && mv /tmp/sccache/sccache*/sccache /usr/bin/sccache \
+    && rm -r /tmp/sccache.tar.gz /tmp/sccache
+
+# Set RUSTC_WRAPPER=/usr/bin/sccache to enable `sccache` caching.
+ARG RUSTC_WRAPPER=/usr/bin/sccache
+# These should be set for Github Actions caching
+ARG SCCACHE_GHA_ENABLED
+ARG ACTIONS_CACHE_URL
+ARG ACTIONS_RUNTIME_TOKEN
+
+# Create a dummy package
+RUN cargo init /usr/src/abci-app
+WORKDIR /usr/src/abci-app
+
+
+# revspec or SHA of commit/branch/tag to use
+ARG REVISION="refs/heads/master"
+
+SHELL ["/bin/bash", "-c"]
+
+# Add tenderdash-abci as a dependency and build the package
+#
+# Some notes here:
+# 1. All these --mount... are to cache reusable info between runs.
+# See https://doc.rust-lang.org/cargo/guide/cargo-home.html#caching-the-cargo-home-in-ci
+# 2. We add `--config net.git-fetch-with-cli=true` to address ARM build issue,
+# see https://github.com/rust-lang/cargo/issues/10781#issuecomment-1441071052
+# 3. To preserve space on github cache, we call `cargo clean`.
+# 4. We set SCCACHE_SERVER_PORT to avoid conflicts during parallel builds
+RUN --mount=type=cache,sharing=shared,target=/root/.cache/sccache \
+    --mount=type=cache,sharing=shared,target=${CARGO_HOME}/registry/index \
+    --mount=type=cache,sharing=shared,target=${CARGO_HOME}/registry/cache \
+    --mount=type=cache,sharing=shared,target=${CARGO_HOME}/git/db \
+    SCCACHE_SERVER_PORT=$((RANDOM+1025)) cargo add --config net.git-fetch-with-cli=true \
+        --git https://github.com/dashpay/rs-tenderdash-abci --rev "${REVISION}" tenderdash-abci && \
+    cargo build --config net.git-fetch-with-cli=true && \
+    cargo clean && \
+    sccache --show-stats

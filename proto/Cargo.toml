@@ -30,7 +30,7 @@ time = { version = "0.3", default-features = false, features = [
     "macros",
     "parsing",
 ] }
-flex-error = { version = "0.4.4", default-features = false }
+thiserror = { version = "1.0.40" }
 chrono = { version = "0.4.24", default-features = false }
 derive_more = { version = "0.99.17" }
 

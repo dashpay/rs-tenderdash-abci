@@ -30,7 +30,7 @@ time = { version = "0.3", default-features = false, features = [
     "macros",
     "parsing",
 ] }
-thiserror = { version = "1.0.40" }
+flex-error = { version = "0.4.4", default-features = false }
 chrono = { version = "0.4.24", default-features = false }
 derive_more = { version = "0.99.17" }
 lhash = { version = "1.0.1", features = ["sha256"], optional = true }

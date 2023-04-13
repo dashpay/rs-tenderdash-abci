@@ -1,30 +1,34 @@
 //! This module defines the various errors that be raised during Protobuf
 //! conversions.
-extern crate std;
+
 use core::{convert::TryFrom, fmt::Display, num::TryFromIntError};
 
+use flex_error::{define_error, DisplayOnly};
 use prost::{DecodeError, EncodeError};
 
 use crate::prelude::*;
 
-#[derive(thiserror::Error, Debug)]
-pub enum Error {
-    /// error converting message type into domain type
-    #[error("error converting message type into domain type: {0}")]
-    TryFromProtobuf(String),
+define_error! {
+    Error {
+        TryFromProtobuf
+            { reason: String }
+            | e | {
+                format!("error converting message type into domain type: {}",
+                    e.reason)
+            },
 
-    /// error encoding message into buffer
-    #[error("error encoding message into buffer: {0:?}")]
-    EncodeMessage(EncodeError),
-    /// error decoding buffer into message
-    #[error("error decoding buffer into message: {0:?}")]
-    DecodeMessage(DecodeError),
-    /// error decoding buffer into message
-    #[error("error building canonical message: {0}")]
-    CreateCanonical(String),
-    /// error parsing encoded length
-    #[error("error parsing encoded length: {0:?}")]
-    ParseLength(TryFromIntError),
+        EncodeMessage
+            [ DisplayOnly<EncodeError> ]
+            | _ | { "error encoding message into buffer" },
+
+        DecodeMessage
+            [ DisplayOnly<DecodeError> ]
+            | _ | { "error decoding buffer into message" },
+
+        ParseLength
+            [ DisplayOnly<TryFromIntError> ]
+            | _ | { "error parsing encoded length" },
+    }
 }
 
 impl Error {
@@ -33,6 +37,6 @@ impl Error {
         E: Display,
         T: TryFrom<Raw, Error = E>,
     {
-        Error::TryFromProtobuf(format!("{e}"))
+        Error::try_from_protobuf(format!("{e}"))
     }
 }

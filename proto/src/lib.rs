@@ -132,7 +132,7 @@ where
     fn encode<B: BufMut>(&self, buf: &mut B) -> Result<(), Error> {
         T::from(self.clone())
             .encode(buf)
-            .map_err(Error::EncodeMessage)
+            .map_err(Error::encode_message)
     }
 
     /// Encode with a length-delimiter to a buffer in Protobuf format.
@@ -147,7 +147,7 @@ where
     fn encode_length_delimited<B: BufMut>(&self, buf: &mut B) -> Result<(), Error> {
         T::from(self.clone())
             .encode_length_delimited(buf)
-            .map_err(Error::EncodeMessage)
+            .map_err(Error::encode_message)
     }
 
     /// Constructor that attempts to decode an instance from a buffer.
@@ -159,7 +159,7 @@ where
     ///
     /// [`prost::Message::decode`]: https://docs.rs/prost/*/prost/trait.Message.html#method.decode
     fn decode<B: Buf>(buf: B) -> Result<Self, Error> {
-        let raw = T::decode(buf).map_err(Error::DecodeMessage)?;
+        let raw = T::decode(buf).map_err(Error::decode_message)?;
 
         Self::try_from(raw).map_err(Error::try_from::<T, Self, _>)
     }
@@ -174,7 +174,7 @@ where
     ///
     /// [`prost::Message::decode_length_delimited`]: https://docs.rs/prost/*/prost/trait.Message.html#method.decode_length_delimited
     fn decode_length_delimited<B: Buf>(buf: B) -> Result<Self, Error> {
-        let raw = T::decode_length_delimited(buf).map_err(Error::DecodeMessage)?;
+        let raw = T::decode_length_delimited(buf).map_err(Error::decode_message)?;
 
         Self::try_from(raw).map_err(Error::try_from::<T, Self, _>)
     }
@@ -204,7 +204,7 @@ where
     /// Encode with a length-delimiter to a `Vec<u8>` Protobuf-encoded message.
     fn encode_length_delimited_vec(&self) -> Result<Vec<u8>, Error> {
         let len = self.encoded_len();
-        let lenu64 = len.try_into().map_err(Error::ParseLength)?;
+        let lenu64 = len.try_into().map_err(Error::parse_length)?;
         let mut wire = Vec::with_capacity(len + encoded_len_varint(lenu64));
         self.encode_length_delimited(&mut wire).map(|_| wire)
     }

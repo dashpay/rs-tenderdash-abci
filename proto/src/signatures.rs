@@ -31,7 +31,7 @@ impl SignBytes for StateId {
     fn sign_bytes(&self, _ctx: &SignContext) -> Result<Vec<u8>, Error> {
         let mut buf = Vec::new();
         self.encode_length_delimited(&mut buf)
-            .map_err(Error::EncodeMessage)?;
+            .map_err(Error::encode_message)?;
 
         Ok(buf.to_vec())
     }
@@ -51,7 +51,7 @@ impl SignBytes for BlockId {
         let mut buf = Vec::new();
         block_id
             .encode_length_delimited(&mut buf)
-            .map_err(Error::EncodeMessage)?;
+            .map_err(Error::encode_message)?;
 
         Ok(buf)
     }
@@ -62,7 +62,7 @@ impl SignBytes for Vote {
         let block_id = self
             .block_id
             .clone()
-            .ok_or(Error::CreateCanonical(String::from(
+            .ok_or(Error::create_canonical(String::from(
                 "missing vote.block id",
             )))?;
 
@@ -76,7 +76,7 @@ impl SignBytes for Commit {
         let block_id = self
             .block_id
             .clone()
-            .ok_or(Error::CreateCanonical(String::from(
+            .ok_or(Error::create_canonical(String::from(
                 "missing vote.block id",
             )))?;
 
@@ -106,7 +106,7 @@ fn vote_sign_bytes(
     let state_id = block_id.state_id.clone();
     let block_id = block_id.sha256(ctx)?;
 
-    buf.put_i32_le(vote_type.into());
+    buf.put_i32_le(vote_type);
     buf.put_i64_le(height);
     buf.put_i64_le(round);
 

@@ -55,10 +55,20 @@ pub fn proto_compile() {
         &commitish,
     ); // This panics if it fails.
 
+    // We need all files in proto/tendermint/abci, plus .../types/canonical.proto
+    // for signature verification
     let proto_paths = vec![tenderdash_dir.join("proto").join("tendermint").join("abci")];
     let proto_includes_paths = vec![tenderdash_dir.join("proto"), thirdparty_dir];
     // List available proto files
-    let protos = find_proto_files(proto_paths);
+    let mut protos = find_proto_files(proto_paths);
+    // On top of that, we add canonical.proto, required to verify signatures
+    protos.push(
+        tenderdash_dir
+            .join("proto")
+            .join("tendermint")
+            .join("types")
+            .join("canonical.proto"),
+    );
 
     let mut pb = prost_build::Config::new();
 

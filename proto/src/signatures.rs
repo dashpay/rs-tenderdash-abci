@@ -1,5 +1,8 @@
 //! Digital signature processing
-use alloc::{string::String, vec::Vec};
+use alloc::{
+    string::{String, ToString},
+    vec::Vec,
+};
 
 use bytes::BufMut;
 use prost::Message;
@@ -12,29 +15,21 @@ use crate::{
     Error,
 };
 
-#[derive(Clone, Debug)]
-pub struct SignContext {
-    pub chain_id: String,
-    height: i64,
-    round: i32,
-}
-
-impl SignContext {}
 pub trait SignBytes {
     /// Generate bytes that will be signed.
-    fn sign_bytes(&self, ctx: &SignContext) -> Result<Vec<u8>, Error>;
+    fn sign_bytes(&self, chain_id: &str, height: i64, round: i32) -> Result<Vec<u8>, Error>;
 
     /// Generate hash of data to sign
-    fn sha256(&self, ctx: &SignContext) -> Result<Vec<u8>, Error> {
+    fn sha256(&self, chain_id: &str, height: i64, round: i32) -> Result<Vec<u8>, Error> {
         // todo!()
-        let sb = self.sign_bytes(ctx)?;
+        let sb = self.sign_bytes(chain_id, height, round)?;
         let result = lhash::sha256(&sb);
         Ok(Vec::from(result))
     }
 }
 
 impl SignBytes for StateId {
-    fn sign_bytes(&self, _ctx: &SignContext) -> Result<Vec<u8>, Error> {
+    fn sign_bytes(&self, _chain_id: &str, _height: i64, _round: i32) -> Result<Vec<u8>, Error> {
         let mut buf = Vec::new();
         self.encode_length_delimited(&mut buf)
             .map_err(Error::encode_message)?;
@@ -44,7 +39,7 @@ impl SignBytes for StateId {
 }
 
 impl SignBytes for BlockId {
-    fn sign_bytes(&self, _ctx: &SignContext) -> Result<Vec<u8>, Error> {
+    fn sign_bytes(&self, _chain_id: &str, _height: i64, _round: i32) -> Result<Vec<u8>, Error> {
         let part_set_header = self.part_set_header.clone().unwrap_or_default();
 
         let block_id = CanonicalBlockId {
@@ -64,8 +59,8 @@ impl SignBytes for BlockId {
 }
 
 impl SignBytes for Vote {
-    fn sign_bytes(&self, ctx: &SignContext) -> Result<Vec<u8>, Error> {
-        if ctx.height != self.height || ctx.round != self.round {
+    fn sign_bytes(&self, chain_id: &str, height: i64, round: i32) -> Result<Vec<u8>, Error> {
+        if height != self.height || round != self.round {
             return Err(Error::create_canonical(String::from(
                 "vote height/round mismatch",
             )));
@@ -78,13 +73,13 @@ impl SignBytes for Vote {
                 "missing vote.block id",
             )))?;
 
-        vote_sign_bytes(ctx, block_id, self.r#type())
+        vote_sign_bytes(block_id, self.r#type(), chain_id, height, round)
     }
 }
 
 impl SignBytes for Commit {
-    fn sign_bytes(&self, ctx: &SignContext) -> Result<Vec<u8>, Error> {
-        if ctx.height != self.height || ctx.round != self.round {
+    fn sign_bytes(&self, chain_id: &str, height: i64, round: i32) -> Result<Vec<u8>, Error> {
+        if height != self.height || round != self.round {
             return Err(Error::create_canonical(String::from(
                 "commit height/round mismatch",
             )));
@@ -97,22 +92,22 @@ impl SignBytes for Commit {
                 "missing vote.block id",
             )))?;
 
-        vote_sign_bytes(ctx, block_id, SignedMsgType::Precommit)
+        vote_sign_bytes(block_id, SignedMsgType::Precommit, chain_id, height, round)
     }
 }
 
 impl SignBytes for VoteExtension {
-    fn sign_bytes(&self, ctx: &SignContext) -> Result<Vec<u8>, Error> {
+    fn sign_bytes(&self, chain_id: &str, height: i64, round: i32) -> Result<Vec<u8>, Error> {
         if self.r#type() != VoteExtensionType::ThresholdRecover {
             return Err(Error::create_canonical(String::from(
                 "only ThresholdRecover vote extensions can be signed",
             )));
         }
         let ve = CanonicalVoteExtension {
-            chain_id: ctx.chain_id.clone(),
+            chain_id: chain_id.to_string(),
             extension: self.extension.clone(),
-            height: ctx.height,
-            round: ctx.round as i64,
+            height,
+            round: round as i64,
             r#type: self.r#type,
         };
 
@@ -124,23 +119,25 @@ impl SignBytes for VoteExtension {
 ///
 /// See https://github.com/dashpay/tenderdash/blob/bcb623bcf002ac54b26ed1324b98116872dd0da7/proto/tendermint/types/types.go#L56
 fn vote_sign_bytes(
-    ctx: &SignContext,
     block_id: BlockId,
     vote_type: SignedMsgType,
+    chain_id: &str,
+    height: i64,
+    round: i32,
 ) -> Result<Vec<u8>, Error> {
     // we just use some rough guesstimate of intial capacity
     let mut buf = Vec::with_capacity(80);
 
     let state_id = block_id.state_id.clone();
-    let block_id = block_id.sha256(ctx)?;
+    let block_id = block_id.sha256(chain_id, height, round)?;
 
     buf.put_i32_le(vote_type.into());
-    buf.put_i64_le(ctx.height);
-    buf.put_i64_le(ctx.round as i64);
+    buf.put_i64_le(height);
+    buf.put_i64_le(round as i64);
 
     buf.extend(block_id);
     buf.extend(state_id);
-    buf.put(ctx.chain_id.as_bytes());
+    buf.put(chain_id.as_bytes());
 
     Ok(buf.to_vec())
 }
@@ -150,9 +147,8 @@ pub mod tests {
     use alloc::{string::ToString, vec::Vec};
 
     use super::SignBytes;
-    use crate::{
-        signatures::SignContext,
-        types::{Commit, PartSetHeader, SignedMsgType, Vote, VoteExtension, VoteExtensionType},
+    use crate::types::{
+        Commit, PartSetHeader, SignedMsgType, Vote, VoteExtension, VoteExtensionType,
     };
 
     #[test]
@@ -183,13 +179,11 @@ pub mod tests {
             }),
             ..Default::default()
         };
-        let ctx = super::SignContext {
-            chain_id: "some-chain".to_string(),
-            height: vote.height,
-            round: vote.round,
-        };
+        let chain_id = "some-chain".to_string();
+        let height = vote.height;
+        let round = vote.round;
 
-        let actual = vote.sign_bytes(&ctx).unwrap();
+        let actual = vote.sign_bytes(&chain_id, height, round).unwrap();
 
         assert_eq!(expect_sign_bytes, actual);
     }
@@ -219,13 +213,11 @@ pub mod tests {
             }),
             ..Default::default()
         };
-        let ctx = super::SignContext {
-            chain_id: "some-chain".to_string(),
-            height: commit.height,
-            round: commit.round,
-        };
+        let chain_id = "some-chain".to_string();
+        let height = commit.height;
+        let round = commit.round;
 
-        let actual = commit.sign_bytes(&ctx).unwrap();
+        let actual = commit.sign_bytes(&chain_id, height, round).unwrap();
 
         assert_eq!(expect_sign_bytes, actual);
     }
@@ -238,18 +230,16 @@ pub mod tests {
             signature: Default::default(),
         };
 
-        let ctx = SignContext {
-            chain_id: "some-chain".to_string(),
-            height: 1,
-            round: 2,
-        };
+        let chain_id = "some-chain".to_string();
+        let height = 1;
+        let round = 2;
 
         let expect_sign_bytes = hex::decode(
             "2a0a080102030405060708110100000000000000190200000000000000220a736f6d652d636861696e2801",
         )
         .unwrap();
 
-        let actual = ve.sign_bytes(&ctx).unwrap();
+        let actual = ve.sign_bytes(&chain_id, height, round).unwrap();
 
         assert_eq!(expect_sign_bytes, actual);
     }

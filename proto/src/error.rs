@@ -28,6 +28,11 @@ define_error! {
         ParseLength
             [ DisplayOnly<TryFromIntError> ]
             | _ | { "error parsing encoded length" },
+
+        CreateCanonical
+        [ DisplayOnly<String> ]
+        | _ | { "cannot prepare canonical form: {}" },
+
     }
 }
 

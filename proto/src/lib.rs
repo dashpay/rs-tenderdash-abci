@@ -35,8 +35,10 @@ pub use tenderdash::*;
 
 pub mod serializers;
 
-use prelude::*;
+#[cfg(feature = "crypto")]
+pub mod signatures;
 
+use prelude::*;
 pub use tenderdash::meta::ABCI_VERSION;
 
 /// Allows for easy Google Protocol Buffers encoding and decoding of domain

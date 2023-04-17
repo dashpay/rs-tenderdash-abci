@@ -33,8 +33,16 @@ time = { version = "0.3", default-features = false, features = [
 flex-error = { version = "0.4.4", default-features = false }
 chrono = { version = "0.4.24", default-features = false }
 derive_more = { version = "0.99.17" }
+lhash = { version = "1.0.1", features = ["sha256"], optional = true }
 
 [dev-dependencies]
 serde_json = { version = "1.0", default-features = false, features = ["alloc"] }
+hex = { version = "0.4" }
+
 [build-dependencies]
 tenderdash-proto-compiler = { path = "../proto-compiler" }
+
+
+[features]
+default = ["crypto"]
+crypto = ["dep:lhash"]

@@ -15,8 +15,105 @@ use crate::{
     Error,
 };
 
-pub trait SignBytes {
-    /// Generate bytes that will be signed.
+const VOTE_REQUEST_ID_PREFIX: &str = "dpbvote";
+const VOTE_EXTENSION_REQUEST_ID_PREFIX: &str = "dpevote";
+
+/// SignDigest returns message digest that should be provided directly to a
+/// signing/verification function (aka Sign ID)
+pub trait SignDigest {
+    fn sign_digest(
+        &self,
+        chain_id: &str,
+        quorum_type: u8,
+        quorum_hash: Vec<u8>,
+        height: i64,
+        round: i32,
+    ) -> Result<Vec<u8>, Error>;
+}
+
+impl SignDigest for Commit {
+    fn sign_digest(
+        &self,
+        chain_id: &str,
+        quorum_type: u8,
+        quorum_hash: Vec<u8>,
+
+        height: i64,
+        round: i32,
+    ) -> Result<Vec<u8>, Error> {
+        if self.quorum_hash != quorum_hash {
+            return Err(Error::create_canonical("quorum hash mismatch".to_string()));
+        }
+
+        let request_id = sign_request_id(VOTE_REQUEST_ID_PREFIX, height, round);
+        let sign_bytes_hash = self.sha256(chain_id, height, round)?;
+
+        Ok(sign_digest(
+            quorum_type,
+            quorum_hash,
+            request_id,
+            sign_bytes_hash,
+        ))
+    }
+}
+
+impl SignDigest for VoteExtension {
+    fn sign_digest(
+        &self,
+        chain_id: &str,
+        quorum_type: u8,
+        quorum_hash: Vec<u8>,
+        height: i64,
+        round: i32,
+    ) -> Result<Vec<u8>, Error> {
+        let request_id = sign_request_id(VOTE_EXTENSION_REQUEST_ID_PREFIX, height, round);
+        let sign_bytes_hash = self.sha256(chain_id, height, round)?;
+
+        Ok(sign_digest(
+            quorum_type,
+            quorum_hash,
+            request_id,
+            sign_bytes_hash,
+        ))
+    }
+}
+
+fn sign_request_id(prefix: &str, height: i64, round: i32) -> Vec<u8> {
+    let mut buf: Vec<u8> = Vec::from(prefix.as_bytes());
+    buf.put_i64_le(height);
+    buf.put_i32_le(round);
+
+    lhash::sha256(&buf).to_vec()
+}
+
+fn sign_digest(
+    quorum_type: u8,
+    mut quorum_hash: Vec<u8>,
+    mut request_id: Vec<u8>,
+    mut sign_bytes_hash: Vec<u8>,
+) -> Vec<u8> {
+    quorum_hash.reverse();
+    request_id.reverse();
+    sign_bytes_hash.reverse();
+
+    let mut buf = Vec::<u8>::new();
+
+    buf.put_u8(quorum_type);
+    buf.append(&mut quorum_hash);
+    buf.append(&mut request_id);
+    buf.append(&mut sign_bytes_hash);
+
+    let hash = lhash::sha256(&buf);
+    // FIXME: In bls-signatures for go, we do double-hashing, so we need to also do
+    // it here. See https://github.com/dashpay/bls-signatures/blob/main/go-bindings/threshold.go#L62
+    lhash::sha256(&hash).to_vec()
+}
+
+trait SignBytes {
+    /// Marshal into byte buffer, representing bytes to be used in signature
+    /// process.
+    ///
+    /// See also: [SignDigest].
     fn sign_bytes(&self, chain_id: &str, height: i64, round: i32) -> Result<Vec<u8>, Error>;
 
     /// Generate hash of data to sign

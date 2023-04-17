@@ -104,8 +104,8 @@ fn sign_digest(
     buf.append(&mut sign_bytes_hash);
 
     let hash = lhash::sha256(&buf);
-    // FIXME: In bls-signatures for go, we do double-hashing, so we need to also do
-    // it here. See https://github.com/dashpay/bls-signatures/blob/main/go-bindings/threshold.go#L62
+    // Note: In bls-signatures for go, we do double-hashing, so we need to also do
+    // it here. See: https://github.com/dashpay/bls-signatures/blob/9329803969fd325dc0d5c9029ab15669d658ed5d/go-bindings/threshold.go#L62
     lhash::sha256(&hash).to_vec()
 }
 
@@ -118,7 +118,6 @@ trait SignBytes {
 
     /// Generate hash of data to sign
     fn sha256(&self, chain_id: &str, height: i64, round: i32) -> Result<Vec<u8>, Error> {
-        // todo!()
         let sb = self.sign_bytes(chain_id, height, round)?;
         let result = lhash::sha256(&sb);
         Ok(Vec::from(result))
@@ -214,7 +213,8 @@ impl SignBytes for VoteExtension {
 
 /// Generate sign bytes for a vote / commit
 ///
-/// See https://github.com/dashpay/tenderdash/blob/bcb623bcf002ac54b26ed1324b98116872dd0da7/proto/tendermint/types/types.go#L56
+/// Based on Tenderdash implementation in
+/// https://github.com/dashpay/tenderdash/blob/bcb623bcf002ac54b26ed1324b98116872dd0da7/proto/tendermint/types/types.go#L56
 fn vote_sign_bytes(
     block_id: BlockId,
     vote_type: SignedMsgType,
@@ -222,8 +222,8 @@ fn vote_sign_bytes(
     height: i64,
     round: i32,
 ) -> Result<Vec<u8>, Error> {
-    // we just use some rough guesstimate of intial capacity
-    let mut buf = Vec::with_capacity(80);
+    // we just use some rough guesstimate of intial capacity for performance
+    let mut buf = Vec::with_capacity(100);
 
     let state_id = block_id.state_id.clone();
     let block_id = block_id.sha256(chain_id, height, round)?;

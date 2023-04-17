@@ -109,7 +109,7 @@ fn sign_digest(
     lhash::sha256(&hash).to_vec()
 }
 
-trait SignBytes {
+pub trait SignBytes {
     /// Marshal into byte buffer, representing bytes to be used in signature
     /// process.
     ///

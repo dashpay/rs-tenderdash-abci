@@ -25,7 +25,7 @@ pub trait SignDigest {
         &self,
         chain_id: &str,
         quorum_type: u8,
-        quorum_hash: Vec<u8>,
+        quorum_hash: &Vec<u8>,
         height: i64,
         round: i32,
     ) -> Result<Vec<u8>, Error>;
@@ -36,12 +36,12 @@ impl SignDigest for Commit {
         &self,
         chain_id: &str,
         quorum_type: u8,
-        quorum_hash: Vec<u8>,
+        quorum_hash: &Vec<u8>,
 
         height: i64,
         round: i32,
     ) -> Result<Vec<u8>, Error> {
-        if self.quorum_hash != quorum_hash {
+        if self.quorum_hash.ne(quorum_hash) {
             return Err(Error::create_canonical("quorum hash mismatch".to_string()));
         }
 
@@ -50,7 +50,7 @@ impl SignDigest for Commit {
 
         Ok(sign_digest(
             quorum_type,
-            quorum_hash,
+            quorum_hash.clone(),
             request_id,
             sign_bytes_hash,
         ))
@@ -62,7 +62,7 @@ impl SignDigest for VoteExtension {
         &self,
         chain_id: &str,
         quorum_type: u8,
-        quorum_hash: Vec<u8>,
+        quorum_hash: &Vec<u8>,
         height: i64,
         round: i32,
     ) -> Result<Vec<u8>, Error> {
@@ -71,7 +71,7 @@ impl SignDigest for VoteExtension {
 
         Ok(sign_digest(
             quorum_type,
-            quorum_hash,
+            quorum_hash.clone(),
             request_id,
             sign_bytes_hash,
         ))

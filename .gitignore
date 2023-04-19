@@ -16,3 +16,6 @@ Cargo.lock
 **/*.proptest-regressions
 .vscode/launch.json
 *.profraw
+
+# Mac spotlight
+.DS_Store

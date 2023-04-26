@@ -231,7 +231,10 @@ fn vote_sign_bytes(
         .try_into()
         .expect("state id must be a valid hash");
 
-    let block_id = block_id.sha256(chain_id, height, round)?;
+    let block_id: [u8; 32] = block_id
+        .sha256(chain_id, height, round)?
+        .try_into()
+        .expect("block id must be a valid hash");
 
     buf.put_i32_le(vote_type.into());
     buf.put_i64_le(height);

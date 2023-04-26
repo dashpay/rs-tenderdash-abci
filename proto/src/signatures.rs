@@ -225,7 +225,12 @@ fn vote_sign_bytes(
     // we just use some rough guesstimate of intial capacity for performance
     let mut buf = Vec::with_capacity(100);
 
-    let state_id = block_id.state_id.clone();
+    let state_id: [u8; 32] = block_id
+        .state_id
+        .clone()
+        .try_into()
+        .expect("state id must be a valid hash");
+
     let block_id = block_id.sha256(chain_id, height, round)?;
 
     buf.put_i32_le(vote_type.into());

@@ -34,7 +34,7 @@ pub fn fetch_commitish(tenderdash_dir: &Path, cache_dir: &Path, url: &str, commi
     let tmpdir = tempfile::tempdir().expect("cannot create temporary dir to extract archive");
     download_and_unzip(&url, archive_file.as_path(), tmpdir.path());
 
-    // Downloaded zip contains subdirectory like tenderdash-0.12.0-dev.1. We need to
+    // Downloaded zip contains subdirectory like tenderdash-0.12.0-dev.2. We need to
     // move its contents to target/tederdash, so that we get correct paths like
     // target/tenderdash/version/version.go
     let src_dir = find_subdir(tmpdir.path(), "tenderdash-");

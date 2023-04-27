@@ -1,5 +1,5 @@
 //! Digital signature processing
-use alloc::{
+use std::{
     string::{String, ToString},
     vec::Vec,
 };
@@ -8,7 +8,7 @@ use bytes::BufMut;
 use prost::Message;
 
 use crate::{
-    types::{
+    proto::types::{
         BlockId, CanonicalBlockId, CanonicalVoteExtension, Commit, SignedMsgType, StateId, Vote,
         VoteExtension, VoteExtensionType,
     },
@@ -42,7 +42,7 @@ impl SignDigest for Commit {
         round: i32,
     ) -> Result<Vec<u8>, Error> {
         if self.quorum_hash.ne(quorum_hash) {
-            return Err(Error::create_canonical("quorum hash mismatch".to_string()));
+            return Err(Error::Canonical("quorum hash mismatch".to_string()));
         }
 
         let request_id = sign_request_id(VOTE_REQUEST_ID_PREFIX, height, round);
@@ -128,7 +128,7 @@ impl SignBytes for StateId {
     fn sign_bytes(&self, _chain_id: &str, _height: i64, _round: i32) -> Result<Vec<u8>, Error> {
         let mut buf = Vec::new();
         self.encode_length_delimited(&mut buf)
-            .map_err(Error::encode_message)?;
+            .map_err(Error::Encode)?;
 
         Ok(buf.to_vec())
     }
@@ -140,7 +140,7 @@ impl SignBytes for BlockId {
 
         let block_id = CanonicalBlockId {
             hash: self.hash.clone(),
-            part_set_header: Some(crate::types::CanonicalPartSetHeader {
+            part_set_header: Some(crate::proto::types::CanonicalPartSetHeader {
                 total: part_set_header.total,
                 hash: part_set_header.hash,
             }),
@@ -148,7 +148,7 @@ impl SignBytes for BlockId {
         let mut buf = Vec::new();
         block_id
             .encode_length_delimited(&mut buf)
-            .map_err(Error::encode_message)?;
+            .map_err(Error::Encode)?;
 
         Ok(buf)
     }
@@ -157,17 +157,13 @@ impl SignBytes for BlockId {
 impl SignBytes for Vote {
     fn sign_bytes(&self, chain_id: &str, height: i64, round: i32) -> Result<Vec<u8>, Error> {
         if height != self.height || round != self.round {
-            return Err(Error::create_canonical(String::from(
-                "vote height/round mismatch",
-            )));
+            return Err(Error::Canonical(String::from("vote height/round mismatch")));
         }
 
         let block_id = self
             .block_id
             .clone()
-            .ok_or(Error::create_canonical(String::from(
-                "missing vote.block id",
-            )))?;
+            .ok_or(Error::Canonical(String::from("missing vote.block id")))?;
 
         vote_sign_bytes(block_id, self.r#type(), chain_id, height, round)
     }
@@ -176,7 +172,7 @@ impl SignBytes for Vote {
 impl SignBytes for Commit {
     fn sign_bytes(&self, chain_id: &str, height: i64, round: i32) -> Result<Vec<u8>, Error> {
         if height != self.height || round != self.round {
-            return Err(Error::create_canonical(String::from(
+            return Err(Error::Canonical(String::from(
                 "commit height/round mismatch",
             )));
         }
@@ -184,9 +180,7 @@ impl SignBytes for Commit {
         let block_id = self
             .block_id
             .clone()
-            .ok_or(Error::create_canonical(String::from(
-                "missing vote.block id",
-            )))?;
+            .ok_or(Error::Canonical(String::from("missing vote.block id")))?;
 
         vote_sign_bytes(block_id, SignedMsgType::Precommit, chain_id, height, round)
     }
@@ -195,7 +189,7 @@ impl SignBytes for Commit {
 impl SignBytes for VoteExtension {
     fn sign_bytes(&self, chain_id: &str, height: i64, round: i32) -> Result<Vec<u8>, Error> {
         if self.r#type() != VoteExtensionType::ThresholdRecover {
-            return Err(Error::create_canonical(String::from(
+            return Err(Error::Canonical(String::from(
                 "only ThresholdRecover vote extensions can be signed",
             )));
         }
@@ -249,10 +243,10 @@ fn vote_sign_bytes(
 
 #[cfg(test)]
 pub mod tests {
-    use alloc::{string::ToString, vec::Vec};
+    use std::{string::ToString, vec::Vec};
 
     use super::SignBytes;
-    use crate::types::{
+    use crate::proto::types::{
         Commit, PartSetHeader, SignedMsgType, Vote, VoteExtension, VoteExtensionType,
     };
 
@@ -274,7 +268,7 @@ pub mod tests {
             r#type: SignedMsgType::Prevote as i32,
             height: 1,
             round: 2,
-            block_id: Some(crate::types::BlockId {
+            block_id: Some(crate::proto::types::BlockId {
                 hash: h.clone(),
                 part_set_header: Some(PartSetHeader {
                     total: 1,
@@ -308,7 +302,7 @@ pub mod tests {
         let commit = Commit {
             height: 1,
             round: 2,
-            block_id: Some(crate::types::BlockId {
+            block_id: Some(crate::proto::types::BlockId {
                 hash: h.clone(),
                 part_set_header: Some(PartSetHeader {
                     total: 1,

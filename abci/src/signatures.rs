@@ -150,6 +150,8 @@ impl SignBytes for BlockId {
             .encode_length_delimited(&mut buf)
             .map_err(Error::Encode)?;
 
+        tracing::trace!(sign_bytes = hex::encode(&buf), "block id sign bytes");
+
         Ok(buf)
     }
 }
@@ -237,6 +239,14 @@ fn vote_sign_bytes(
     buf.extend(block_id);
     buf.extend(state_id);
     buf.put(chain_id.as_bytes());
+
+    tracing::trace!(
+        height,
+        round,
+        vote_type = vote_type.as_str_name(),
+        sign_bytes = hex::encode(&buf),
+        "vote sign bytes"
+    );
 
     Ok(buf.to_vec())
 }

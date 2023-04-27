@@ -96,7 +96,7 @@ fn sign_digest(
     sign_bytes_hash: &[u8],
 ) -> Vec<u8> {
     let mut quorum_hash = quorum_hash.to_vec();
-    // quorum_hash.reverse();
+    quorum_hash.reverse();
 
     let mut request_id = request_id.to_vec();
     request_id.reverse();

@@ -92,7 +92,7 @@ fn sign_digest(
     mut request_id: Vec<u8>,
     mut sign_bytes_hash: Vec<u8>,
 ) -> Vec<u8> {
-    quorum_hash.reverse();
+    // quorum_hash.reverse();
     request_id.reverse();
     sign_bytes_hash.reverse();
 
@@ -136,6 +136,15 @@ impl SignBytes for StateId {
 
 impl SignBytes for BlockId {
     fn sign_bytes(&self, _chain_id: &str, _height: i64, _round: i32) -> Result<Vec<u8>, Error> {
+        // determine if block id is zero
+        if self.hash.is_empty()
+            && (self.part_set_header.is_none()
+                || self.part_set_header.as_ref().unwrap().hash.is_empty())
+            && self.state_id.is_empty()
+        {
+            return Ok(Vec::<u8>::new());
+        }
+
         let part_set_header = self.part_set_header.clone().unwrap_or_default();
 
         let block_id = CanonicalBlockId {

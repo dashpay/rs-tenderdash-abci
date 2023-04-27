@@ -25,7 +25,7 @@ pub trait SignDigest {
         &self,
         chain_id: &str,
         quorum_type: u8,
-        quorum_hash: &[u8],
+        quorum_hash: &[u8; 32],
         height: i64,
         round: i32,
     ) -> Result<Vec<u8>, Error>;
@@ -36,7 +36,7 @@ impl SignDigest for Commit {
         &self,
         chain_id: &str,
         quorum_type: u8,
-        quorum_hash: &[u8],
+        quorum_hash: &[u8; 32],
 
         height: i64,
         round: i32,
@@ -50,9 +50,12 @@ impl SignDigest for Commit {
 
         Ok(sign_digest(
             quorum_type,
-            Vec::from(quorum_hash),
-            request_id,
-            sign_bytes_hash,
+            quorum_hash,
+            request_id
+                .as_slice()
+                .try_into()
+                .expect("invalid request ID length"),
+            &sign_bytes_hash,
         ))
     }
 }
@@ -62,7 +65,7 @@ impl SignDigest for VoteExtension {
         &self,
         chain_id: &str,
         quorum_type: u8,
-        quorum_hash: &[u8],
+        quorum_hash: &[u8; 32],
         height: i64,
         round: i32,
     ) -> Result<Vec<u8>, Error> {
@@ -71,9 +74,9 @@ impl SignDigest for VoteExtension {
 
         Ok(sign_digest(
             quorum_type,
-            Vec::from(quorum_hash),
-            request_id,
-            sign_bytes_hash,
+            quorum_hash,
+            request_id.as_slice().try_into().unwrap(),
+            &sign_bytes_hash,
         ))
     }
 }
@@ -88,12 +91,17 @@ fn sign_request_id(prefix: &str, height: i64, round: i32) -> Vec<u8> {
 
 fn sign_digest(
     quorum_type: u8,
-    mut quorum_hash: Vec<u8>,
-    mut request_id: Vec<u8>,
-    mut sign_bytes_hash: Vec<u8>,
+    quorum_hash: &[u8; 32],
+    request_id: &[u8; 32],
+    sign_bytes_hash: &[u8],
 ) -> Vec<u8> {
+    let mut quorum_hash = quorum_hash.to_vec();
     // quorum_hash.reverse();
+
+    let mut request_id = request_id.to_vec();
     request_id.reverse();
+
+    let mut sign_bytes_hash = sign_bytes_hash.to_vec();
     sign_bytes_hash.reverse();
 
     let mut buf = Vec::<u8>::new();
@@ -364,10 +372,14 @@ pub mod tests {
 
     #[test]
     fn test_sign_digest() {
-        let quorum_hash =
+        let quorum_hash: [u8; 32] =
             hex::decode("6A12D9CF7091D69072E254B297AEF15997093E480FDE295E09A7DE73B31CEEDD")
+                .unwrap()
+                .try_into()
                 .unwrap();
+
         let request_id = super::sign_request_id(super::VOTE_REQUEST_ID_PREFIX, 1001, 0);
+        let request_id = request_id.as_slice().try_into().unwrap();
 
         let sign_bytes_hash =
             hex::decode("0CA3D5F42BDFED0C4FDE7E6DE0F046CC76CDA6CEE734D65E8B2EE0E375D4C57D")
@@ -377,7 +389,7 @@ pub mod tests {
             hex::decode("DA25B746781DDF47B5D736F30B1D9D0CC86981EEC67CBE255265C4361DEF8C2E")
                 .unwrap();
 
-        let sign_id = super::sign_digest(100, quorum_hash, request_id, sign_bytes_hash);
+        let sign_id = super::sign_digest(100, &quorum_hash, request_id, &sign_bytes_hash);
         assert_eq!(expect_sign_id, sign_id); // 194,4
     }
 }

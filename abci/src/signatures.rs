@@ -51,8 +51,7 @@ impl SignDigest for Commit {
         Ok(sign_digest(
             quorum_type,
             quorum_hash,
-            request_id
-                .as_slice()
+            request_id[..]
                 .try_into()
                 .expect("invalid request ID length"),
             &sign_bytes_hash,
@@ -75,7 +74,7 @@ impl SignDigest for VoteExtension {
         Ok(sign_digest(
             quorum_type,
             quorum_hash,
-            request_id.as_slice().try_into().unwrap(),
+            request_id[..].try_into().unwrap(),
             &sign_bytes_hash,
         ))
     }
@@ -167,8 +166,6 @@ impl SignBytes for BlockId {
             .encode_length_delimited(&mut buf)
             .map_err(Error::Encode)?;
 
-        tracing::trace!(sign_bytes = hex::encode(&buf), "block id sign bytes");
-
         Ok(buf)
     }
 }
@@ -256,14 +253,6 @@ fn vote_sign_bytes(
     buf.extend(block_id);
     buf.extend(state_id);
     buf.put(chain_id.as_bytes());
-
-    tracing::trace!(
-        height,
-        round,
-        vote_type = vote_type.as_str_name(),
-        sign_bytes = hex::encode(&buf),
-        "vote sign bytes"
-    );
 
     Ok(buf.to_vec())
 }
@@ -379,7 +368,7 @@ pub mod tests {
                 .unwrap();
 
         let request_id = super::sign_request_id(super::VOTE_REQUEST_ID_PREFIX, 1001, 0);
-        let request_id = request_id.as_slice().try_into().unwrap();
+        let request_id = request_id[..].try_into().unwrap();
 
         let sign_bytes_hash =
             hex::decode("0CA3D5F42BDFED0C4FDE7E6DE0F046CC76CDA6CEE734D65E8B2EE0E375D4C57D")

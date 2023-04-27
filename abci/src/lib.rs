@@ -23,6 +23,9 @@ use prost::{DecodeError, EncodeError};
 pub use server::{start_server, Server};
 pub use tenderdash_proto as proto;
 
+#[cfg(feature = "crypto")]
+pub mod signatures;
+
 /// Errors that may happen during protobuf communication
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
@@ -34,4 +37,6 @@ pub enum Error {
     Decode(#[from] DecodeError),
     #[error("cannot encode protobuf message")]
     Encode(#[from] EncodeError),
+    #[error("cannot create canonical message: {0}")]
+    Canonical(String),
 }

@@ -1,5 +1,5 @@
 //! Digital signature processing
-use alloc::{
+use std::{
     string::{String, ToString},
     vec::Vec,
 };
@@ -8,7 +8,7 @@ use bytes::BufMut;
 use prost::Message;
 
 use crate::{
-    types::{
+    proto::types::{
         BlockId, CanonicalBlockId, CanonicalVoteExtension, Commit, SignedMsgType, StateId, Vote,
         VoteExtension, VoteExtensionType,
     },
@@ -25,7 +25,7 @@ pub trait SignDigest {
         &self,
         chain_id: &str,
         quorum_type: u8,
-        quorum_hash: &[u8],
+        quorum_hash: &[u8; 32],
         height: i64,
         round: i32,
     ) -> Result<Vec<u8>, Error>;
@@ -36,13 +36,13 @@ impl SignDigest for Commit {
         &self,
         chain_id: &str,
         quorum_type: u8,
-        quorum_hash: &[u8],
+        quorum_hash: &[u8; 32],
 
         height: i64,
         round: i32,
     ) -> Result<Vec<u8>, Error> {
         if self.quorum_hash.ne(quorum_hash) {
-            return Err(Error::create_canonical("quorum hash mismatch".to_string()));
+            return Err(Error::Canonical("quorum hash mismatch".to_string()));
         }
 
         let request_id = sign_request_id(VOTE_REQUEST_ID_PREFIX, height, round);
@@ -50,9 +50,11 @@ impl SignDigest for Commit {
 
         Ok(sign_digest(
             quorum_type,
-            Vec::from(quorum_hash),
-            request_id,
-            sign_bytes_hash,
+            quorum_hash,
+            request_id[..]
+                .try_into()
+                .expect("invalid request ID length"),
+            &sign_bytes_hash,
         ))
     }
 }
@@ -62,7 +64,7 @@ impl SignDigest for VoteExtension {
         &self,
         chain_id: &str,
         quorum_type: u8,
-        quorum_hash: &[u8],
+        quorum_hash: &[u8; 32],
         height: i64,
         round: i32,
     ) -> Result<Vec<u8>, Error> {
@@ -71,9 +73,9 @@ impl SignDigest for VoteExtension {
 
         Ok(sign_digest(
             quorum_type,
-            Vec::from(quorum_hash),
-            request_id,
-            sign_bytes_hash,
+            quorum_hash,
+            request_id[..].try_into().unwrap(),
+            &sign_bytes_hash,
         ))
     }
 }
@@ -88,12 +90,17 @@ fn sign_request_id(prefix: &str, height: i64, round: i32) -> Vec<u8> {
 
 fn sign_digest(
     quorum_type: u8,
-    mut quorum_hash: Vec<u8>,
-    mut request_id: Vec<u8>,
-    mut sign_bytes_hash: Vec<u8>,
+    quorum_hash: &[u8; 32],
+    request_id: &[u8; 32],
+    sign_bytes_hash: &[u8],
 ) -> Vec<u8> {
+    let mut quorum_hash = quorum_hash.to_vec();
     quorum_hash.reverse();
+
+    let mut request_id = request_id.to_vec();
     request_id.reverse();
+
+    let mut sign_bytes_hash = sign_bytes_hash.to_vec();
     sign_bytes_hash.reverse();
 
     let mut buf = Vec::<u8>::new();
@@ -128,7 +135,7 @@ impl SignBytes for StateId {
     fn sign_bytes(&self, _chain_id: &str, _height: i64, _round: i32) -> Result<Vec<u8>, Error> {
         let mut buf = Vec::new();
         self.encode_length_delimited(&mut buf)
-            .map_err(Error::encode_message)?;
+            .map_err(Error::Encode)?;
 
         Ok(buf.to_vec())
     }
@@ -136,11 +143,20 @@ impl SignBytes for StateId {
 
 impl SignBytes for BlockId {
     fn sign_bytes(&self, _chain_id: &str, _height: i64, _round: i32) -> Result<Vec<u8>, Error> {
+        // determine if block id is zero
+        if self.hash.is_empty()
+            && (self.part_set_header.is_none()
+                || self.part_set_header.as_ref().unwrap().hash.is_empty())
+            && self.state_id.is_empty()
+        {
+            return Ok(Vec::<u8>::new());
+        }
+
         let part_set_header = self.part_set_header.clone().unwrap_or_default();
 
         let block_id = CanonicalBlockId {
             hash: self.hash.clone(),
-            part_set_header: Some(crate::types::CanonicalPartSetHeader {
+            part_set_header: Some(crate::proto::types::CanonicalPartSetHeader {
                 total: part_set_header.total,
                 hash: part_set_header.hash,
             }),
@@ -148,7 +164,7 @@ impl SignBytes for BlockId {
         let mut buf = Vec::new();
         block_id
             .encode_length_delimited(&mut buf)
-            .map_err(Error::encode_message)?;
+            .map_err(Error::Encode)?;
 
         Ok(buf)
     }
@@ -157,17 +173,13 @@ impl SignBytes for BlockId {
 impl SignBytes for Vote {
     fn sign_bytes(&self, chain_id: &str, height: i64, round: i32) -> Result<Vec<u8>, Error> {
         if height != self.height || round != self.round {
-            return Err(Error::create_canonical(String::from(
-                "vote height/round mismatch",
-            )));
+            return Err(Error::Canonical(String::from("vote height/round mismatch")));
         }
 
         let block_id = self
             .block_id
             .clone()
-            .ok_or(Error::create_canonical(String::from(
-                "missing vote.block id",
-            )))?;
+            .ok_or(Error::Canonical(String::from("missing vote.block id")))?;
 
         vote_sign_bytes(block_id, self.r#type(), chain_id, height, round)
     }
@@ -176,7 +188,7 @@ impl SignBytes for Vote {
 impl SignBytes for Commit {
     fn sign_bytes(&self, chain_id: &str, height: i64, round: i32) -> Result<Vec<u8>, Error> {
         if height != self.height || round != self.round {
-            return Err(Error::create_canonical(String::from(
+            return Err(Error::Canonical(String::from(
                 "commit height/round mismatch",
             )));
         }
@@ -184,9 +196,7 @@ impl SignBytes for Commit {
         let block_id = self
             .block_id
             .clone()
-            .ok_or(Error::create_canonical(String::from(
-                "missing vote.block id",
-            )))?;
+            .ok_or(Error::Canonical(String::from("missing vote.block id")))?;
 
         vote_sign_bytes(block_id, SignedMsgType::Precommit, chain_id, height, round)
     }
@@ -195,7 +205,7 @@ impl SignBytes for Commit {
 impl SignBytes for VoteExtension {
     fn sign_bytes(&self, chain_id: &str, height: i64, round: i32) -> Result<Vec<u8>, Error> {
         if self.r#type() != VoteExtensionType::ThresholdRecover {
-            return Err(Error::create_canonical(String::from(
+            return Err(Error::Canonical(String::from(
                 "only ThresholdRecover vote extensions can be signed",
             )));
         }
@@ -225,8 +235,16 @@ fn vote_sign_bytes(
     // we just use some rough guesstimate of intial capacity for performance
     let mut buf = Vec::with_capacity(100);
 
-    let state_id = block_id.state_id.clone();
-    let block_id = block_id.sha256(chain_id, height, round)?;
+    let state_id: [u8; 32] = block_id
+        .state_id
+        .clone()
+        .try_into()
+        .expect("state id must be a valid hash");
+
+    let block_id: [u8; 32] = block_id
+        .sha256(chain_id, height, round)?
+        .try_into()
+        .expect("block id must be a valid hash");
 
     buf.put_i32_le(vote_type.into());
     buf.put_i64_le(height);
@@ -241,10 +259,10 @@ fn vote_sign_bytes(
 
 #[cfg(test)]
 pub mod tests {
-    use alloc::{string::ToString, vec::Vec};
+    use std::{string::ToString, vec::Vec};
 
     use super::SignBytes;
-    use crate::types::{
+    use crate::proto::types::{
         Commit, PartSetHeader, SignedMsgType, Vote, VoteExtension, VoteExtensionType,
     };
 
@@ -266,7 +284,7 @@ pub mod tests {
             r#type: SignedMsgType::Prevote as i32,
             height: 1,
             round: 2,
-            block_id: Some(crate::types::BlockId {
+            block_id: Some(crate::proto::types::BlockId {
                 hash: h.clone(),
                 part_set_header: Some(PartSetHeader {
                     total: 1,
@@ -300,7 +318,7 @@ pub mod tests {
         let commit = Commit {
             height: 1,
             round: 2,
-            block_id: Some(crate::types::BlockId {
+            block_id: Some(crate::proto::types::BlockId {
                 hash: h.clone(),
                 part_set_header: Some(PartSetHeader {
                     total: 1,
@@ -343,10 +361,14 @@ pub mod tests {
 
     #[test]
     fn test_sign_digest() {
-        let quorum_hash =
+        let quorum_hash: [u8; 32] =
             hex::decode("6A12D9CF7091D69072E254B297AEF15997093E480FDE295E09A7DE73B31CEEDD")
+                .unwrap()
+                .try_into()
                 .unwrap();
+
         let request_id = super::sign_request_id(super::VOTE_REQUEST_ID_PREFIX, 1001, 0);
+        let request_id = request_id[..].try_into().unwrap();
 
         let sign_bytes_hash =
             hex::decode("0CA3D5F42BDFED0C4FDE7E6DE0F046CC76CDA6CEE734D65E8B2EE0E375D4C57D")
@@ -356,7 +378,7 @@ pub mod tests {
             hex::decode("DA25B746781DDF47B5D736F30B1D9D0CC86981EEC67CBE255265C4361DEF8C2E")
                 .unwrap();
 
-        let sign_id = super::sign_digest(100, quorum_hash, request_id, sign_bytes_hash);
+        let sign_id = super::sign_digest(100, &quorum_hash, request_id, &sign_bytes_hash);
         assert_eq!(expect_sign_id, sign_id); // 194,4
     }
 }

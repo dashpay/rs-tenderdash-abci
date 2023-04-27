@@ -35,9 +35,6 @@ pub use tenderdash::*;
 
 pub mod serializers;
 
-#[cfg(feature = "crypto")]
-pub mod signatures;
-
 use prelude::*;
 pub use tenderdash::meta::ABCI_VERSION;
 

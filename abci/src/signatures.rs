@@ -1,4 +1,15 @@
 //! Digital signature processing
+//!
+//! The workflow is as follows:
+//!
+//! 1. First, we serialize data to get bytes to be signed using
+//! [SignBytes::sign_bytes].
+//!
+//! 2. Then, we calculate hash with [SignBytes::sha256].
+//!
+//! 3. Then, we calculate digest using [SignDigest::sign_digest] that is passed
+//! directly to the public/private key.
+
 use std::{
     string::{String, ToString},
     vec::Vec,
@@ -6,6 +17,7 @@ use std::{
 
 use bytes::BufMut;
 use prost::Message;
+use tenderdash_proto::types::CanonicalVote;
 
 use crate::{
     proto::types::{
@@ -48,14 +60,56 @@ impl SignDigest for Commit {
         let request_id = sign_request_id(VOTE_REQUEST_ID_PREFIX, height, round);
         let sign_bytes_hash = self.sha256(chain_id, height, round)?;
 
-        Ok(sign_digest(
+        let digest = sign_digest(
             quorum_type,
             quorum_hash,
             request_id[..]
                 .try_into()
                 .expect("invalid request ID length"),
             &sign_bytes_hash,
-        ))
+        );
+
+        tracing::trace!(
+            digest=hex::encode(&digest),
+            ?quorum_type,
+            quorum_hash=hex::encode(quorum_hash),
+            request_id=hex::encode(request_id),
+            commit=?self, "commit digest");
+
+        Ok(digest)
+    }
+}
+
+impl SignDigest for CanonicalVote {
+    fn sign_digest(
+        &self,
+        chain_id: &str,
+        quorum_type: u8,
+        quorum_hash: &[u8; 32],
+
+        height: i64,
+        round: i32,
+    ) -> Result<Vec<u8>, Error> {
+        let request_id = sign_request_id(VOTE_REQUEST_ID_PREFIX, height, round);
+        let sign_bytes_hash = self.sha256(chain_id, height, round)?;
+
+        let digest = sign_digest(
+            quorum_type,
+            quorum_hash,
+            request_id[..]
+                .try_into()
+                .expect("invalid request ID length"),
+            &sign_bytes_hash,
+        );
+
+        tracing::trace!(
+            digest=hex::encode(&digest),
+            ?quorum_type,
+            quorum_hash=hex::encode(quorum_hash),
+            request_id=hex::encode(request_id),
+            vote=?self, "canonical vote digest");
+
+        Ok(digest)
     }
 }
 
@@ -181,7 +235,19 @@ impl SignBytes for Vote {
             .clone()
             .ok_or(Error::Canonical(String::from("missing vote.block id")))?;
 
-        vote_sign_bytes(block_id, self.r#type(), chain_id, height, round)
+        let block_id_hash = block_id.sha256(chain_id, height, round)?;
+        let state_id_hash = block_id.state_id;
+
+        let canonical = CanonicalVote {
+            block_id: block_id_hash,
+            state_id: state_id_hash,
+            chain_id: chain_id.to_string(),
+            height,
+            round: round as i64,
+            r#type: self.r#type,
+        };
+
+        canonical.sign_bytes(chain_id, height, round)
     }
 }
 
@@ -198,7 +264,55 @@ impl SignBytes for Commit {
             .clone()
             .ok_or(Error::Canonical(String::from("missing vote.block id")))?;
 
-        vote_sign_bytes(block_id, SignedMsgType::Precommit, chain_id, height, round)
+        let state_id_hash = block_id.state_id.clone();
+        let block_id_hash = block_id.sha256(chain_id, height, round)?;
+
+        let canonical = CanonicalVote {
+            block_id: block_id_hash,
+            state_id: state_id_hash,
+            chain_id: chain_id.to_string(),
+            height,
+            round: round as i64,
+            r#type: SignedMsgType::Precommit.into(),
+        };
+
+        canonical.sign_bytes(chain_id, height, round)
+    }
+}
+
+impl SignBytes for CanonicalVote {
+    fn sign_bytes(&self, chain_id: &str, height: i64, round: i32) -> Result<Vec<u8>, Error> {
+        if height != self.height || (round as i64) != self.round {
+            return Err(Error::Canonical(String::from(
+                "commit height/round mismatch",
+            )));
+        }
+
+        // we just use some rough guesstimate of intial capacity for performance
+        let mut buf = Vec::with_capacity(100);
+
+        // Based on Tenderdash implementation in
+        // https://github.com/dashpay/tenderdash/blob/bcb623bcf002ac54b26ed1324b98116872dd0da7/proto/tendermint/types/types.go#L56
+
+        buf.put_i32_le(self.r#type().into()); // 4 bytes
+        buf.put_i64_le(height); // 8 bytes
+        buf.put_i64_le(round as i64); // 8 bytes
+
+        buf.extend(&self.block_id); // 32 bytes
+        buf.extend(&self.state_id); // 32 bytes
+        if buf.len() != 4 + 8 + 8 + 32 + 32 {
+            return Err(Error::Canonical(
+                "cannot encode sign bytes: length of input data is invalid".to_string(),
+            ));
+        }
+        buf.put(chain_id.as_bytes());
+
+        tracing::trace!(
+            sign_bytes=hex::encode(&buf),
+           height,round,
+            vote=?self, "vote/commit sign bytes calculated");
+
+        Ok(buf.to_vec())
     }
 }
 
@@ -219,42 +333,6 @@ impl SignBytes for VoteExtension {
 
         Ok(ve.encode_length_delimited_to_vec())
     }
-}
-
-/// Generate sign bytes for a vote / commit
-///
-/// Based on Tenderdash implementation in
-/// https://github.com/dashpay/tenderdash/blob/bcb623bcf002ac54b26ed1324b98116872dd0da7/proto/tendermint/types/types.go#L56
-fn vote_sign_bytes(
-    block_id: BlockId,
-    vote_type: SignedMsgType,
-    chain_id: &str,
-    height: i64,
-    round: i32,
-) -> Result<Vec<u8>, Error> {
-    // we just use some rough guesstimate of intial capacity for performance
-    let mut buf = Vec::with_capacity(100);
-
-    let state_id: [u8; 32] = block_id
-        .state_id
-        .clone()
-        .try_into()
-        .expect("state id must be a valid hash");
-
-    let block_id: [u8; 32] = block_id
-        .sha256(chain_id, height, round)?
-        .try_into()
-        .expect("block id must be a valid hash");
-
-    buf.put_i32_le(vote_type.into());
-    buf.put_i64_le(height);
-    buf.put_i64_le(round as i64);
-
-    buf.extend(block_id);
-    buf.extend(state_id);
-    buf.put(chain_id.as_bytes());
-
-    Ok(buf.to_vec())
 }
 
 #[cfg(test)]

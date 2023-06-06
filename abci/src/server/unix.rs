@@ -4,7 +4,7 @@ use std::{fs, os::unix::net::UnixListener, path::Path};
 
 use tracing::info;
 
-use super::Server;
+use super::{Server, ServerCancel};
 use crate::{Error, RequestDispatcher};
 
 /// A Unix socket-based server for serving a specific ABCI application.
@@ -12,10 +12,12 @@ pub(super) struct UnixSocketServer<App: RequestDispatcher> {
     app: App,
     listener: UnixListener,
     read_buf_size: usize,
+    cancel: Box<dyn ServerCancel>,
 }
 
 impl<App: RequestDispatcher> UnixSocketServer<App> {
     pub(super) fn bind<P>(
+        cancel: Box<dyn ServerCancel>,
         app: App,
         socket_file: P,
         read_buf_size: usize,
@@ -38,6 +40,7 @@ impl<App: RequestDispatcher> UnixSocketServer<App> {
             app,
             listener,
             read_buf_size,
+            cancel,
         };
         Ok(server)
     }
@@ -51,6 +54,18 @@ impl<App: RequestDispatcher> Server for UnixSocketServer<App> {
 
         info!("Incoming Unix connection");
 
-        super::handle_client(stream.0, name, &self.app, self.read_buf_size)
+        super::handle_client(
+            self.cancel.as_ref(),
+            stream.0,
+            name,
+            &self.app,
+            self.read_buf_size,
+        )
+    }
+}
+
+impl<App: RequestDispatcher> Drop for UnixSocketServer<App> {
+    fn drop(&mut self) {
+        tracing::debug!(?self.listener, "ABCI unix socket server shut down")
     }
 }

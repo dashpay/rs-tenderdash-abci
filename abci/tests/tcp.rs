@@ -40,7 +40,7 @@ fn test_ipv6_server() {
 /// * When we estabilish connection with Tenderdash
 /// * Then Tenderdash sends Info request
 fn tcp_server_test(test_name: &str, bind_address: &str) {
-    use tenderdash_abci::start_server;
+    use tenderdash_abci::ServerBuilder;
     use tracing_subscriber::filter::LevelFilter;
 
     tracing_subscriber::fmt()
@@ -50,7 +50,9 @@ fn tcp_server_test(test_name: &str, bind_address: &str) {
 
     let app = TestDispatcher {};
 
-    let server = start_server(&bind_address, app).expect("server failed");
+    let server = ServerBuilder::new(app, &bind_address)
+        .build()
+        .expect("server failed");
     let socket_uri = bind_address.to_string();
     let container_name = format!("tenderdash_{}", test_name);
 

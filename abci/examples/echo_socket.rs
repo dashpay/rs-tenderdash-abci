@@ -1,9 +1,14 @@
-use tenderdash_abci::{proto::abci, start_server, Application};
+use std::sync::{atomic::AtomicBool, Arc};
+
+use lazy_static::lazy_static;
+use tenderdash_abci::{proto::abci, Application, ServerBuilder};
 use tracing::info;
 use tracing_subscriber::filter::LevelFilter;
 
 const SOCKET: &str = "/tmp/abci.sock";
-
+lazy_static! {
+    static ref CANCEL_TOKEN: Arc<AtomicBool> = Arc::new(AtomicBool::new(false));
+}
 pub fn main() {
     let log_level = LevelFilter::DEBUG;
     tracing_subscriber::fmt().with_max_level(log_level).init();
@@ -12,7 +17,14 @@ pub fn main() {
     info!("This application listens on {SOCKET} and waits for incoming Tenderdash requests.");
 
     let socket = format!("unix://{}", SOCKET);
-    let server = start_server(&socket, EchoApp {}).expect("server failed");
+    let app = EchoApp {};
+
+    let cancel = CANCEL_TOKEN.clone();
+    let server = ServerBuilder::new(app, &socket)
+        .with_cancel_token(cancel)
+        .build()
+        .expect("server failed");
+
     loop {
         match server.handle_connection() {
             Ok(_) => {},
@@ -30,7 +42,11 @@ impl Application for EchoApp {
         &self,
         request: abci::RequestEcho,
     ) -> Result<abci::ResponseEcho, abci::ResponseException> {
-        info!("received echo");
+        info!("received echo, cancelling");
+
+        let cancel = CANCEL_TOKEN.clone();
+        cancel.store(true, std::sync::atomic::Ordering::Relaxed);
+
         Ok(abci::ResponseEcho {
             message: request.message,
         })

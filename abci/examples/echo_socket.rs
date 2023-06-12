@@ -1,13 +1,11 @@
-use std::sync::{atomic::AtomicBool, Arc};
-
 use lazy_static::lazy_static;
-use tenderdash_abci::{proto::abci, Application, ServerBuilder};
+use tenderdash_abci::{proto::abci, Application, ServerBuilder, ServerCancel};
 use tracing::info;
 use tracing_subscriber::filter::LevelFilter;
 
 const SOCKET: &str = "/tmp/abci.sock";
 lazy_static! {
-    static ref CANCEL_TOKEN: Arc<AtomicBool> = Arc::new(AtomicBool::new(false));
+    static ref CANCEL_TOKEN: ServerCancel = ServerCancel::new();
 }
 pub fn main() {
     let log_level = LevelFilter::DEBUG;
@@ -45,7 +43,7 @@ impl Application for EchoApp {
         info!("received echo, cancelling");
 
         let cancel = CANCEL_TOKEN.clone();
-        cancel.store(true, std::sync::atomic::Ordering::Relaxed);
+        cancel.cancel();
 
         Ok(abci::ResponseEcho {
             message: request.message,

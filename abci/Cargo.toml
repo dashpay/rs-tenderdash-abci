@@ -11,12 +11,13 @@ description = """tenderdash-abci provides a simple framework with which to build
 low-level applications on top of Tenderdash."""
 
 [features]
-default = ["server", "docker-tests", "crypto", "tokio"]
+default = ["server", "docker-tests", "crypto", "unix", "tcp"]
 # docker-tests includes integration tests that require docker to be available
 docker-tests = ["server"]
-server = ["tracing-subscriber/fmt"]
+server = ["tracing-subscriber/fmt", "dep:tokio", "dep:tokio-util"]
 crypto = ["dep:lhash"]
-tokio = ["dep:tokio-util"]
+tcp = ["server"]
+unix = ["server"]
 
 [[example]]
 name = "echo_socket"
@@ -27,13 +28,22 @@ tenderdash-proto = { version = "0.12.0-dev.2", path = "../proto" }
 bytes = { version = "1.0" }
 prost = { version = "0.11" }
 tracing = { version = "0.1", default-features = false }
-tracing-subscriber = { version = "0.3", optional = true, default-features = false }
+tracing-subscriber = { version = "0.3", optional = true, default-features = false, features = [
+    "ansi",
+    "env-filter",
+] }
 thiserror = "1.0.39"
 url = { version = "2.3.1" }
 semver = { version = "1.0.17" }
 lhash = { version = "1.0.1", features = ["sha256"], optional = true }
 hex = { version = "0.4" }
-tokio-util = { version = "0.7.8", default-features = false, optional = true }
+tokio-util = { version = "0.7.8", features = [
+    "net",
+], default-features = false, optional = true }
+tokio = { version = "1.28", features = [
+    "net",
+    "io-util",
+], default-features = false, optional = true }
 
 [dev-dependencies]
 anyhow = "1.0.69"

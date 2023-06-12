@@ -10,6 +10,7 @@ use tracing_subscriber::filter::LevelFilter;
 const SOCKET: &str = "/tmp/abci.sock";
 
 #[cfg(feature = "docker-tests")]
+#[cfg(feature = "unix")]
 #[test]
 /// Feature: ABCI App socket server
 ///

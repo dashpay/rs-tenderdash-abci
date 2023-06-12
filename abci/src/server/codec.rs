@@ -4,12 +4,13 @@
 //!
 //! [tsp]: https://github.com/tendermint/tendermint/blob/v0.34.x/spec/abci/client-server.md#tsp
 
-use std::io::{self, Read, Write};
+use std::io;
 
 use bytes::{Buf, BufMut, BytesMut};
 use prost::{DecodeError, EncodeError, Message};
+use tokio::io::{AsyncReadExt, AsyncWriteExt};
 
-use crate::{proto, Error};
+use crate::{proto, Error, ServerCancel};
 
 /// The maximum number of bytes we expect in a varint. We use this to check if
 /// we're encountering a decoding error for a varint.
@@ -24,32 +25,37 @@ pub struct Codec<S> {
     // Fixed-length read window
     read_window: Vec<u8>,
     write_buf: BytesMut,
+    cancel: ServerCancel,
 }
 
 impl<S> Codec<S> {
-    pub fn new(stream: S, read_buf_size: usize) -> Self {
+    pub fn new(stream: S, read_buf_size: usize, cancel: ServerCancel) -> Self {
         Self {
             stream,
             read_buf: BytesMut::new(),
             read_window: vec![0_u8; read_buf_size],
             write_buf: BytesMut::new(),
+            cancel,
         }
     }
 }
 
 impl<S> Codec<S>
 where
-    S: Read + Write,
+    S: AsyncReadExt + AsyncWriteExt + Unpin,
 {
-    pub(crate) fn receive(&mut self) -> Result<Option<proto::abci::Request>, Error> {
+    pub(crate) async fn receive(&mut self) -> Result<Option<proto::abci::Request>, Error> {
         loop {
             // Try to decode an incoming message from our buffer first
             if let Some(incoming) = decode_length_delimited(&mut self.read_buf)? {
                 return Ok(Some(incoming));
             }
-
+            let cancel = &self.cancel;
             // If we don't have enough data to decode a message, try to read more
-            let bytes_read = self.stream.read(self.read_window.as_mut())?;
+            let bytes_read = tokio::select! {
+                b = self.stream.read(self.read_window.as_mut()) => b,
+                _ = cancel.cancelled() => return Err(Error::Cancelled()),
+            }?;
             if bytes_read == 0 {
                 // The underlying stream terminated
                 return Ok(None);
@@ -60,10 +66,10 @@ where
     }
 
     /// Send a message using this codec.
-    pub(crate) fn send(&mut self, message: proto::abci::Response) -> Result<(), Error> {
+    pub(crate) async fn send(&mut self, message: proto::abci::Response) -> Result<(), Error> {
         encode_length_delimited(message, &mut self.write_buf)?;
         while !self.write_buf.is_empty() {
-            let bytes_written = self.stream.write(self.write_buf.as_ref())?;
+            let bytes_written = self.stream.write(self.write_buf.as_ref()).await?;
 
             if bytes_written == 0 {
                 return Err(Error::Connection(io::Error::new(
@@ -74,7 +80,7 @@ where
             self.write_buf.advance(bytes_written);
         }
 
-        self.stream.flush()?;
+        self.stream.flush().await?;
 
         Ok(())
     }

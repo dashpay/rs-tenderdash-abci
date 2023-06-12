@@ -1,21 +1,27 @@
 //! Tenderdash ABCI Server.
 mod codec;
+#[cfg(feature = "tcp")]
 mod tcp;
+#[cfg(feature = "unix")]
 mod unix;
 
 use std::{
-    io::{Read, Write},
     net::{IpAddr, SocketAddr, SocketAddrV4, SocketAddrV6},
     str::FromStr,
-    sync::{
-        atomic::{AtomicBool, Ordering},
-        Arc,
-    },
 };
 
+use tokio::{
+    io::{AsyncRead, AsyncWrite},
+    runtime::{Handle, Runtime},
+};
+use tokio_util::sync::CancellationToken;
 use tracing::{error, info};
+use url::Url;
 
-use self::{tcp::TcpServer, unix::UnixSocketServer};
+#[cfg(feature = "tcp")]
+use self::tcp::TcpServer;
+#[cfg(feature = "unix")]
+use self::unix::UnixSocketServer;
 use crate::{application::RequestDispatcher, proto::abci, server::codec::Codec, Error};
 
 /// The size of the read buffer for each incoming connection to the ABCI
@@ -39,15 +45,7 @@ pub trait Server {
     /// means server shutdown was requested.
     fn handle_connection(&self) -> Result<(), Error>;
 }
-
-/// Token that can be passed to server to signal cancellation (graceful
-/// shutdown).
-pub trait ServerCancel {
-    /// Return true when server should shut down.
-    ///
-    /// Must be thread-safe.
-    fn is_cancelled(&self) -> bool;
-}
+pub type ServerCancel = CancellationToken;
 
 /// Build new ABCI server and bind to provided address/port or socket.
 ///
@@ -70,17 +68,16 @@ pub trait ServerCancel {
 /// ```
 ///
 /// [`handle_connection()`]: Server::handle_connection()
-pub struct ServerBuilder<D, L>
+pub struct ServerBuilder<D>
 where
     D: RequestDispatcher,
-    L: AsRef<str>,
 {
     app: D,
-    bind_address: L,
-    cancel: Option<Box<dyn ServerCancel>>,
+    bind_address: String,
+    cancel: Option<ServerCancel>,
 }
 
-impl<'a, App: RequestDispatcher + 'a, Addr: AsRef<str>> ServerBuilder<App, Addr> {
+impl<'a, App: RequestDispatcher + 'a> ServerBuilder<App> {
     /// Create new server builder.
     ///
     /// # Arguments
@@ -91,11 +88,10 @@ impl<'a, App: RequestDispatcher + 'a, Addr: AsRef<str>> ServerBuilder<App, Addr>
     /// * `app` - request dispatcher, most likely implementation of Application
     ///   trait
 
-    pub fn new(app: App, address: Addr) -> Self {
+    pub fn new(app: App, address: &str) -> Self {
         Self {
             app,
-            bind_address: address,
-            #[cfg(feature = "tokio")]
+            bind_address: address.to_string(),
             cancel: None,
         }
     }
@@ -112,35 +108,42 @@ impl<'a, App: RequestDispatcher + 'a, Addr: AsRef<str>> ServerBuilder<App, Addr>
         if app_address.scheme() != "tcp" && app_address.scheme() != "unix" {
             panic!("app_address must be either tcp:// or unix://");
         }
+        let server_runtime: ServerRuntime = ServerRuntime::default();
 
-        let cancel: Box<dyn ServerCancel> = if let Some(c) = self.cancel {
-            c
-        } else {
-            // No cancel defined, so we add some "mock"
-            Box::new(AtomicBool::new(false))
-        };
+        let _guard = server_runtime.runtime_handle.enter();
+        let hdl = server_runtime.runtime_handle.clone();
+        hdl.block_on(self.start(server_runtime, app_address))
+    }
 
-        let server = match app_address.scheme() {
-            "tcp" => Box::new(TcpServer::bind(
-                cancel,
-                self.app,
-                parse_tcp_uri(app_address),
-            )?) as Box<dyn Server + 'a>,
+    async fn start(
+        self,
+        rt: ServerRuntime,
+        listen_address: Url,
+    ) -> Result<Box<dyn Server + 'a>, Error> {
+        // If no cancel is defined, so we add some "mock"
+        let cancel = self.cancel.unwrap_or(ServerCancel::new());
+
+        let server = match listen_address.scheme() {
+            #[cfg(feature = "tcp")]
+            "tcp" => Box::new(
+                TcpServer::bind(self.app, parse_tcp_uri(listen_address), cancel, rt).await?,
+            ) as Box<dyn Server + 'a>,
+            #[cfg(feature = "unix")]
             "unix" => Box::new(UnixSocketServer::bind(
-                cancel,
                 self.app,
-                app_address.path(),
+                listen_address.path(),
+                cancel,
                 DEFAULT_SERVER_READ_BUF_SIZE,
+                rt,
             )?) as Box<dyn Server + 'a>,
             _ => panic!(
                 "listen address uses unsupported scheme `{}`",
-                app_address.scheme()
+                listen_address.scheme()
             ),
         };
 
         Ok(server)
     }
-
     /// Set a [ServerCancel] token to support graceful shutdown.
     ///
     /// When [ServerCancel::is_cancelled()] returns `true`, server will
@@ -152,31 +155,41 @@ impl<'a, App: RequestDispatcher + 'a, Addr: AsRef<str>> ServerBuilder<App, Addr>
     /// * [CancellationToken] when `tokio` feature is enabled.
     ///
     /// [CancellationToken]: tokio_util::sync::CancellationToken
-    pub fn with_cancel_token<T: ServerCancel + 'static>(self, cancel: T) -> Self {
+    pub fn with_cancel_token(self, cancel: ServerCancel) -> Self {
         Self {
-            cancel: Some(Box::new(cancel)),
+            cancel: Some(cancel),
             ..self
         }
     }
 }
 
-#[cfg(feature = "tokio")]
-impl ServerCancel for tokio_util::sync::CancellationToken {
-    fn is_cancelled(&self) -> bool {
-        tokio_util::sync::CancellationToken::is_cancelled(self)
-    }
+/// Server runtime that must be alive for the whole lifespan of the server
+pub(crate) struct ServerRuntime {
+    /// Runtime stored here to ensure it is never dropped
+    _runtime: Option<Runtime>,
+    runtime_handle: Handle,
 }
 
-impl ServerCancel for AtomicBool {
-    fn is_cancelled(&self) -> bool {
-        self.load(Ordering::Relaxed)
-    }
-}
-
-impl<T: ServerCancel> ServerCancel for Arc<T> {
-    fn is_cancelled(&self) -> bool {
-        let inner = self.as_ref();
-        inner.is_cancelled()
+impl Default for ServerRuntime {
+    /// Return default server runtime.
+    ///
+    /// If tokio runtime is already initialized and entered, returns handle to
+    /// it. Otherwise, creates new runtime and returns handle AND the
+    /// runtime itself.
+    fn default() -> Self {
+        match Handle::try_current() {
+            Ok(runtime_handle) => Self {
+                runtime_handle,
+                _runtime: None,
+            },
+            Err(_) => {
+                let rt = Runtime::new().unwrap();
+                Self {
+                    runtime_handle: rt.handle().clone(),
+                    _runtime: Some(rt),
+                }
+            },
+        }
     }
 }
 
@@ -188,12 +201,12 @@ pub fn start_server<'a, App: RequestDispatcher + 'a, Addr>(
 where
     Addr: AsRef<str>,
 {
-    ServerBuilder::new(app, bind_address).build()
+    ServerBuilder::new(app, bind_address.as_ref()).build()
 }
 
 /// handle_client accepts one client connection and handles received messages.
-pub(crate) fn handle_client<App, S>(
-    cancel_token: &dyn ServerCancel,
+pub(crate) async fn handle_client<App, S>(
+    cancel_token: ServerCancel,
     stream: S,
     name: String,
     app: &App,
@@ -201,13 +214,13 @@ pub(crate) fn handle_client<App, S>(
 ) -> Result<(), Error>
 where
     App: RequestDispatcher,
-    S: Read + Write,
+    S: AsyncRead + AsyncWrite + Unpin,
 {
-    let mut codec = Codec::new(stream, read_buf_size);
+    let mut codec = Codec::new(stream, read_buf_size, cancel_token);
     info!("Listening for incoming requests from {}", name);
 
-    while !cancel_token.is_cancelled() {
-        let Some(request) = codec.receive()? else {
+    loop {
+        let Some(request) = codec.receive().await? else {
             error!("Client {} terminated stream", name);
             return Ok(())
         };
@@ -222,10 +235,8 @@ where
             error!(error = ex.error, ?request, "error processing request")
         }
 
-        codec.send(response)?;
+        codec.send(response).await?;
     }
-
-    Err(Error::Cancelled())
 }
 
 fn parse_tcp_uri(uri: url::Url) -> SocketAddr {

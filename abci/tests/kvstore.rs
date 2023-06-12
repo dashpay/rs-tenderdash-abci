@@ -4,7 +4,7 @@ use std::{
     collections::{BTreeMap, BTreeSet},
     mem,
     ops::Deref,
-    sync::{atomic::AtomicBool, Arc, RwLock, RwLockWriteGuard},
+    sync::{RwLock, RwLockWriteGuard},
 };
 
 use bincode::{Decode, Encode};
@@ -14,17 +14,18 @@ use blake2::{
 };
 use lazy_static::lazy_static;
 use proto::abci::{self, ResponseException};
-use tenderdash_abci::{check_version, proto, Application};
+use tenderdash_abci::{check_version, proto, Application, ServerCancel};
 use tracing::error;
 use tracing_subscriber::filter::LevelFilter;
 
 const SOCKET: &str = "/tmp/abci.sock";
 
 lazy_static! {
-    static ref CANCEL_TOKEN: Arc<AtomicBool> = Arc::new(AtomicBool::new(false));
+    static ref CANCEL_TOKEN: ServerCancel = ServerCancel::new();
 }
 
 #[cfg(feature = "docker-tests")]
+#[cfg(feature = "unix")]
 #[test]
 fn test_kvstore() {
     use std::{fs, os::unix::prelude::PermissionsExt};
@@ -348,7 +349,7 @@ impl Application for KVStoreABCI<'_> {
 
         // we want to end the test and shutdown the server
         let cancel = CANCEL_TOKEN.clone();
-        cancel.store(true, std::sync::atomic::Ordering::Relaxed);
+        cancel.cancel();
 
         Ok(Default::default())
     }

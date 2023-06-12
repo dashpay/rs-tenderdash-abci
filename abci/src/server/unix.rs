@@ -1,10 +1,11 @@
 //! ABCI application server interface.
 
-use std::{fs, os::unix::net::UnixListener, path::Path};
+use std::{fs, path::Path};
 
+use tokio::net::UnixListener;
 use tracing::info;
 
-use super::{Server, ServerCancel};
+use super::{Server, ServerCancel, ServerRuntime};
 use crate::{Error, RequestDispatcher};
 
 /// A Unix socket-based server for serving a specific ABCI application.
@@ -12,15 +13,17 @@ pub(super) struct UnixSocketServer<App: RequestDispatcher> {
     app: App,
     listener: UnixListener,
     read_buf_size: usize,
-    cancel: Box<dyn ServerCancel>,
+    cancel: ServerCancel,
+    server_runtime: ServerRuntime,
 }
 
 impl<App: RequestDispatcher> UnixSocketServer<App> {
     pub(super) fn bind<P>(
-        cancel: Box<dyn ServerCancel>,
         app: App,
         socket_file: P,
+        cancel: ServerCancel,
         read_buf_size: usize,
+        server_runtime: ServerRuntime,
     ) -> Result<UnixSocketServer<App>, Error>
     where
         P: AsRef<Path>,
@@ -41,6 +44,7 @@ impl<App: RequestDispatcher> UnixSocketServer<App> {
             listener,
             read_buf_size,
             cancel,
+            server_runtime,
         };
         Ok(server)
     }
@@ -49,18 +53,22 @@ impl<App: RequestDispatcher> UnixSocketServer<App> {
 impl<App: RequestDispatcher> Server for UnixSocketServer<App> {
     fn handle_connection(&self) -> Result<(), Error> {
         // let listener = self.listener;
-        let stream = self.listener.accept()?;
         let name = String::from("<unix socket>");
 
         info!("Incoming Unix connection");
 
-        super::handle_client(
-            self.cancel.as_ref(),
-            stream.0,
-            name,
-            &self.app,
-            self.read_buf_size,
-        )
+        self.server_runtime.runtime_handle.block_on(async {
+            let stream = self.listener.accept().await?;
+
+            super::handle_client(
+                self.cancel.child_token(),
+                stream.0,
+                name,
+                &self.app,
+                self.read_buf_size,
+            )
+            .await
+        })
     }
 }
 

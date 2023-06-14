@@ -44,7 +44,7 @@ fn test_unix_socket_server() {
 
     common::docker::setup_td_logs_panic(&td);
 
-    assert!(matches!(server.handle_connection(), Ok(())));
+    assert!(matches!(server.next_client(), Ok(())));
 }
 
 /// Returns error containing string [`INFO_CALLED_ERROR`] when Tenderdash calls

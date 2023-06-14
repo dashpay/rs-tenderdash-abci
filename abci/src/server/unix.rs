@@ -1,8 +1,8 @@
 //! ABCI application server interface.
 
-use std::{fs, path::Path};
+use std::{fs, path::Path, sync::Arc};
 
-use tokio::net::UnixListener;
+use tokio::{net::UnixListener, sync::Mutex};
 use tracing::info;
 
 use super::{Server, ServerCancel, ServerRuntime};
@@ -11,8 +11,7 @@ use crate::{Error, RequestDispatcher};
 /// A Unix socket-based server for serving a specific ABCI application.
 pub(super) struct UnixSocketServer<App: RequestDispatcher> {
     app: App,
-    listener: UnixListener,
-    read_buf_size: usize,
+    listener: Arc<Mutex<UnixListener>>,
     cancel: ServerCancel,
     server_runtime: ServerRuntime,
 }
@@ -22,7 +21,6 @@ impl<App: RequestDispatcher> UnixSocketServer<App> {
         app: App,
         socket_file: P,
         cancel: ServerCancel,
-        read_buf_size: usize,
         server_runtime: ServerRuntime,
     ) -> Result<UnixSocketServer<App>, Error>
     where
@@ -41,8 +39,7 @@ impl<App: RequestDispatcher> UnixSocketServer<App> {
 
         let server = UnixSocketServer {
             app,
-            listener,
-            read_buf_size,
+            listener: Arc::new(Mutex::new(listener)),
             cancel,
             server_runtime,
         };
@@ -51,24 +48,14 @@ impl<App: RequestDispatcher> UnixSocketServer<App> {
 }
 
 impl<App: RequestDispatcher> Server for UnixSocketServer<App> {
-    fn handle_connection(&self) -> Result<(), Error> {
-        // let listener = self.listener;
-        let name = String::from("<unix socket>");
-
+    fn next_client(&self) -> Result<(), Error> {
         info!("Incoming Unix connection");
-
-        self.server_runtime.runtime_handle.block_on(async {
-            let stream = self.listener.accept().await?;
-
-            super::handle_client(
-                self.cancel.clone(),
-                stream.0,
-                name,
-                &self.app,
-                self.read_buf_size,
-            )
-            .await
-        })
+        super::handle_client(
+            self.cancel.clone(),
+            &self.listener,
+            &self.app,
+            &self.server_runtime,
+        )
     }
 }
 

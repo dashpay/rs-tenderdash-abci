@@ -50,8 +50,8 @@ pub type ServerCancel = CancellationToken;
 
 /// Build new ABCI server and bind to provided address/port or socket.
 ///
-/// Use [`handle_connection()`] to accept connection and process all traffic in
-/// this connection. Each incoming connection will be processed using `app`.
+/// Use [`Server::next_client()`] to accept connection and process all traffic
+/// in this connection. Each incoming connection will be processed using `app`.
 ///
 /// # Examples
 ///
@@ -62,7 +62,7 @@ pub type ServerCancel = CancellationToken;
 /// let bind_address = "unix:///tmp/abci.sock";
 /// let server = tenderdash_abci::ServerBuilder::new(app, &bind_address).build().expect("server failed");
 /// loop {
-///     if let Err(tenderdash_abci::Error::Cancelled()) = server.handle_connection() {
+///     if let Err(tenderdash_abci::Error::Cancelled()) = server.next_client() {
 ///         break;
 ///     }
 /// }
@@ -132,7 +132,6 @@ impl<'a, App: RequestDispatcher + 'a> ServerBuilder<App> {
                 self.app,
                 bind_address.path(),
                 cancel,
-                DEFAULT_SERVER_READ_BUF_SIZE,
                 server_runtime,
             )?) as Box<dyn Server + 'a>,
             _ => panic!(

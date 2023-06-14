@@ -67,7 +67,7 @@ fn test_kvstore() {
     let _td = common::docker::TenderdashDocker::new("tenderdash", None, &socket_uri);
 
     assert!(matches!(
-        server.handle_connection(),
+        server.next_client(),
         Err(tenderdash_abci::Error::Cancelled())
     ));
     drop(server);

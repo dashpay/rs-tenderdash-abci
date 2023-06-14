@@ -11,10 +11,15 @@ description = """tenderdash-abci provides a simple framework with which to build
 low-level applications on top of Tenderdash."""
 
 [features]
-default = ["server", "docker-tests", "crypto", "unix", "tcp"]
+default = ["server", "docker-tests", "crypto", "tcp"]
 # docker-tests includes integration tests that require docker to be available
 docker-tests = ["server"]
-server = ["tracing-subscriber/fmt", "dep:tokio", "dep:tokio-util"]
+server = [
+    "tracing-subscriber/fmt",
+    "dep:tokio",
+    "dep:tokio-util",
+    "dep:futures",
+]
 crypto = ["dep:lhash"]
 tcp = ["server"]
 unix = ["server"]
@@ -39,11 +44,15 @@ lhash = { version = "1.0.1", features = ["sha256"], optional = true }
 hex = { version = "0.4" }
 tokio-util = { version = "0.7.8", features = [
     "net",
+    "codec",
 ], default-features = false, optional = true }
 tokio = { version = "1.28", features = [
     "net",
     "io-util",
+    "rt-multi-thread",
+    "sync",
 ], default-features = false, optional = true }
+futures = { version = "0.3.28", optional = true }
 
 [dev-dependencies]
 anyhow = "1.0.69"

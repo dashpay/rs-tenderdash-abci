@@ -61,7 +61,7 @@ impl<App: RequestDispatcher> Server for UnixSocketServer<App> {
             let stream = self.listener.accept().await?;
 
             super::handle_client(
-                self.cancel.child_token(),
+                self.cancel.clone(),
                 stream.0,
                 name,
                 &self.app,

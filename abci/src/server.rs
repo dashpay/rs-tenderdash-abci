@@ -5,28 +5,26 @@ mod tcp;
 #[cfg(feature = "unix")]
 mod unix;
 
+use core::future::Future;
 use std::{
+    fmt::Debug,
     net::{IpAddr, SocketAddr, SocketAddrV4, SocketAddrV6},
     str::FromStr,
+    sync::Arc,
 };
 
 use tokio::{
-    io::{AsyncRead, AsyncWrite},
     runtime::{Handle, Runtime},
+    sync::{oneshot, Mutex},
 };
-use tokio_util::sync::CancellationToken;
+use tokio_util::{net::Listener, sync::CancellationToken};
 use tracing::{error, info};
-use url::Url;
 
 #[cfg(feature = "tcp")]
 use self::tcp::TcpServer;
 #[cfg(feature = "unix")]
 use self::unix::UnixSocketServer;
 use crate::{application::RequestDispatcher, proto::abci, server::codec::Codec, Error};
-
-/// The size of the read buffer for each incoming connection to the ABCI
-/// server (1MB).
-pub(crate) const DEFAULT_SERVER_READ_BUF_SIZE: usize = 1024 * 1024;
 
 /// ABCI Server handle.
 ///
@@ -104,41 +102,37 @@ impl<'a, App: RequestDispatcher + 'a> ServerBuilder<App> {
     /// method. Call it in a loop to accept and process incoming
     /// connections.
     pub fn build(self) -> Result<Box<dyn Server + 'a>, crate::Error> {
-        let app_address = url::Url::parse(self.bind_address.as_ref()).expect("invalid app address");
-        if app_address.scheme() != "tcp" && app_address.scheme() != "unix" {
+        let bind_address =
+            url::Url::parse(self.bind_address.as_ref()).expect("invalid bind address");
+        if bind_address.scheme() != "tcp" && bind_address.scheme() != "unix" {
             panic!("app_address must be either tcp:// or unix://");
         }
         let server_runtime: ServerRuntime = ServerRuntime::default();
 
         let _guard = server_runtime.runtime_handle.enter();
-        let hdl = server_runtime.runtime_handle.clone();
-        hdl.block_on(self.start(server_runtime, app_address))
-    }
 
-    async fn start(
-        self,
-        rt: ServerRuntime,
-        listen_address: Url,
-    ) -> Result<Box<dyn Server + 'a>, Error> {
         // If no cancel is defined, so we add some "mock"
         let cancel = self.cancel.unwrap_or(ServerCancel::new());
 
-        let server = match listen_address.scheme() {
+        let server = match bind_address.scheme() {
             #[cfg(feature = "tcp")]
-            "tcp" => Box::new(
-                TcpServer::bind(self.app, parse_tcp_uri(listen_address), cancel, rt).await?,
-            ) as Box<dyn Server + 'a>,
+            "tcp" => Box::new(TcpServer::bind(
+                self.app,
+                parse_tcp_uri(bind_address),
+                cancel,
+                server_runtime,
+            )?) as Box<dyn Server + 'a>,
             #[cfg(feature = "unix")]
             "unix" => Box::new(UnixSocketServer::bind(
                 self.app,
-                listen_address.path(),
+                bind_address.path(),
                 cancel,
                 DEFAULT_SERVER_READ_BUF_SIZE,
-                rt,
+                server_runtime,
             )?) as Box<dyn Server + 'a>,
             _ => panic!(
                 "listen address uses unsupported scheme `{}`",
-                listen_address.scheme()
+                bind_address.scheme()
             ),
         };
 
@@ -164,10 +158,31 @@ impl<'a, App: RequestDispatcher + 'a> ServerBuilder<App> {
 }
 
 /// Server runtime that must be alive for the whole lifespan of the server
-pub(crate) struct ServerRuntime {
+pub struct ServerRuntime {
     /// Runtime stored here to ensure it is never dropped
     _runtime: Option<Runtime>,
     runtime_handle: Handle,
+}
+
+impl ServerRuntime {
+    /// Call asynchronous code from synchronous function.
+    ///
+    /// Using [Handle::block_on()] is not allowed in more complex cases.
+    /// `call_async` does the same, but using [Handle::spawn()].
+    ///
+    /// [Handle::block_on()]: tokio::runtime::Handle::block_on()
+    /// [Handle::spawn()]: tokio::runtime::Handle::spawn()
+    pub(crate) fn call_async<F>(&self, future: F) -> Result<F::Output, Error>
+    where
+        F: Future + Send + 'static,
+        F::Output: Send + 'static,
+    {
+        let (tx, rx) = oneshot::channel();
+        self.runtime_handle.spawn(async { tx.send(future.await) });
+
+        rx.blocking_recv()
+            .map_err(|e| Error::TokioRuntime(e.to_string()))
+    }
 }
 
 impl Default for ServerRuntime {
@@ -183,7 +198,11 @@ impl Default for ServerRuntime {
                 _runtime: None,
             },
             Err(_) => {
-                let rt = Runtime::new().unwrap();
+                let rt = tokio::runtime::Builder::new_multi_thread()
+                    .worker_threads(2)
+                    .enable_all()
+                    .build()
+                    .expect("cannot create runtime");
                 Self {
                     runtime_handle: rt.handle().clone(),
                     _runtime: Some(rt),
@@ -205,23 +224,22 @@ where
 }
 
 /// handle_client accepts one client connection and handles received messages.
-pub(crate) async fn handle_client<App, S>(
+pub(crate) fn handle_client<'a, App, L>(
     cancel_token: ServerCancel,
-    stream: S,
-    name: String,
+    listener: &Arc<Mutex<L>>,
     app: &App,
-    read_buf_size: usize,
+    runtime: &ServerRuntime,
 ) -> Result<(), Error>
 where
     App: RequestDispatcher,
-    S: AsyncRead + AsyncWrite + Unpin,
+    L: Listener + Send + Sync + 'static,
+    L::Addr: Send + Debug,
+    L::Io: Send,
 {
-    let mut codec = Codec::new(stream, read_buf_size, cancel_token);
-    info!("Listening for incoming requests from {}", name);
-
-    loop {
-        let Some(request) = codec.receive().await? else {
-            error!("Client {} terminated stream", name);
+    let mut codec = Codec::new(listener, cancel_token.clone(), runtime);
+    while !cancel_token.is_cancelled() {
+        let Some(request) = codec.next() else {
+            error!("client terminated stream");
             return Ok(())
         };
 
@@ -233,10 +251,12 @@ where
 
         if let Some(abci::response::Value::Exception(ex)) = response.value.clone() {
             error!(error = ex.error, ?request, "error processing request")
-        }
+        };
 
-        codec.send(response).await?;
+        codec.send(response)?;
     }
+
+    Err(Error::Cancelled())
 }
 
 fn parse_tcp_uri(uri: url::Url) -> SocketAddr {

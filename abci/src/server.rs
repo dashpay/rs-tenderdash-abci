@@ -15,7 +15,10 @@ use std::{
 
 use tokio::{
     runtime::{Handle, Runtime},
-    sync::{oneshot, Mutex},
+    sync::{
+        oneshot::{channel, Sender},
+        Mutex,
+    },
 };
 use tokio_util::{net::Listener, sync::CancellationToken};
 use tracing::{error, info};
@@ -41,7 +44,7 @@ pub trait Server {
     /// however, errors must be examined and handled, as the connection
     /// should not terminate. One exception is [Error::Cancelled], which
     /// means server shutdown was requested.
-    fn handle_connection(&self) -> Result<(), Error>;
+    fn next_client(&self) -> Result<(), Error>;
 }
 pub type ServerCancel = CancellationToken;
 
@@ -73,6 +76,7 @@ where
     app: D,
     bind_address: String,
     cancel: Option<ServerCancel>,
+    server_runtime: Option<ServerRuntime>,
 }
 
 impl<'a, App: RequestDispatcher + 'a> ServerBuilder<App> {
@@ -91,6 +95,7 @@ impl<'a, App: RequestDispatcher + 'a> ServerBuilder<App> {
             app,
             bind_address: address.to_string(),
             cancel: None,
+            server_runtime: None,
         }
     }
 
@@ -107,7 +112,7 @@ impl<'a, App: RequestDispatcher + 'a> ServerBuilder<App> {
         if bind_address.scheme() != "tcp" && bind_address.scheme() != "unix" {
             panic!("app_address must be either tcp:// or unix://");
         }
-        let server_runtime: ServerRuntime = ServerRuntime::default();
+        let server_runtime: ServerRuntime = self.server_runtime.unwrap_or_default();
 
         let _guard = server_runtime.runtime_handle.enter();
 
@@ -155,6 +160,16 @@ impl<'a, App: RequestDispatcher + 'a> ServerBuilder<App> {
             ..self
         }
     }
+
+    pub fn with_runtime(self, runtime_handle: Handle) -> Self {
+        Self {
+            server_runtime: Some(ServerRuntime {
+                _runtime: None,
+                runtime_handle: runtime_handle,
+            }),
+            ..self
+        }
+    }
 }
 
 /// Server runtime that must be alive for the whole lifespan of the server
@@ -172,16 +187,41 @@ impl ServerRuntime {
     ///
     /// [Handle::block_on()]: tokio::runtime::Handle::block_on()
     /// [Handle::spawn()]: tokio::runtime::Handle::spawn()
-    pub(crate) fn call_async<F>(&self, future: F) -> Result<F::Output, Error>
+    pub(crate) fn call_async<F>(&self, future: F, cancel: ServerCancel) -> Result<F::Output, Error>
     where
         F: Future + Send + 'static,
-        F::Output: Send + 'static,
+        F::Output: Send + Debug + 'static,
     {
-        let (tx, rx) = oneshot::channel();
-        self.runtime_handle.spawn(async { tx.send(future.await) });
+        let (tx, rx) = channel::<F::Output>();
 
-        rx.blocking_recv()
-            .map_err(|e| Error::TokioRuntime(e.to_string()))
+        let cloned = cancel.clone();
+        let join_handle = self.runtime_handle.spawn(Self::worker(future, cloned, tx));
+
+        tracing::trace!("block on recv");
+        let res = rx.blocking_recv().map_err(|e| Error::Async(e.to_string()));
+        tracing::trace!("end of recv block");
+
+        join_handle.abort(); // should already be finished, but we cleanup just in case
+        res
+    }
+
+    async fn worker<F>(future: F, cancel: ServerCancel, tx: Sender<F::Output>)
+    where
+        F: Future + Send + 'static,
+        F::Output: Send + Debug + 'static,
+    {
+        tracing::trace!("async worker");
+        tokio::select! {
+            resp = future => {
+                println!("here we are 2");
+                if let Err(msg) = tx.send(resp) {
+                    tracing::error!(?msg,"cannot forward received response");
+                }
+            },
+            _ = cancel.cancelled() => {
+                tracing::trace!("async job cancelled");
+                drop(tx)},
+        };
     }
 }
 
@@ -199,10 +239,11 @@ impl Default for ServerRuntime {
             },
             Err(_) => {
                 let rt = tokio::runtime::Builder::new_multi_thread()
-                    .worker_threads(2)
+                    .worker_threads(4)
                     .enable_all()
                     .build()
                     .expect("cannot create runtime");
+                tracing::trace!("created new runtime");
                 Self {
                     runtime_handle: rt.handle().clone(),
                     _runtime: Some(rt),

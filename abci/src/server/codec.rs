@@ -45,7 +45,7 @@ impl<'a> Codec {
         let listener = Arc::clone(listener);
         runtime
             .runtime_handle
-            .spawn(async move { Self::worker(listener, request_tx, response_rx, cancel) });
+            .spawn(Self::worker(listener, request_tx, response_rx, cancel));
 
         Self {
             request_rx,
@@ -67,14 +67,19 @@ impl<'a> Codec {
         T: Listener + Send + Sync,
         T::Addr: Debug,
     {
-        let mut listener = listener.blocking_lock();
-        let (stream, address) = match listener.accept().await {
-            Ok(r) => r,
-            Err(error) => {
-                tracing::error!(?error, "cannot accept connection");
-                cancel.cancel();
-                return;
+        let mut listener = listener.lock().await;
+        tracing::trace!("listening for new connection");
+
+        let (stream, address) = tokio::select! {
+        conn = listener.accept() =>  match conn{
+                Ok(r) => r,
+                Err(error) => {
+                    tracing::error!(?error, "cannot accept connection");
+                    cancel.cancel();
+                    return;
+                },
             },
+        _ = cancel.cancelled() => return,
         };
 
         tracing::info!(?address, "accepted connection");
@@ -127,7 +132,7 @@ impl<'a> Codec {
     pub fn send(&self, value: Response) -> Result<(), Error> {
         self.response_tx
             .blocking_send(value)
-            .map_err(|e| Error::TokioRuntime(e.to_string()))
+            .map_err(|e| Error::Async(e.to_string()))
     }
 }
 

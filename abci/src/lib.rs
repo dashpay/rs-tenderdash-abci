@@ -43,5 +43,5 @@ pub enum Error {
     #[error("server terminated")]
     Cancelled(),
     #[error("async runtime error")]
-    TokioRuntime(String),
+    Async(String),
 }

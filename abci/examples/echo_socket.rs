@@ -24,7 +24,7 @@ pub fn main() {
         .expect("server failed");
 
     loop {
-        match server.handle_connection() {
+        match server.next_client() {
             Ok(_) => {},
             Err(e) => tracing::error!("error {}", e),
         };

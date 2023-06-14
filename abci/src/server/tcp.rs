@@ -31,7 +31,7 @@ impl<App: RequestDispatcher> TcpServer<App> {
     where
         Addr: ToSocketAddrs + Send + 'static,
     {
-        let listener = server_runtime.call_async(TcpListener::bind(addr))??;
+        let listener = server_runtime.call_async(TcpListener::bind(addr), cancel.clone())??;
 
         // let listener = TcpListener::bind(addr).await?;
         let local_addr = listener.local_addr()?;
@@ -52,8 +52,7 @@ impl<App: RequestDispatcher> TcpServer<App> {
 }
 
 impl<'a, App: RequestDispatcher + 'a> Server for TcpServer<App> {
-    fn handle_connection(&self) -> Result<(), Error> {
-        tracing::trace!("handle connection");
+    fn next_client(&self) -> Result<(), Error> {
         // create child token to cancel this connection on error, but not the caller
         let cancel = self.cancel.child_token();
         handle_client(
@@ -63,7 +62,7 @@ impl<'a, App: RequestDispatcher + 'a> Server for TcpServer<App> {
             &self.server_runtime,
         )?;
 
-        tracing::trace!("end of connection handling");
+        tracing::trace!("end of connection");
         cancel.cancel();
 
         Ok(())

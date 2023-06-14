@@ -64,7 +64,7 @@ fn tcp_server_test(test_name: &str, bind_address: &str) {
 
     common::docker::setup_td_logs_panic(&td);
 
-    let result = server.handle_connection();
+    let result = server.next_client();
     tracing::debug!(?result, "connection handled");
     assert!(matches!(result, Ok(())));
 }

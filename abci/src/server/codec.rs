@@ -45,7 +45,6 @@ impl<'a> Codec {
         let (request_tx, request_rx) = mpsc::channel::<proto::abci::Request>(1);
         let (response_tx, response_rx) = mpsc::channel::<proto::abci::Response>(1);
 
-        let cancel = cancel.clone();
         runtime
             .handle
             .spawn(Self::worker(listener, request_tx, response_rx, cancel));

@@ -14,14 +14,14 @@ use blake2::{
 };
 use lazy_static::lazy_static;
 use proto::abci::{self, ResponseException};
-use tenderdash_abci::{check_version, proto, Application, ServerCancel};
+use tenderdash_abci::{check_version, proto, Application, CancellationToken};
 use tracing::error;
 use tracing_subscriber::filter::LevelFilter;
 
 const SOCKET: &str = "/tmp/abci.sock";
 
 lazy_static! {
-    static ref CANCEL_TOKEN: ServerCancel = ServerCancel::new();
+    static ref CANCEL_TOKEN: CancellationToken = CancellationToken::new();
 }
 
 #[cfg(feature = "docker-tests")]

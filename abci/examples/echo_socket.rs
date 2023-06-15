@@ -1,11 +1,11 @@
 use lazy_static::lazy_static;
-use tenderdash_abci::{proto::abci, Application, ServerBuilder, ServerCancel};
+use tenderdash_abci::{proto::abci, Application, CancellationToken, ServerBuilder};
 use tracing::info;
 use tracing_subscriber::filter::LevelFilter;
 
 const SOCKET: &str = "/tmp/abci.sock";
 lazy_static! {
-    static ref CANCEL_TOKEN: ServerCancel = ServerCancel::new();
+    static ref CANCEL_TOKEN: CancellationToken = CancellationToken::new();
 }
 pub fn main() {
     let log_level = LevelFilter::DEBUG;

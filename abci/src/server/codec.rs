@@ -20,7 +20,7 @@ use tokio_util::{
 };
 
 use super::ServerRuntime;
-use crate::{proto, Error, ServerCancel};
+use crate::{proto, CancellationToken, Error};
 
 /// The maximum number of bytes we expect in a varint. We use this to check if
 /// we're encountering a decoding error for a varint.
@@ -32,7 +32,11 @@ pub struct Codec {
 }
 
 impl<'a> Codec {
-    pub fn new<L>(listener: &Arc<Mutex<L>>, cancel: ServerCancel, runtime: &ServerRuntime) -> Self
+    pub(crate) fn new<L>(
+        listener: Arc<Mutex<L>>,
+        cancel: CancellationToken,
+        runtime: &ServerRuntime,
+    ) -> Self
     where
         L: Listener + Send + Sync + 'static,
         L::Addr: Send + Debug,
@@ -42,9 +46,8 @@ impl<'a> Codec {
         let (response_tx, response_rx) = mpsc::channel::<proto::abci::Response>(1);
 
         let cancel = cancel.clone();
-        let listener = Arc::clone(listener);
         runtime
-            .runtime_handle
+            .handle
             .spawn(Self::worker(listener, request_tx, response_rx, cancel));
 
         Self {
@@ -58,14 +61,14 @@ impl<'a> Codec {
     /// ## Error handling
     ///
     /// Any error will cause disconnect
-    async fn worker<T>(
-        listener: Arc<Mutex<T>>,
+    async fn worker<L>(
+        listener: Arc<Mutex<L>>,
         request_tx: Sender<proto::abci::Request>,
         mut response_rx: Receiver<proto::abci::Response>,
-        cancel: ServerCancel,
+        cancel: CancellationToken,
     ) where
-        T: Listener + Send + Sync,
-        T::Addr: Debug,
+        L: Listener + Send + Sync,
+        L::Addr: Debug,
     {
         let mut listener = listener.lock().await;
         tracing::trace!("listening for new connection");

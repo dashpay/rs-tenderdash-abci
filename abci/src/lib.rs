@@ -21,7 +21,7 @@ use std::io;
 pub use application::{check_version, Application, RequestDispatcher};
 use prost::{DecodeError, EncodeError};
 #[allow(deprecated)]
-pub use server::{start_server, Server, ServerBuilder, ServerCancel};
+pub use server::{start_server, CancellationToken, Server, ServerBuilder};
 pub use tenderdash_proto as proto;
 
 #[cfg(feature = "crypto")]

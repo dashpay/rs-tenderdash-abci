@@ -166,24 +166,22 @@ impl<'a, App: RequestDispatcher + 'a> ServerBuilder<App> {
     ///
     /// impl Application for MyApp {}
     ///
-    /// fn main() {
-    ///     // Create a Tokio runtime
-    ///     let runtime = Runtime::new().unwrap();
-    ///     let runtime_handle = runtime.handle().clone();
+    /// // Create a Tokio runtime
+    /// let runtime = Runtime::new().unwrap();
+    /// let runtime_handle = runtime.handle().clone();
     ///
-    ///     // Create an instance of your RequestDispatcher implementation
-    ///     let app = MyApp;
+    /// // Create an instance of your RequestDispatcher implementation
+    /// let app = MyApp;
     ///
-    ///     // Create cancellation token
-    ///     let cancel = CancellationToken::new();
-    ///     # cancel.cancel();
-    ///     // Create a ServerBuilder instance and set the runtime using with_runtime()
+    /// // Create cancellation token
+    /// let cancel = CancellationToken::new();
+    /// # cancel.cancel();
+    /// // Create a ServerBuilder instance and set the runtime using with_runtime()
     ///     
-    ///     let server = ServerBuilder::new(app, "tcp://0.0.0.0:17534")
-    ///         .with_runtime(runtime_handle)
-    ///         .with_cancel_token(cancel)
-    ///         .build();
-    /// }
+    /// let server = ServerBuilder::new(app, "tcp://0.0.0.0:17534")
+    ///     .with_runtime(runtime_handle)
+    ///     .with_cancel_token(cancel)
+    ///     .build();
     /// ```
     ///
     /// In this example, we first create a Tokio runtime and get its handle.

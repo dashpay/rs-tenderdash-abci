@@ -11,6 +11,7 @@ use tokio::{
     net::{TcpListener, UnixListener},
     runtime::{Handle, Runtime},
 };
+pub use tokio_util::sync::CancellationToken;
 
 use self::generic::GenericServer;
 use crate::{application::RequestDispatcher, Error};
@@ -37,8 +38,6 @@ pub trait Server {
         self.next_client()
     }
 }
-
-pub type CancellationToken = tokio_util::sync::CancellationToken;
 
 /// ABCI server builder that creates and starts ABCI server
 ///

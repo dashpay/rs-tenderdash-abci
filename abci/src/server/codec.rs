@@ -73,7 +73,7 @@ impl<'a> Codec {
         tracing::trace!("listening for new connection");
 
         let (stream, address) = tokio::select! {
-        conn = listener.accept() =>  match conn{
+            conn = listener.accept() => match conn {
                 Ok(r) => r,
                 Err(error) => {
                     tracing::error!(?error, "cannot accept connection");
@@ -81,13 +81,13 @@ impl<'a> Codec {
                     return;
                 },
             },
-        _ = cancel.cancelled() => return,
+            _ = cancel.cancelled() => return,
         };
 
         tracing::info!(?address, "accepted connection");
 
         let stream = Box::pin(stream);
-        let mut codec = tokio_util::codec::Framed::new(stream, Coder::new());
+        let mut codec = tokio_util::codec::Framed::new(stream, Coder {});
 
         loop {
             tokio::select! {
@@ -138,12 +138,7 @@ impl<'a> Codec {
     }
 }
 
-pub struct Coder {}
-impl Coder {
-    pub fn new() -> Self {
-        Self {}
-    }
-}
+pub struct Coder;
 
 impl Decoder for Coder {
     type Error = Error;

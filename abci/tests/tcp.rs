@@ -40,17 +40,19 @@ fn test_ipv6_server() {
 /// * When we estabilish connection with Tenderdash
 /// * Then Tenderdash sends Info request
 fn tcp_server_test(test_name: &str, bind_address: &str) {
-    use tenderdash_abci::start_server;
-    use tracing_subscriber::filter::LevelFilter;
+    use tenderdash_abci::ServerBuilder;
 
     tracing_subscriber::fmt()
-        .with_max_level(LevelFilter::DEBUG)
+        .with_env_filter(tracing_subscriber::EnvFilter::from_default_env())
+        .with_ansi(true)
         .try_init()
         .ok();
 
     let app = TestDispatcher {};
 
-    let server = start_server(&bind_address, app).expect("server failed");
+    let server = ServerBuilder::new(app, &bind_address)
+        .build()
+        .expect("server failed");
     let socket_uri = bind_address.to_string();
     let container_name = format!("tenderdash_{}", test_name);
 
@@ -62,7 +64,9 @@ fn tcp_server_test(test_name: &str, bind_address: &str) {
 
     common::docker::setup_td_logs_panic(&td);
 
-    assert!(matches!(server.handle_connection(), Ok(())));
+    let result = server.next_client();
+    tracing::debug!(?result, "connection handled");
+    assert!(matches!(result, Ok(())));
 }
 
 pub struct TestDispatcher {}
@@ -74,6 +78,7 @@ impl RequestDispatcher for TestDispatcher {
             request.value,
             Some(proto::abci::request::Value::Info(_))
         ));
+        tracing::info!("info request received");
         None
     }
 }

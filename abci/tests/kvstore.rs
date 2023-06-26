@@ -12,17 +12,25 @@ use blake2::{
     digest::{consts::U32, FixedOutput},
     Blake2b, Digest,
 };
+use lazy_static::lazy_static;
 use proto::abci::{self, ResponseException};
-use tenderdash_abci::{check_version, proto, start_server, Application, RequestDispatcher};
-use tracing::{debug, error};
+use tenderdash_abci::{check_version, proto, Application, CancellationToken};
+use tracing::error;
 use tracing_subscriber::filter::LevelFilter;
 
 const SOCKET: &str = "/tmp/abci.sock";
 
+lazy_static! {
+    static ref CANCEL_TOKEN: CancellationToken = CancellationToken::new();
+}
+
 #[cfg(feature = "docker-tests")]
+#[cfg(feature = "unix")]
 #[test]
 fn test_kvstore() {
     use std::{fs, os::unix::prelude::PermissionsExt};
+
+    use tenderdash_abci::ServerBuilder;
     tracing_subscriber::fmt()
         .with_max_level(LevelFilter::DEBUG)
         .init();
@@ -45,8 +53,12 @@ fn test_kvstore() {
     state_reference.insert("ayy".to_owned(), "lmao".to_owned());
 
     let bind_address = format!("unix://{}", SOCKET);
-    let app = TestDispatcher::new(abci_app);
-    let server = start_server(&bind_address, app).expect("server failed");
+
+    let cancel = CANCEL_TOKEN.clone();
+    let server = ServerBuilder::new(abci_app, &bind_address)
+        .with_cancel_token(cancel)
+        .build()
+        .expect("server failed");
 
     let perms = fs::Permissions::from_mode(0o777);
     fs::set_permissions(SOCKET, perms).expect("set perms");
@@ -54,39 +66,15 @@ fn test_kvstore() {
     let socket_uri = bind_address.to_string();
     let _td = common::docker::TenderdashDocker::new("tenderdash", None, &socket_uri);
 
-    assert!(matches!(server.handle_connection(), Ok(())));
+    assert!(matches!(
+        server.next_client(),
+        Err(tenderdash_abci::Error::Cancelled())
+    ));
     drop(server);
 
     let kvstore_app = kvstore.into_inner().expect("kvstore lock is poisoned");
     assert_eq!(kvstore_app.persisted_state, state_reference);
     assert_eq!(kvstore_app.last_block_height, 1);
-}
-
-pub struct TestDispatcher<'a> {
-    abci_app: KVStoreABCI<'a>,
-}
-
-impl<'a> TestDispatcher<'a> {
-    fn new(abci_app: KVStoreABCI<'a>) -> Self {
-        Self { abci_app }
-    }
-}
-
-impl RequestDispatcher for TestDispatcher<'_> {
-    fn handle(&self, request: proto::abci::Request) -> Option<abci::Response> {
-        debug!("Incoming request: {:?}", request);
-
-        if let Some(proto::abci::request::Value::FinalizeBlock(req)) = request.value {
-            self.abci_app
-                .finalize_block(req)
-                .expect("finalize block failed");
-
-            // Shudown ABCI application after one block
-            return None;
-        }
-        // We use generic dispatcher implementation here
-        self.abci_app.handle(request)
-    }
 }
 
 /// An example storage.
@@ -358,6 +346,10 @@ impl Application for KVStoreABCI<'_> {
         assert_block_height(request.height, &kvstore_lock);
 
         kvstore_lock.commit();
+
+        // we want to end the test and shutdown the server
+        let cancel = CANCEL_TOKEN.clone();
+        cancel.cancel();
 
         Ok(Default::default())
     }

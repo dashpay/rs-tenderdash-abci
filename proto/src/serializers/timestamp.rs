@@ -41,6 +41,28 @@ impl ToMilis for Timestamp {
     }
 }
 
+pub trait FromMilis {
+    /// Create protobuf timestamp from miliseconds since epoch
+    ///
+    /// Note there is a resolution difference, as timestamp uses nanoseconds
+    fn from_milis(millis: i64) -> Self;
+}
+
+impl FromMilis for Timestamp {
+    /// Create protobuf timestamp from miliseconds since epoch
+    ///
+    /// Note there is a resolution difference, as timestamp uses nanoseconds
+    fn from_milis(millis: i64) -> Self {
+        let dt =
+            chrono::NaiveDateTime::from_timestamp_millis(millis).expect("cannot parse timestamp");
+
+        Self {
+            nanos: dt.timestamp_subsec_nanos() as i32,
+            seconds: dt.timestamp(),
+        }
+    }
+}
+
 /// Deserialize string into Timestamp
 pub fn deserialize<'de, D>(deserializer: D) -> Result<Timestamp, D::Error>
 where

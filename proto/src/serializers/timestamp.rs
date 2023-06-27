@@ -1,6 +1,6 @@
 //! Serialize/deserialize Timestamp type from and into string:
 
-use core::fmt;
+use core::fmt::{self, Debug};
 
 use serde::{de::Error as _, ser::Error, Deserialize, Deserializer, Serialize, Serializer};
 use time::{
@@ -29,6 +29,16 @@ impl From<Rfc3339> for Timestamp {
 
 pub trait ToMilis {
     /// Convert protobuf timestamp into miliseconds since epoch
+
+    /// Note there is a resolution difference, as timestamp uses nanoseconds
+    ///
+    /// # Arguments
+    ///
+    /// * millis - time since epoch, in miliseconds
+    ///
+    /// # Panics
+    ///  
+    /// Panics when timestamp doesn't fit `u64` type
     fn to_milis(&self) -> u64;
 }
 
@@ -37,7 +47,9 @@ impl ToMilis for Timestamp {
     fn to_milis(&self) -> u64 {
         chrono::NaiveDateTime::from_timestamp_opt(self.seconds, self.nanos as u32)
             .unwrap()
-            .timestamp_millis() as u64
+            .timestamp_millis()
+            .try_into()
+            .expect("timestamp value out of u64 range")
     }
 }
 
@@ -45,16 +57,28 @@ pub trait FromMilis {
     /// Create protobuf timestamp from miliseconds since epoch
     ///
     /// Note there is a resolution difference, as timestamp uses nanoseconds
-    fn from_milis(millis: i64) -> Self;
+    ///
+    /// # Arguments
+    ///
+    /// * millis - time since epoch, in miliseconds; must fit `i64` type
+    fn from_milis(millis: u64) -> Self;
 }
 
 impl FromMilis for Timestamp {
     /// Create protobuf timestamp from miliseconds since epoch
     ///
     /// Note there is a resolution difference, as timestamp uses nanoseconds
-    fn from_milis(millis: i64) -> Self {
-        let dt =
-            chrono::NaiveDateTime::from_timestamp_millis(millis).expect("cannot parse timestamp");
+    ///
+    /// # Panics
+    ///  
+    /// Panics when `millis` don't fit `i64` type
+    fn from_milis(millis: u64) -> Self {
+        let dt = chrono::NaiveDateTime::from_timestamp_millis(
+            millis
+                .try_into()
+                .expect("milliseconds timestamp out of i64 range"),
+        )
+        .expect("cannot parse timestamp");
 
         Self {
             nanos: dt.timestamp_subsec_nanos() as i32,
@@ -228,5 +252,34 @@ mod test {
             let rfc = serde_json::from_str::<Rfc3339>(&json).unwrap();
             assert_eq!(json, serde_json::to_string(&rfc).unwrap());
         }
+    }
+
+    #[test]
+    fn timestamp_from_to() {
+        let time_ms = 1687848809533;
+
+        let from = Timestamp::from_milis(time_ms);
+        let to = from.to_milis();
+
+        assert_eq!(to, time_ms);
+    }
+
+    #[test]
+    #[should_panic]
+    fn timestamp_millis_out_of_range() {
+        let time_ms = u64::MAX - 1;
+
+        let from = Timestamp::from_milis(time_ms);
+    }
+
+    #[test]
+    #[should_panic]
+    fn timestamp_negative() {
+        let ts = Timestamp {
+            nanos: 1000,
+            seconds: -12,
+        };
+
+        let to = ts.to_milis();
     }
 }

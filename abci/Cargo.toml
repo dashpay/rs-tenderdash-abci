@@ -1,6 +1,6 @@
 [package]
 name = "tenderdash-abci"
-version = "0.12.0-dev.2"
+version = "0.12.0"
 edition = "2021"
 license = "Apache-2.0"
 readme = "README.md"
@@ -29,7 +29,7 @@ name = "echo_socket"
 required-features = ["server"]
 
 [dependencies]
-tenderdash-proto = { version = "0.12.0-dev.2", path = "../proto" }
+tenderdash-proto = { version = "0.12.0", path = "../proto" }
 bytes = { version = "1.0" }
 prost = { version = "0.11" }
 tracing = { version = "0.1", default-features = false }

@@ -18,7 +18,7 @@ pub fn main() {
     let app = EchoApp {};
 
     let cancel = CANCEL_TOKEN.clone();
-    let server = ServerBuilder::new(app, &socket)
+    let mut server = ServerBuilder::new(app, &socket)
         .with_cancel_token(cancel)
         .build()
         .expect("server failed");

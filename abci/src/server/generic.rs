@@ -98,7 +98,7 @@ where
     L::Addr: Send + Debug,
     L::Io: Send,
 {
-    fn next_client(&self) -> Result<(), Error> {
+    fn next_client(&mut self) -> Result<(), Error> {
         // we create child token to stop the codec but not kill the app
         let cancel_token = self.cancel.child_token();
         let listener = Arc::clone(&self.listener);

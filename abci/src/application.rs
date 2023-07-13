@@ -80,7 +80,7 @@ pub trait Application {
 
     /// Called when bootstrapping the node using state sync.
     fn offer_snapshot(
-        &mut self,
+        &self,
         _request: abci::RequestOfferSnapshot,
     ) -> Result<abci::ResponseOfferSnapshot, abci::ResponseException> {
         Ok(Default::default())
@@ -144,12 +144,12 @@ pub trait RequestDispatcher {
     ///
     /// `RequestDispatcher` can indicate that it will no longer process new
     /// requests by returning `None` variant.
-    fn handle(&mut self, request: abci::Request) -> Option<abci::Response>;
+    fn handle(&self, request: abci::Request) -> Option<abci::Response>;
 }
 
 // Implement `RequestDispatcher` for all `Application`s.
 impl<A: Application> RequestDispatcher for A {
-    fn handle(&mut self, request: abci::Request) -> Option<abci::Response> {
+    fn handle(&self, request: abci::Request) -> Option<abci::Response> {
         tracing::trace!(?request, "received request");
 
         let response: Result<response::Value, abci::ResponseException> = match request.value? {

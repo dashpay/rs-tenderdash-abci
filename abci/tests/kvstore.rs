@@ -55,7 +55,7 @@ fn test_kvstore() {
     let bind_address = format!("unix://{}", SOCKET);
 
     let cancel = CANCEL_TOKEN.clone();
-    let server = ServerBuilder::new(abci_app, &bind_address)
+    let mut server = ServerBuilder::new(abci_app, &bind_address)
         .with_cancel_token(cancel)
         .build()
         .expect("server failed");

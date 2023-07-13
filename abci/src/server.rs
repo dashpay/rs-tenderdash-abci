@@ -31,10 +31,10 @@ pub trait Server {
     /// however, errors must be examined and handled, as the connection
     /// should not terminate. One exception is [Error::Cancelled], which
     /// means server shutdown was requested.
-    fn next_client(&mut self) -> Result<(), Error>;
+    fn next_client(&self) -> Result<(), Error>;
 
     #[deprecated = "use `next_client()`"]
-    fn handle_connection(&mut self) -> Result<(), Error> {
+    fn handle_connection(&self) -> Result<(), Error> {
         self.next_client()
     }
 }
@@ -56,7 +56,7 @@ pub trait Server {
 /// impl tenderdash_abci::Application for MyAbciApplication {};
 /// let app = MyAbciApplication {};
 /// let bind_address = "unix:///tmp/abci.sock";
-/// let mut server = tenderdash_abci::ServerBuilder::new(app, &bind_address).build().expect("server failed");
+/// let server = tenderdash_abci::ServerBuilder::new(app, &bind_address).build().expect("server failed");
 /// loop {
 ///     if let Err(tenderdash_abci::Error::Cancelled()) = server.next_client() {
 ///         break;

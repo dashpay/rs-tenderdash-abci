@@ -29,7 +29,7 @@ fn test_unix_socket_server() {
 
     let app = TestDispatcher {};
 
-    let mut server = ServerBuilder::new(app, &bind_address)
+    let server = ServerBuilder::new(app, &bind_address)
         .build()
         .expect("server failed");
 
@@ -53,7 +53,7 @@ fn test_unix_socket_server() {
 pub struct TestDispatcher {}
 
 impl RequestDispatcher for TestDispatcher {
-    fn handle(&mut self, request: proto::abci::Request) -> Option<proto::abci::Response> {
+    fn handle(&self, request: proto::abci::Request) -> Option<proto::abci::Response> {
         // Assert that Info request will is received and close the connection
         assert!(matches!(
             request.value,

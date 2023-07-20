@@ -11,7 +11,6 @@ RUN apk add --no-cache \
         libc6-compat \
         perl \
         unzip \
-        sccache \
         bash
 
 SHELL ["/bin/bash", "-c"]
@@ -28,13 +27,6 @@ RUN if [[ "$BUILDPLATFORM" == "linux/arm64" ]] ; then export PROTOC_ARCH=aarch_6
     unzip -qd /opt/protoc /tmp/protoc.zip && \
     rm /tmp/protoc.zip && \
     ln -s /opt/protoc/bin/protoc /usr/bin/
-
-# Set RUSTC_WRAPPER=/usr/bin/sccache to enable `sccache` caching.
-ARG RUSTC_WRAPPER=/usr/bin/sccache
-# These should be set for Github Actions caching
-ARG SCCACHE_GHA_ENABLED
-ARG ACTIONS_CACHE_URL
-ARG ACTIONS_RUNTIME_TOKEN
 
 # Create a dummy package
 RUN cargo init /usr/src/abci-app
@@ -54,15 +46,11 @@ ARG REVISION="refs/heads/master"
 # 2. We add `--config net.git-fetch-with-cli=true` to address ARM build issue,
 # see https://github.com/rust-lang/cargo/issues/10781#issuecomment-1441071052
 # 3. To preserve space on github cache, we call `cargo clean`.
-# 4. We set SCCACHE_SERVER_PORT to avoid conflicts during parallel builds
-RUN --mount=type=cache,sharing=shared,target=/root/.cache/sccache \
-    --mount=type=cache,sharing=shared,target=${CARGO_HOME}/registry/index \
+RUN --mount=type=cache,sharing=shared,target=${CARGO_HOME}/registry/index \
     --mount=type=cache,sharing=shared,target=${CARGO_HOME}/registry/cache \
     --mount=type=cache,sharing=shared,target=${CARGO_HOME}/git/db \
-    SCCACHE_SERVER_PORT=$((RANDOM+1025)) cargo add --config net.git-fetch-with-cli=true \
+    cargo add --config net.git-fetch-with-cli=true \
         --git https://github.com/dashpay/rs-tenderdash-abci --rev "${REVISION}" tenderdash-abci && \
     cargo build --config net.git-fetch-with-cli=true && \
     cargo run --config net.git-fetch-with-cli=true && \
-    cargo clean && \
-    sccache --show-stats
-
+    cargo clean

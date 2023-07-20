@@ -22,9 +22,6 @@ jobs:
     steps:
       - uses: actions/checkout@v3
 
-      - name: Setup sccache
-        uses: mozilla-actions/sccache-action@v0.0.3
-
       - name: Set up QEMU
         uses: docker/setup-qemu-action@master
         with:
@@ -51,9 +48,6 @@ jobs:
           file: ./Dockerfile-${{ matrix.os }}
           build-args: |
             REVISION=${{ github.ref }}
-            SCCACHE_GHA_ENABLED=true
-            ACTIONS_CACHE_URL=${{ env.ACTIONS_CACHE_URL }}
-            ACTIONS_RUNTIME_TOKEN=${{ env.ACTIONS_RUNTIME_TOKEN }}
           platforms: ${{ env.build_platforms }}
           push: false
           cache-from: |

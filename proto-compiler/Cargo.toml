@@ -10,7 +10,7 @@ publish = false
 
 [dependencies]
 walkdir = { version = "2.3" }
-prost-build = { version = "0.11" }
+prost-build = { version = "0.12" }
 tempfile = { version = "3.2.0" }
 regex = { "version" = "1.7.1" }
 # Use of native-tls-vendored should build vendored openssl, which is required for Alpine build

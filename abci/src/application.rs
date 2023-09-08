@@ -1,6 +1,8 @@
 //! ABCI application interface.
 
-use tracing::debug;
+use hex::ToHex;
+use tenderdash_proto::abci::request::Value;
+use tracing::{debug, Level};
 
 use crate::proto::{
     abci,
@@ -150,6 +152,8 @@ pub trait RequestDispatcher {
 // Implement `RequestDispatcher` for all `Application`s.
 impl<A: Application> RequestDispatcher for A {
     fn handle(&self, request: abci::Request) -> Option<abci::Response> {
+        #[cfg(feature = "tracing-span")]
+        let _span = enter_span(request.clone().value?);
         tracing::trace!(?request, "received request");
 
         let response: Result<response::Value, abci::ResponseException> = match request.value? {
@@ -187,6 +191,85 @@ impl<A: Application> RequestDispatcher for A {
             value: Some(response),
         })
     }
+}
+#[cfg(feature = "tracing-span")]
+fn enter_span<T>(request: T) -> tracing::span::EnteredSpan
+where
+    T: Into<request::Value>,
+{
+    let value = request.into();
+    const SPAN_NAME: &str = "abci";
+    const LEVEL: Level = Level::ERROR;
+    let endpoint = abci_method_name(&value);
+
+    let span = match value {
+        Value::Info(r) => tracing::span!(
+            LEVEL,
+            SPAN_NAME,
+            endpoint,
+            tenderdash_version = r.version,
+            block_version = r.block_version,
+            p2p_version = r.p2p_version,
+        ),
+        Value::InitChain(r) => {
+            tracing::span!(LEVEL, SPAN_NAME, endpoint, chain_id = r.chain_id)
+        },
+        Value::PrepareProposal(r) => {
+            tracing::span!(
+                LEVEL,
+                SPAN_NAME,
+                endpoint,
+                height = r.height,
+                round = r.round,
+                quorum_hash = r.quorum_hash.encode_hex::<String>(),
+                core_locked_height = r.core_chain_locked_height,
+            )
+        },
+        Value::ProcessProposal(r) => tracing::span!(
+            LEVEL,
+            SPAN_NAME,
+            endpoint,
+            r.height,
+            r.round,
+            quorum_hash = r.quorum_hash.encode_hex::<String>(),
+            r.core_chain_locked_height,
+        ),
+        Value::ExtendVote(r) => tracing::span!(LEVEL, SPAN_NAME, endpoint, r.height, r.round),
+        Value::VerifyVoteExtension(r) => {
+            tracing::span!(LEVEL, SPAN_NAME, endpoint, r.height, r.round)
+        },
+        Value::FinalizeBlock(r) => tracing::span!(LEVEL, SPAN_NAME, endpoint, r.height, r.round),
+        Value::CheckTx(r) => {
+            tracing::span!(LEVEL, SPAN_NAME, endpoint, tx = r.tx.encode_hex::<String>())
+        },
+        Value::Query(r) => {
+            tracing::span!(LEVEL, SPAN_NAME, endpoint, path = r.path)
+        },
+        _ => tracing::span!(LEVEL, SPAN_NAME, endpoint),
+    };
+
+    span.entered()
+}
+#[cfg(feature = "tracing-span")]
+fn abci_method_name(request: &Value) -> String {
+    match request {
+        Value::ApplySnapshotChunk(_) => "ApplySnapshotChunk",
+        Value::CheckTx(_) => "CheckTx",
+        Value::Echo(_) => "Echo",
+        Value::ExtendVote(_) => "ExtendVote",
+        Value::FinalizeBlock(_) => "FinalizeBlock",
+        Value::Flush(_) => "Flush",
+        Value::Info(_) => "Info",
+        Value::InitChain(_) => "InitChain",
+        Value::ListSnapshots(_) => "ListSnapshots",
+        Value::LoadSnapshotChunk(_) => "LoadSnapshotChunk",
+        Value::OfferSnapshot(_) => "OfferSnapshot",
+        Value::PrepareProposal(_) => "PrepareProposal",
+        Value::ProcessProposal(_) => "ProcessProposal",
+        Value::Query(_) => "Query",
+        Value::VerifyVoteExtension(_) => "VerifyVoteExtension",
+    }
+    .to_string()
 }
 
 /// Check if ABCI version sent by Tenderdash matches version of linked protobuf

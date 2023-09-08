@@ -26,6 +26,8 @@ pub use tenderdash_proto as proto;
 
 #[cfg(feature = "crypto")]
 pub mod signatures;
+#[cfg(feature = "tracing-span")]
+mod tracing_span;
 
 /// Errors that may happen during protobuf communication
 #[derive(Debug, thiserror::Error)]

@@ -179,7 +179,6 @@ impl<A: Application> RequestDispatcher for A {
         }
         .unwrap_or_else(|e| e.into());
 
-        // TODO: errors as err
         if let response::Value::Exception(ref exception) = response {
             tracing::error!(response=?exception, "sending ABCI exception");
         } else {

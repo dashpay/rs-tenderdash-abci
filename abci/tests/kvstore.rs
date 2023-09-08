@@ -227,7 +227,9 @@ impl Application for KVStoreABCI<'_> {
             .collect::<Option<BTreeSet<Operation>>>()
         else {
             error!("Cannot decode transactions");
-            return Err(abci::ResponseException {error:"cannot decode transactions".to_string()});
+            return Err(abci::ResponseException {
+                error: "cannot decode transactions".to_string(),
+            });
         };
 
         // Mark transactions that should be added to the proposed transactions
@@ -253,7 +255,9 @@ impl Application for KVStoreABCI<'_> {
 
         let Some(tx_records) = tx_records_encoded else {
             error!("cannot encode transactions");
-            return Err(ResponseException{error:"cannot encode transactions".to_string()});
+            return Err(ResponseException {
+                error: "cannot encode transactions".to_string(),
+            });
         };
 
         // Put both local and proposed transactions into staging area
@@ -286,7 +290,9 @@ impl Application for KVStoreABCI<'_> {
             .map(decode_transaction)
             .collect::<Option<BTreeSet<Operation>>>()
         else {
-            return Err(ResponseException{error:"cannot decode transactions".to_string()});
+            return Err(ResponseException {
+                error: "cannot decode transactions".to_string(),
+            });
         };
 
         let tx_results = tx_results_accept(td_proposed_transactions.len());

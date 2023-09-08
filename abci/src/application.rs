@@ -150,9 +150,11 @@ pub trait RequestDispatcher {
 // Implement `RequestDispatcher` for all `Application`s.
 impl<A: Application> RequestDispatcher for A {
     fn handle(&self, request: abci::Request) -> Option<abci::Response> {
-        tracing::trace!(?request, "received request");
+        #[cfg(feature = "tracing-span")]
+        let _span = super::tracing_span::span(request.clone().value?);
+        tracing::trace!(?request, "received ABCI request");
 
-        let response: Result<response::Value, abci::ResponseException> = match request.value? {
+        let response: response::Value = match request.value? {
             request::Value::Echo(req) => self.echo(req).map(|v| v.into()),
             request::Value::Flush(req) => self.flush(req).map(|v| v.into()),
             request::Value::Info(req) => self.info(req).map(|v| v.into()),
@@ -174,14 +176,14 @@ impl<A: Application> RequestDispatcher for A {
             request::Value::VerifyVoteExtension(req) => {
                 self.verify_vote_extension(req).map(|v| v.into())
             },
-        };
+        }
+        .unwrap_or_else(|e| e.into());
 
-        let response = match response {
-            Ok(v) => v,
-            Err(e) => response::Value::from(e),
+        if let response::Value::Exception(_) = response {
+            tracing::error!(?response, "sending ABCI exception");
+        } else {
+            tracing::trace!(?response, "sending ABCI response");
         };
-
-        tracing::trace!(?response, "sending response");
 
         Some(abci::Response {
             value: Some(response),

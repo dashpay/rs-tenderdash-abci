@@ -1,7 +1,7 @@
-use hex::ToHex;
 use tenderdash_proto::abci::request::Value;
 use tracing::Level;
-pub(super) fn span<T>(request: T) -> tracing::span::EnteredSpan
+
+pub fn span<T>(request: T) -> tracing::span::EnteredSpan
 where
     T: Into<Value>,
 {
@@ -12,23 +12,9 @@ where
     let request_id = uuid::Uuid::new_v4().to_string();
 
     let span = match value {
-        Value::Info(r) => tracing::span!(
-            LEVEL,
-            SPAN_NAME,
-            endpoint,
-            request_id,
-            tenderdash_version = r.version,
-            block_version = r.block_version,
-            p2p_version = r.p2p_version,
-        ),
-        Value::InitChain(r) => {
-            tracing::span!(
-                LEVEL,
-                SPAN_NAME,
-                endpoint,
-                request_id,
-                chain_id = r.chain_id
-            )
+        Value::Info(_r) => tracing::span!(LEVEL, SPAN_NAME, endpoint, request_id),
+        Value::InitChain(_r) => {
+            tracing::span!(LEVEL, SPAN_NAME, endpoint, request_id)
         },
         Value::PrepareProposal(r) => {
             tracing::span!(
@@ -38,8 +24,6 @@ where
                 request_id,
                 height = r.height,
                 round = r.round,
-                quorum_hash = r.quorum_hash.encode_hex::<String>(),
-                core_locked_height = r.core_chain_locked_height,
             )
         },
         Value::ProcessProposal(r) => tracing::span!(
@@ -49,8 +33,6 @@ where
             request_id,
             height = r.height,
             round = r.round,
-            quorum_hash = r.quorum_hash.encode_hex::<String>(),
-            core_locked_height = r.core_chain_locked_height,
         ),
         Value::ExtendVote(r) => {
             tracing::span!(
@@ -82,14 +64,8 @@ where
                 round = r.round
             )
         },
-        Value::CheckTx(r) => {
-            tracing::span!(
-                LEVEL,
-                SPAN_NAME,
-                endpoint,
-                request_id,
-                tx = r.tx.encode_hex::<String>()
-            )
+        Value::CheckTx(_r) => {
+            tracing::span!(LEVEL, SPAN_NAME, endpoint, request_id)
         },
         Value::Query(r) => {
             tracing::span!(LEVEL, SPAN_NAME, endpoint, request_id, path = r.path)

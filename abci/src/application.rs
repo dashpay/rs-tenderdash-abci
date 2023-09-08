@@ -180,7 +180,7 @@ impl<A: Application> RequestDispatcher for A {
         .unwrap_or_else(|e| e.into());
 
         if let response::Value::Exception(_) = response {
-            tracing::error!(response=?response, "sending ABCI exception");
+            tracing::error!(?response, "sending ABCI exception");
         } else {
             tracing::trace!(?response, "sending ABCI response");
         };

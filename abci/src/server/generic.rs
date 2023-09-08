@@ -106,15 +106,15 @@ where
         let mut codec = Codec::new(listener, cancel_token.clone(), &self.runtime);
         while !cancel_token.is_cancelled() {
             let Some(request) = codec.next() else {
-            tracing::error!("client terminated stream");
-            return Ok(())
-        };
+                tracing::error!("client terminated stream");
+                return Ok(());
+            };
 
-            let Some(response) = self.app.handle(request.clone())  else {
-            // `RequestDispatcher` decided to stop receiving new requests:
-            info!("ABCI Application is shutting down");
-            return Ok(());
-        };
+            let Some(response) = self.app.handle(request.clone()) else {
+                // `RequestDispatcher` decided to stop receiving new requests:
+                info!("ABCI Application is shutting down");
+                return Ok(());
+            };
 
             if let Some(crate::proto::abci::response::Value::Exception(ex)) = response.value.clone()
             {

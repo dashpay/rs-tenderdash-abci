@@ -33,7 +33,7 @@ required-features = ["server"]
 uuid = { version = "1.4.1", features = ["v4", "fast-rng"], optional = true }
 tenderdash-proto = { version = "0.13.0", path = "../proto" }
 bytes = { version = "1.0" }
-prost = { version = "0.11" }
+prost = { version = "0.12" }
 tracing = { version = "0.1", default-features = false }
 tracing-subscriber = { version = "0.3", optional = true, default-features = false, features = [
     "ansi",

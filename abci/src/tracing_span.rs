@@ -41,10 +41,12 @@ macro_rules! block_span {
 /// # Examples
 ///
 /// ```
-/// # use tenderdash_proto::abci::{RequestInfo, Request};
+/// # use tenderdash_proto::abci::{RequestInfo, Request, request::Value};
 /// # use tenderdash_abci::tracing_span::span;
 ///
-/// let request = Request::default();
+/// let request = Request {
+///    value: Some(Value::Info(Default::default())),
+/// };
 /// let span = span(&request);
 /// ```
 pub fn span(request: &abci::Request) -> tracing::span::EnteredSpan

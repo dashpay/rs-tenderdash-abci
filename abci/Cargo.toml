@@ -23,14 +23,14 @@ server = [
 crypto = ["dep:lhash"]
 tcp = ["server"]
 unix = ["server"]
-tracing-span = ["dep:uuid"]
+tracing-span = ["dep:uuid", "dep:lhash", "lhash/md5"]
 
 [[example]]
 name = "echo_socket"
 required-features = ["server"]
 
 [dependencies]
-uuid = { version = "1.4.1", features = ["v4", "fast-rng"], optional = true }
+uuid = { version = "1.4.1", default-features = false, optional = true }
 tenderdash-proto = { version = "0.13.0", path = "../proto" }
 bytes = { version = "1.0" }
 prost = { version = "0.11" }

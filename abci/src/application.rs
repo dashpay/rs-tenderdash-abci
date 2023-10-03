@@ -151,7 +151,7 @@ pub trait RequestDispatcher {
 impl<A: Application> RequestDispatcher for A {
     fn handle(&self, request: abci::Request) -> Option<abci::Response> {
         #[cfg(feature = "tracing-span")]
-        let _span = super::tracing_span::span(request.clone().value?);
+        let _span = super::tracing_span::span(&request);
         tracing::trace!(?request, "received ABCI request");
 
         let response: response::Value = match request.value? {

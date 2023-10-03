@@ -142,7 +142,7 @@ pub fn abci_version<T: AsRef<Path>>(dir: T) -> String {
     let contents = read_to_string(&file_path).expect("cannot read version/version.go");
     use regex::Regex;
 
-    let re = Regex::new(r##"(?m)^\s+ABCISemVer\s*=\s*"([^"]+)"\s+*$"##).unwrap();
+    let re = Regex::new(r#"(?m)^\s+ABCISemVer\s*=\s*"([^"]+)"\s+*$"#).unwrap();
     let captures = re
         .captures(&contents)
         .expect("cannot find ABCISemVer in version/version.go");

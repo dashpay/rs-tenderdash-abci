@@ -18,24 +18,14 @@ runs:
       shell: bash
       run: |
         curl -Lo /tmp/protoc.zip \
-          https://github.com/protocolbuffers/protobuf/releases/download/v22.0/protoc-22.0-linux-x86_64.zip
+          https://github.com/protocolbuffers/protobuf/releases/download/v24.3/protoc-24.3-linux-x86_64.zip
         unzip /tmp/protoc.zip -d ${HOME}/.local
         echo "PROTOC=${HOME}/.local/bin/protoc" >> $GITHUB_ENV
         export PATH="${PATH}:${HOME}/.local/bin"
-    - name: Setup sccache
-      uses: mozilla-actions/sccache-action@v0.0.3
-    - name: Set sccache variables
-      shell: bash
-      run: |
-        echo SCCACHE_GHA_ENABLED=true >> $GITHUB_ENV
-        echo RUSTC_WRAPPER=sccache >> $GITHUB_ENV
+
     - name: Rust cache
       uses: Swatinem/rust-cache@v2
-      with:
-        # Don't cache ./target, as it takes tons of space, use sccache instead.
-        cache-targets: false
-        # We set a shared key, as our cache is reusable between jobs
-        shared-key: rust-cargo
+
     - name: "Compile Protobuf definitions (needed by fmt, doc, etc.)"
       shell: bash
       run: cargo build -p tenderdash-proto

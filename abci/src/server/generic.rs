@@ -1,11 +1,15 @@
 //! Generic ABCI server
+#[cfg(feature = "tcp")]
+use std::net::ToSocketAddrs;
+use std::{fmt::Debug, sync::Arc};
+#[cfg(feature = "unix")]
+use std::{fs, path::Path};
 
-use std::{fmt::Debug, fs, net::ToSocketAddrs, path::Path, sync::Arc};
-
-use tokio::{
-    net::{TcpListener, UnixListener},
-    sync::Mutex,
-};
+#[cfg(feature = "tcp")]
+use tokio::net::TcpListener;
+#[cfg(feature = "unix")]
+use tokio::net::UnixListener;
+use tokio::sync::Mutex;
 use tokio_util::net::Listener;
 use tracing::info;
 

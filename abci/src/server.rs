@@ -2,19 +2,24 @@
 mod codec;
 mod generic;
 
+#[cfg(feature = "tcp")]
 use std::{
     net::{IpAddr, SocketAddr, SocketAddrV4, SocketAddrV6},
     str::FromStr,
 };
 
-use tokio::{
-    net::{TcpListener, UnixListener},
-    runtime::{Handle, Runtime},
-};
+#[cfg(feature = "tcp")]
+use tokio::net::TcpListener;
+#[cfg(feature = "unix")]
+use tokio::net::UnixListener;
+use tokio::runtime::{Handle, Runtime};
 pub use tokio_util::sync::CancellationToken;
 
 use self::generic::GenericServer;
 use crate::{application::RequestDispatcher, Error};
+
+#[cfg(not(any(feature = "tcp", feature = "unix")))]
+compile_error!("At least one of `tcp` or `unix` features must be enabled");
 
 /// ABCI Server handle.
 ///
@@ -247,7 +252,7 @@ where
 {
     ServerBuilder::new(app, bind_address.as_ref()).build()
 }
-
+#[cfg(feature = "tcp")]
 fn parse_tcp_uri(uri: url::Url) -> SocketAddr {
     let host = uri.host_str().unwrap();
     // remove '[' and ']' from ipv6 address, as per https://github.com/servo/rust-url/issues/770

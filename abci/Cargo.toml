@@ -1,6 +1,6 @@
 [package]
 name = "tenderdash-abci"
-version = "0.13.1"
+version = "0.14.0-dev.1"
 edition = "2021"
 license = "Apache-2.0"
 readme = "README.md"
@@ -31,7 +31,7 @@ required-features = ["server"]
 
 [dependencies]
 uuid = { version = "1.4.1", features = ["v4", "fast-rng"], optional = true }
-tenderdash-proto = { version = "0.13.2", path = "../proto" }
+tenderdash-proto = { path = "../proto" }
 bytes = { version = "1.0" }
 prost = { version = "0.12" }
 tracing = { version = "0.1", default-features = false }

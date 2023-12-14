@@ -1,7 +1,7 @@
 [package]
 name = "tenderdash-proto-compiler"
-version = "0.1.0"
-authors = ["Informal Systems <hello@informal.systems>"]
+version = "0.14.0-dev.1"
+authors = ["Informal Systems <hello@informal.systems>", "Dash Core Group"]
 edition = "2021"
 description = "Internal tool to download and build tenderdash protobuf definitions; used by proto/build.rs"
 publish = false

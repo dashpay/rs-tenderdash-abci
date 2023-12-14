@@ -320,6 +320,7 @@ impl Application for KVStoreABCI<'_> {
             vote_extensions: vec![proto::abci::ExtendVoteExtension {
                 r#type: proto::types::VoteExtensionType::ThresholdRecover as i32,
                 extension: height,
+                sign_request_id: None,
             }],
         })
     }

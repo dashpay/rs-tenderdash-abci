@@ -153,14 +153,14 @@ impl TenderdashDocker {
             None
         };
 
-        let app_address = app_address.to_string().replace("/", "\\/");
+        let app_address = app_address.to_string().replace('/', "\\/");
 
         debug!("Tenderdash will connect to ABCI address: {}", app_address);
         let container_config = Config {
             image: Some(self.image.clone()),
             env: Some(vec![format!("PROXY_APP={}", app_address)]),
             host_config: Some(HostConfig {
-                binds: binds,
+                binds,
                 ..Default::default()
             }),
             ..Default::default()
@@ -215,7 +215,7 @@ impl TenderdashDocker {
         let mut dest = tokio::io::BufWriter::new(stderror);
 
         let mut logs = docker.logs(
-            &id,
+            id,
             Some(bollard::container::LogsOptions {
                 follow: false,
                 stdout: true,
@@ -269,6 +269,8 @@ impl Drop for TenderdashDocker {
 pub fn setup_td_logs_panic(td_docker: &Arc<TenderdashDocker>) {
     let weak_ref = Arc::downgrade(td_docker);
     std::panic::set_hook(Box::new(move |_| {
-        weak_ref.upgrade().map(|td| td.print_logs());
+        if let Some(td) = weak_ref.upgrade() {
+            td.print_logs()
+        }
     }));
 }

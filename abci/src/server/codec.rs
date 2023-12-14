@@ -230,12 +230,12 @@ mod test {
         let codec = tokio_util::codec::Framed::new(server, super::Coder {});
 
         let worker_cancel = cancel.clone();
-        let hdl = tokio::spawn(
-            async move {
-                super::Codec::process_worker_queues(codec, request_tx, response_rx, worker_cancel)
-            }
-            .await,
-        );
+        let hdl = tokio::spawn(super::Codec::process_worker_queues(
+            codec,
+            request_tx,
+            response_rx,
+            worker_cancel,
+        ));
 
         // We send 2 requests over the wire
         for n_requests in 0..5 {

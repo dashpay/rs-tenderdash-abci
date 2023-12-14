@@ -14,7 +14,7 @@ use tenderdash_abci::proto;
 fn test_ipv4_server() {
     // we assume the host uses default Docker network configuration, with the host
     // using 172.17.0.1
-    let bind_address = format!("tcp://172.17.0.1:1234");
+    let bind_address = "tcp://172.17.0.1:1234".to_string();
 
     tcp_server_test("v4", bind_address.as_str());
 }
@@ -27,7 +27,7 @@ fn test_ipv4_server() {
 fn test_ipv6_server() {
     // we assume the host uses default Docker network configuration, with the host
     // using 172.17.0.1. This is IPv6 notation of the IPv4 address.
-    let bind_address = format!("tcp://[::ffff:ac11:1]:5678");
+    let bind_address = "tcp://[::ffff:ac11:1]:5678".to_string();
 
     tcp_server_test("v6", bind_address.as_str());
 }
@@ -50,7 +50,7 @@ fn tcp_server_test(test_name: &str, bind_address: &str) {
 
     let app = TestDispatcher {};
 
-    let server = ServerBuilder::new(app, &bind_address)
+    let server = ServerBuilder::new(app, bind_address)
         .build()
         .expect("server failed");
     let socket_uri = bind_address.to_string();

@@ -48,21 +48,89 @@ pub fn fetch_commitish(tenderdash_dir: &Path, cache_dir: &Path, url: &str, commi
 
 /// Download file from URL and unzip it to `dest_dir`
 fn download_and_unzip(url: &str, archive_file: &Path, dest_dir: &Path) {
-    // We download only if the file does not exist
-    if !archive_file.is_file() {
-        let mut file = File::create(archive_file).expect("cannot create file");
-        let rb = ureq::get(url).call().expect("cannot download archive");
-        // let mut rb = reqwest::blocking::get(url).expect("cannot download archive");
-        let mut reader = rb.into_reader();
-        std::io::copy(&mut reader, &mut file).expect("cannot save downloaded data");
-        file.flush().expect("flush of archive file failed");
+    const RETRIES: usize = 2;
+
+    for retry in 1..=RETRIES {
+        println!(
+            "    [info] => Download and extract tenderdash sources, attempt {}/{}",
+            retry, RETRIES
+        );
+
+        if !archive_file.is_file() {
+            println!("      [info] => Downloading {}", url);
+            download(url, archive_file)
+                .unwrap_or_else(|e| println!(" [error] => Cannot download archive: {:?}", e));
+        } else {
+            println!(
+                "      [info] => Archive file {} already exists, skipping download",
+                archive_file.display()
+            );
+        }
+
+        println!(
+            "      [info] => Extracting downloaded archive {}",
+            archive_file.display()
+        );
+        match unzip(archive_file, dest_dir) {
+            Ok(_) => break,
+            Err(e) => {
+                println!(
+                    "        [error] => Cannot unzip archive: {}: {:?}",
+                    archive_file.display(),
+                    e
+                );
+            },
+        }
+
+        // remove invalid file
+        std::fs::remove_file(archive_file)
+            .unwrap_or_else(|_| println!("      [warn] => Cannot remove file: {:?}", archive_file));
     }
 
-    let file = File::open(archive_file).expect("cannot open downloaded zip");
-    let mut archive = zip::ZipArchive::new(&file).expect("cannot open zip archive");
-
-    archive.extract(dest_dir).expect("cannot extract archive");
+    println!(
+        "      [info] => Extracted tenderdash sources to {}",
+        dest_dir.display()
+    );
 }
+
+/// Download file from URL
+fn download(url: &str, archive_file: &Path) -> Result<(), String> {
+    let mut file =
+        File::create(archive_file).map_err(|e| format!("cannot create file: {:?}", e))?;
+    let rb = ureq::get(url)
+        .call()
+        .map_err(|e| format!("cannot download archive from: {}: {:?}", url, e))?;
+
+    let mut reader = rb.into_reader();
+    std::io::copy(&mut reader, &mut file).map_err(|e| {
+        format!(
+            "cannot save downloaded data to: {:?}: {:?}",
+            archive_file, e
+        )
+    })?;
+
+    file.flush()
+        .map_err(|e| format!("cannot flush downloaded file: {:?}: {:?}", archive_file, e))
+}
+
+// Unzip archive; when return false, it means that the archive file does not
+// exist or is corrupted and should be downloaded again
+fn unzip(archive_file: &Path, dest_dir: &Path) -> Result<(), String> {
+    if !archive_file.is_file() {
+        // no archive file, so we request another download
+        return Err("archive file does not exist".to_string());
+    }
+    let file = File::open(archive_file).expect("cannot open downloaded zip");
+    let mut archive =
+        zip::ZipArchive::new(&file).map_err(|e| format!("cannot open zip archive: {:?}", e))?;
+
+    archive
+        .extract(dest_dir)
+        .map_err(|e| format!("cannot extract archive: {:?}", e))?;
+
+    Ok(())
+}
+
 /// Find a subdirectory of a parent path which has provided name prefix
 fn find_subdir(parent: &Path, name_prefix: &str) -> PathBuf {
     let dir_content = fs_extra::dir::get_dir_content(parent).expect("cannot ls tmp dir");
@@ -71,7 +139,7 @@ fn find_subdir(parent: &Path, name_prefix: &str) -> PathBuf {
         let directory = Path::new(&directory)
             .file_name()
             .expect("cannot extract dir name");
-        println!("{:?}", directory);
+
         if directory.to_string_lossy().starts_with(name_prefix) {
             src_dir = directory.to_string_lossy().into();
             break;

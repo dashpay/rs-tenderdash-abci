@@ -303,7 +303,7 @@ pub mod meta {{
     /// Semantic version of ABCI protocol
     pub const ABCI_VERSION: &str = \"{}\";
     /// Version of Tenderdash server used to generate protobuf configs
-    pub const TENDERDASH_VERSION: &str =\"{}\";
+    pub const TENDERDASH_VERSION: &str = \"{}\";
 }}
 ",
         content,

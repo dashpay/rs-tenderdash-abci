@@ -23,7 +23,7 @@ ARG BUILDPLATFORM
 # Install protoc - protobuf compiler
 # The one shipped with Alpine does not work
 RUN if [[ "$BUILDPLATFORM" == "linux/arm64" ]] ; then export PROTOC_ARCH=aarch_64; else export PROTOC_ARCH=x86_64 ; fi; \
-    wget -q -O /tmp/protoc.zip https://github.com/protocolbuffers/protobuf/releases/download/v22.2/protoc-22.2-linux-${PROTOC_ARCH}.zip && \
+    wget -q -O /tmp/protoc.zip https://github.com/protocolbuffers/protobuf/releases/download/v25.2/protoc-25.2-linux-${PROTOC_ARCH}.zip && \
     unzip -qd /opt/protoc /tmp/protoc.zip && \
     rm /tmp/protoc.zip && \
     ln -s /opt/protoc/bin/protoc /usr/bin/

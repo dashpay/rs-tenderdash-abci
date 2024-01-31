@@ -222,8 +222,32 @@ pub fn abci_version<T: AsRef<Path>>(dir: T) -> String {
         .to_string()
 }
 
+pub fn tenderdash_version<T: AsRef<Path>>(dir: T) -> String {
+    let mut file_path = dir.as_ref().to_path_buf();
+    file_path.push("version/version.go");
+
+    let contents = read_to_string(&file_path).expect("cannot read version/version.go");
+    use regex::Regex;
+
+    let re = Regex::new(r##"(?m)^\s+TMVersionDefault\s*=\s*"([^"]+)"\s+*$"##).unwrap();
+    let captures = re
+        .captures(&contents)
+        .expect("cannot find TMVersionDefault in version/version.go");
+
+    captures
+        .get(1)
+        .expect("TMVersionDefault not found in version/version.go")
+        .as_str()
+        .to_string()
+}
+
 /// Create tenderdash.rs with library information
-pub fn generate_tenderdash_lib(prost_dir: &Path, tenderdash_lib_target: &Path, abci_version: &str) {
+pub fn generate_tenderdash_lib(
+    prost_dir: &Path,
+    tenderdash_lib_target: &Path,
+    abci_ver: &str,
+    td_ver: &str,
+) {
     let mut file_names = WalkDir::new(prost_dir)
         .into_iter()
         .filter_map(|e| e.ok())
@@ -279,13 +303,14 @@ pub mod meta {{
     /// Semantic version of ABCI protocol
     pub const ABCI_VERSION: &str = \"{}\";
     /// Version of Tenderdash server used to generate protobuf configs
-    pub const TENDERDASH_VERSION: &str = env!(\"CARGO_PKG_VERSION\");
+    pub const TENDERDASH_VERSION: &str =\"{}\";
 }}
 ",
         content,
         crate::constants::TENDERDASH_REPO,
         tenderdash_commitish(),
-        abci_version,
+        abci_ver,
+        td_ver,
     );
 
     let mut file =

@@ -133,9 +133,3 @@ pub fn test_response_exception_from() {
         "string"
     );
 }
-
-#[test]
-pub fn test_tenderdash_version() {
-    let version = env!("CARGO_PKG_VERSION");
-    assert_eq!(version, tenderdash_proto::meta::TENDERDASH_VERSION)
-}

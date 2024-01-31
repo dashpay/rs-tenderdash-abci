@@ -39,10 +39,9 @@ impl TenderdashDocker {
         app_address: &str,
     ) -> TenderdashDocker {
         // let tag = String::from(tenderdash_proto::VERSION);
-        let tag = match tag {
-            None => tenderdash_proto::meta::TENDERDASH_VERSION,
-            Some("") => tenderdash_proto::meta::TENDERDASH_VERSION,
-            Some(tag) => tag,
+        let tag = match tag.unwrap_or_default() {
+            "" => tenderdash_proto::meta::TENDERDASH_VERSION,
+            tag => tag,
         };
 
         let app_address = url::Url::parse(app_address).expect("invalid app address");

@@ -89,6 +89,7 @@ impl Signable for Commit {
             &sign_bytes_hash,
         );
 
+        // TODO: Remove once withdrawals are stable
         tracing::trace!(
             digest=hex::encode(&digest),
             ?quorum_type,
@@ -122,6 +123,7 @@ impl Signable for CanonicalVote {
             &sign_bytes_hash,
         );
 
+        // TODO: Remove once withdrawals are stable
         tracing::trace!(
             digest=hex::encode(&digest),
             ?quorum_type,
@@ -181,6 +183,7 @@ impl Signable for VoteExtension {
             &sign_bytes_hash,
         );
 
+        // TODO: Remove once withdrawals are stable
         tracing::trace!(
             digest=hex::encode(&sign_hash),
             ?quorum_type,
@@ -385,6 +388,7 @@ impl SignBytes for CanonicalVote {
         }
         buf.put(chain_id.as_bytes());
 
+        // TODO: Remove once withdrawals are stable
         tracing::trace!(
             sign_bytes=hex::encode(&buf),
            height,round,

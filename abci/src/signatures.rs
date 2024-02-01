@@ -1,14 +1,21 @@
 //! Digital signature processing
 //!
-//! The workflow is as follows:
+//! This module contains code for processing digital signatures, including
+//! calculating message hash to be signed, and calculating signature digest.
 //!
-//! 1. First, we serialize data to get bytes to be signed using
-//! [SignBytes::sign_bytes].
+//! The code in this module is based on Tenderdash implementation.
 //!
-//! 2. Then, we calculate hash with [SignBytes::sha256].
+//! Two main traits are defined:
+//! - [Signable] - for objects that can be signed/verified by Tenderdash.
+//! - [Hashable] - for objects that can be serialized and hashed by Tenderdash.
 //!
-//! 3. Then, we calculate digest using [SignDigest::sign_digest] that is passed
-//! directly to the public/private key.
+//! All [Signable] objects are also [Hashable], but not vice versa.
+//! For example, [StateId] is [Hashable], but not [Signable], as it is only
+//! part of some other signed objects.
+//!
+//! When signing or verifying signature, use [Signable::calculate_sign_hash] to
+//! calculate signature digest and provide it as a digest directly to the
+//! signature or verification function.
 
 use std::{
     string::{String, ToString},
@@ -30,10 +37,9 @@ use crate::{
 const VOTE_REQUEST_ID_PREFIX: &str = "dpbvote";
 const VOTE_EXTENSION_REQUEST_ID_PREFIX: &str = "dpevote";
 
-/// SignDigest returns message digest that should be provided directly to a
-/// signing/verification function (aka Sign ID)
-pub trait SignDigest {
-    #[deprecated = "replaced with sign_hash() to unify naming between core, platform and tenderdash"]
+/// Object that can be signed/verified by Tenderdash.
+pub trait Signable: Hashable {
+    #[deprecated = "replaced by calculate_sign_hash() to unify naming between core, platform and tenderdash"]
     fn sign_digest(
         &self,
         chain_id: &str,
@@ -42,12 +48,12 @@ pub trait SignDigest {
         height: i64,
         round: i32,
     ) -> Result<Vec<u8>, Error> {
-        self.sign_hash(chain_id, quorum_type, quorum_hash, height, round)
+        self.calculate_sign_hash(chain_id, quorum_type, quorum_hash, height, round)
     }
 
-    /// Returns message digest that should be provided directly to a
+    /// Returns message hash that should be provided directly to a
     /// signing/verification function.
-    fn sign_hash(
+    fn calculate_sign_hash(
         &self,
         chain_id: &str,
         quorum_type: u8,
@@ -57,8 +63,8 @@ pub trait SignDigest {
     ) -> Result<Vec<u8>, Error>;
 }
 
-impl SignDigest for Commit {
-    fn sign_hash(
+impl Signable for Commit {
+    fn calculate_sign_hash(
         &self,
         chain_id: &str,
         quorum_type: u8,
@@ -72,7 +78,7 @@ impl SignDigest for Commit {
         }
 
         let request_id = sign_request_id(VOTE_REQUEST_ID_PREFIX, height, round);
-        let sign_bytes_hash = self.sha256(chain_id, height, round)?;
+        let sign_bytes_hash = self.calculate_msg_hash(chain_id, height, round)?;
 
         let digest = sign_hash(
             quorum_type,
@@ -94,8 +100,8 @@ impl SignDigest for Commit {
     }
 }
 
-impl SignDigest for CanonicalVote {
-    fn sign_hash(
+impl Signable for CanonicalVote {
+    fn calculate_sign_hash(
         &self,
         chain_id: &str,
         quorum_type: u8,
@@ -105,7 +111,7 @@ impl SignDigest for CanonicalVote {
         round: i32,
     ) -> Result<Vec<u8>, Error> {
         let request_id = sign_request_id(VOTE_REQUEST_ID_PREFIX, height, round);
-        let sign_bytes_hash = self.sha256(chain_id, height, round)?;
+        let sign_bytes_hash = self.calculate_msg_hash(chain_id, height, round)?;
 
         let digest = sign_hash(
             quorum_type,
@@ -127,8 +133,8 @@ impl SignDigest for CanonicalVote {
     }
 }
 
-impl SignDigest for VoteExtension {
-    fn sign_hash(
+impl Signable for VoteExtension {
+    fn calculate_sign_hash(
         &self,
         chain_id: &str,
         quorum_type: u8,
@@ -139,7 +145,7 @@ impl SignDigest for VoteExtension {
         let (request_id, sign_bytes_hash) = match self.r#type() {
             VoteExtensionType::ThresholdRecover => {
                 let request_id = sign_request_id(VOTE_EXTENSION_REQUEST_ID_PREFIX, height, round);
-                let sign_bytes_hash = self.sha256(chain_id, height, round)?;
+                let sign_bytes_hash = self.calculate_msg_hash(chain_id, height, round)?;
 
                 (request_id, sign_bytes_hash)
             },
@@ -222,19 +228,39 @@ fn sign_hash(
     lhash::sha256(&hash).to_vec()
 }
 
-pub trait SignBytes {
+/// Calculate hash (sha256) of the data, using algorithms used by
+/// Tenderdash.
+pub trait Hashable {
+    /// Generate hash of data to sign
+    fn calculate_msg_hash(&self, chain_id: &str, height: i64, round: i32)
+        -> Result<Vec<u8>, Error>;
+}
+
+impl<T: SignBytes> Hashable for T {
+    /// Generate hash of data, to be used in signature process.
+    ///
+    /// Generates hash of the m
+    fn calculate_msg_hash(
+        &self,
+        chain_id: &str,
+        height: i64,
+        round: i32,
+    ) -> Result<Vec<u8>, Error> {
+        let sb = self.sign_bytes(chain_id, height, round)?;
+        let result = lhash::sha256(&sb);
+        Ok(Vec::from(result))
+    }
+}
+
+/// Marshals data into bytes to be used in signature process.
+///
+/// After marhaling, the bytes are hashed and then
+trait SignBytes {
     /// Marshal into byte buffer, representing bytes to be used in signature
     /// process.
     ///
     /// See also: [SignDigest].
     fn sign_bytes(&self, chain_id: &str, height: i64, round: i32) -> Result<Vec<u8>, Error>;
-
-    /// Generate hash of data to sign
-    fn sha256(&self, chain_id: &str, height: i64, round: i32) -> Result<Vec<u8>, Error> {
-        let sb = self.sign_bytes(chain_id, height, round)?;
-        let result = lhash::sha256(&sb);
-        Ok(Vec::from(result))
-    }
 }
 
 impl SignBytes for StateId {
@@ -287,7 +313,7 @@ impl SignBytes for Vote {
             .clone()
             .ok_or(Error::Canonical(String::from("missing vote.block id")))?;
 
-        let block_id_hash = block_id.sha256(chain_id, height, round)?;
+        let block_id_hash = block_id.calculate_msg_hash(chain_id, height, round)?;
         let state_id_hash = block_id.state_id;
 
         let canonical = CanonicalVote {
@@ -317,7 +343,7 @@ impl SignBytes for Commit {
             .ok_or(Error::Canonical(String::from("missing vote.block id")))?;
 
         let state_id_hash = block_id.state_id.clone();
-        let block_id_hash = block_id.sha256(chain_id, height, round)?;
+        let block_id_hash = block_id.calculate_msg_hash(chain_id, height, round)?;
 
         let canonical = CanonicalVote {
             block_id: block_id_hash,
@@ -400,7 +426,7 @@ pub mod tests {
         proto::types::{
             Commit, PartSetHeader, SignedMsgType, Vote, VoteExtension, VoteExtensionType,
         },
-        signatures::SignDigest,
+        signatures::Signable,
     };
 
     #[test]
@@ -565,7 +591,7 @@ pub mod tests {
 
         // height, round, chain id are not used in sign digest for threshold-raw
         let sign_hash = ve
-            .sign_hash("", QUORUM_TYPE, &quorum_hash, -1, -1)
+            .calculate_sign_hash("", QUORUM_TYPE, &quorum_hash, -1, -1)
             .expect("sign digest failed");
 
         assert_eq!(sign_hash, expected_sign_hash);

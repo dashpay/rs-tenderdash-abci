@@ -2,7 +2,6 @@ mod common;
 
 use std::{
     collections::{BTreeMap, BTreeSet},
-    mem,
     ops::Deref,
     sync::{RwLock, RwLockWriteGuard},
 };
@@ -95,7 +94,7 @@ impl KVStore {
     }
 
     pub(crate) fn commit(&mut self) {
-        let pending_operations = mem::replace(&mut self.pending_operations, BTreeSet::new());
+        let pending_operations = std::mem::take(&mut self.pending_operations);
         pending_operations
             .into_iter()
             .for_each(|op| op.apply(&mut self.persisted_state));
@@ -321,6 +320,7 @@ impl Application for KVStoreABCI<'_> {
             vote_extensions: vec![proto::abci::ExtendVoteExtension {
                 r#type: proto::types::VoteExtensionType::ThresholdRecover as i32,
                 extension: height,
+                sign_request_id: None,
             }],
         })
     }

@@ -5,7 +5,7 @@ use tempfile::tempdir;
 mod functions;
 use functions::{
     abci_version, copy_files, fetch_commitish, find_proto_files, generate_tenderdash_lib,
-    tenderdash_commitish,
+    tenderdash_commitish, tenderdash_version,
 };
 
 mod constants;
@@ -93,7 +93,8 @@ pub fn proto_compile() {
     );
 
     println!("[info] => Determining ABCI protocol version.");
-    let abci_ver = abci_version(tenderdash_dir);
+    let abci_ver = abci_version(&tenderdash_dir);
+    let tenderdash_ver = tenderdash_version(tenderdash_dir);
 
     println!("[info] => Creating structs.");
     pb.compile_protos(&protos, &proto_includes_paths).unwrap();
@@ -101,7 +102,7 @@ pub fn proto_compile() {
     println!("[info] => Removing old structs and copying new structs.");
     copy_files(&out_dir, &target_dir); // This panics if it fails.
 
-    generate_tenderdash_lib(&out_dir, &tenderdash_lib_target, &abci_ver);
+    generate_tenderdash_lib(&out_dir, &tenderdash_lib_target, &abci_ver, &tenderdash_ver);
 
     println!("[info] => Done!");
 }

@@ -1,14 +1,21 @@
 //! Digital signature processing
 //!
-//! The workflow is as follows:
+//! This module contains code for processing digital signatures, including
+//! calculating message hash to be signed, and calculating signature digest.
 //!
-//! 1. First, we serialize data to get bytes to be signed using
-//! [SignBytes::sign_bytes].
+//! The code in this module is based on Tenderdash implementation.
 //!
-//! 2. Then, we calculate hash with [SignBytes::sha256].
+//! Two main traits are defined:
+//! - [Signable] - for objects that can be signed/verified by Tenderdash.
+//! - [Hashable] - for objects that can be serialized and hashed by Tenderdash.
 //!
-//! 3. Then, we calculate digest using [SignDigest::sign_digest] that is passed
-//! directly to the public/private key.
+//! All [Signable] objects are also [Hashable], but not vice versa.
+//! For example, [StateId] is [Hashable], but not [Signable], as it is only
+//! part of some other signed objects.
+//!
+//! When signing or verifying signature, use [Signable::calculate_sign_hash] to
+//! calculate signature digest and provide it as a digest directly to the
+//! signature or verification function.
 
 use std::{
     string::{String, ToString},
@@ -30,10 +37,23 @@ use crate::{
 const VOTE_REQUEST_ID_PREFIX: &str = "dpbvote";
 const VOTE_EXTENSION_REQUEST_ID_PREFIX: &str = "dpevote";
 
-/// SignDigest returns message digest that should be provided directly to a
-/// signing/verification function (aka Sign ID)
-pub trait SignDigest {
+/// Object that can be signed/verified by Tenderdash.
+pub trait Signable: Hashable {
+    #[deprecated = "replaced by calculate_sign_hash() to unify naming between core, platform and tenderdash"]
     fn sign_digest(
+        &self,
+        chain_id: &str,
+        quorum_type: u8,
+        quorum_hash: &[u8; 32],
+        height: i64,
+        round: i32,
+    ) -> Result<Vec<u8>, Error> {
+        self.calculate_sign_hash(chain_id, quorum_type, quorum_hash, height, round)
+    }
+
+    /// Returns message hash that should be provided directly to a
+    /// signing/verification function.
+    fn calculate_sign_hash(
         &self,
         chain_id: &str,
         quorum_type: u8,
@@ -43,8 +63,8 @@ pub trait SignDigest {
     ) -> Result<Vec<u8>, Error>;
 }
 
-impl SignDigest for Commit {
-    fn sign_digest(
+impl Signable for Commit {
+    fn calculate_sign_hash(
         &self,
         chain_id: &str,
         quorum_type: u8,
@@ -58,9 +78,9 @@ impl SignDigest for Commit {
         }
 
         let request_id = sign_request_id(VOTE_REQUEST_ID_PREFIX, height, round);
-        let sign_bytes_hash = self.sha256(chain_id, height, round)?;
+        let sign_bytes_hash = self.calculate_msg_hash(chain_id, height, round)?;
 
-        let digest = sign_digest(
+        let digest = sign_hash(
             quorum_type,
             quorum_hash,
             request_id[..]
@@ -69,6 +89,7 @@ impl SignDigest for Commit {
             &sign_bytes_hash,
         );
 
+        // TODO: Remove once withdrawals are stable
         tracing::trace!(
             digest=hex::encode(&digest),
             ?quorum_type,
@@ -80,8 +101,8 @@ impl SignDigest for Commit {
     }
 }
 
-impl SignDigest for CanonicalVote {
-    fn sign_digest(
+impl Signable for CanonicalVote {
+    fn calculate_sign_hash(
         &self,
         chain_id: &str,
         quorum_type: u8,
@@ -91,9 +112,9 @@ impl SignDigest for CanonicalVote {
         round: i32,
     ) -> Result<Vec<u8>, Error> {
         let request_id = sign_request_id(VOTE_REQUEST_ID_PREFIX, height, round);
-        let sign_bytes_hash = self.sha256(chain_id, height, round)?;
+        let sign_bytes_hash = self.calculate_msg_hash(chain_id, height, round)?;
 
-        let digest = sign_digest(
+        let digest = sign_hash(
             quorum_type,
             quorum_hash,
             request_id[..]
@@ -102,6 +123,7 @@ impl SignDigest for CanonicalVote {
             &sign_bytes_hash,
         );
 
+        // TODO: Remove once withdrawals are stable
         tracing::trace!(
             digest=hex::encode(&digest),
             ?quorum_type,
@@ -113,8 +135,8 @@ impl SignDigest for CanonicalVote {
     }
 }
 
-impl SignDigest for VoteExtension {
-    fn sign_digest(
+impl Signable for VoteExtension {
+    fn calculate_sign_hash(
         &self,
         chain_id: &str,
         quorum_type: u8,
@@ -122,15 +144,54 @@ impl SignDigest for VoteExtension {
         height: i64,
         round: i32,
     ) -> Result<Vec<u8>, Error> {
-        let request_id = sign_request_id(VOTE_EXTENSION_REQUEST_ID_PREFIX, height, round);
-        let sign_bytes_hash = self.sha256(chain_id, height, round)?;
+        let (request_id, sign_bytes_hash) = match self.r#type() {
+            VoteExtensionType::ThresholdRecover => {
+                let request_id = sign_request_id(VOTE_EXTENSION_REQUEST_ID_PREFIX, height, round);
+                let sign_bytes_hash = self.calculate_msg_hash(chain_id, height, round)?;
 
-        Ok(sign_digest(
+                (request_id, sign_bytes_hash)
+            },
+
+            VoteExtensionType::ThresholdRecoverRaw => {
+                let mut sign_bytes_hash = self.extension.clone();
+                sign_bytes_hash.reverse();
+
+                let request_id = self.sign_request_id.clone().unwrap_or_default();
+                let request_id = if request_id.is_empty() {
+                    sign_request_id(VOTE_EXTENSION_REQUEST_ID_PREFIX, height, round)
+                } else {
+                    // we do double-sha256, and then reverse bytes
+                    let mut request_id = lhash::sha256(&lhash::sha256(&request_id));
+                    request_id.reverse();
+                    request_id.to_vec()
+                };
+
+                (request_id, sign_bytes_hash)
+            },
+
+            VoteExtensionType::Default => unimplemented!(
+                "vote extension of type {:?} cannot be signed",
+                self.r#type()
+            ),
+        };
+        let sign_hash = sign_hash(
             quorum_type,
             quorum_hash,
-            request_id[..].try_into().unwrap(),
+            request_id[..]
+                .try_into()
+                .expect("invalid request ID length"),
             &sign_bytes_hash,
-        ))
+        );
+
+        // TODO: Remove once withdrawals are stable
+        tracing::trace!(
+            digest=hex::encode(&sign_hash),
+            ?quorum_type,
+            quorum_hash=hex::encode(quorum_hash),
+            request_id=hex::encode(request_id),
+            vote_extension=?self, "vote extension sign hash");
+
+        Ok(sign_hash)
     }
 }
 
@@ -142,7 +203,7 @@ fn sign_request_id(prefix: &str, height: i64, round: i32) -> Vec<u8> {
     lhash::sha256(&buf).to_vec()
 }
 
-fn sign_digest(
+fn sign_hash(
     quorum_type: u8,
     quorum_hash: &[u8; 32],
     request_id: &[u8; 32],
@@ -170,19 +231,39 @@ fn sign_digest(
     lhash::sha256(&hash).to_vec()
 }
 
-pub trait SignBytes {
+/// Calculate hash (sha256) of the data, using algorithms used by
+/// Tenderdash.
+pub trait Hashable {
+    /// Generate hash of data to sign
+    fn calculate_msg_hash(&self, chain_id: &str, height: i64, round: i32)
+        -> Result<Vec<u8>, Error>;
+}
+
+impl<T: SignBytes> Hashable for T {
+    /// Generate hash of data, to be used in signature process.
+    ///
+    /// Generates hash of the m
+    fn calculate_msg_hash(
+        &self,
+        chain_id: &str,
+        height: i64,
+        round: i32,
+    ) -> Result<Vec<u8>, Error> {
+        let sb = self.sign_bytes(chain_id, height, round)?;
+        let result = lhash::sha256(&sb);
+        Ok(Vec::from(result))
+    }
+}
+
+/// Marshals data into bytes to be used in signature process.
+///
+/// After marhaling, the bytes are hashed and then
+trait SignBytes {
     /// Marshal into byte buffer, representing bytes to be used in signature
     /// process.
     ///
     /// See also: [SignDigest].
     fn sign_bytes(&self, chain_id: &str, height: i64, round: i32) -> Result<Vec<u8>, Error>;
-
-    /// Generate hash of data to sign
-    fn sha256(&self, chain_id: &str, height: i64, round: i32) -> Result<Vec<u8>, Error> {
-        let sb = self.sign_bytes(chain_id, height, round)?;
-        let result = lhash::sha256(&sb);
-        Ok(Vec::from(result))
-    }
 }
 
 impl SignBytes for StateId {
@@ -235,7 +316,7 @@ impl SignBytes for Vote {
             .clone()
             .ok_or(Error::Canonical(String::from("missing vote.block id")))?;
 
-        let block_id_hash = block_id.sha256(chain_id, height, round)?;
+        let block_id_hash = block_id.calculate_msg_hash(chain_id, height, round)?;
         let state_id_hash = block_id.state_id;
 
         let canonical = CanonicalVote {
@@ -265,7 +346,7 @@ impl SignBytes for Commit {
             .ok_or(Error::Canonical(String::from("missing vote.block id")))?;
 
         let state_id_hash = block_id.state_id.clone();
-        let block_id_hash = block_id.sha256(chain_id, height, round)?;
+        let block_id_hash = block_id.calculate_msg_hash(chain_id, height, round)?;
 
         let canonical = CanonicalVote {
             block_id: block_id_hash,
@@ -307,6 +388,7 @@ impl SignBytes for CanonicalVote {
         }
         buf.put(chain_id.as_bytes());
 
+        // TODO: Remove once withdrawals are stable
         tracing::trace!(
             sign_bytes=hex::encode(&buf),
            height,round,
@@ -318,20 +400,24 @@ impl SignBytes for CanonicalVote {
 
 impl SignBytes for VoteExtension {
     fn sign_bytes(&self, chain_id: &str, height: i64, round: i32) -> Result<Vec<u8>, Error> {
-        if self.r#type() != VoteExtensionType::ThresholdRecover {
-            return Err(Error::Canonical(String::from(
-                "only ThresholdRecover vote extensions can be signed",
-            )));
-        }
-        let ve = CanonicalVoteExtension {
-            chain_id: chain_id.to_string(),
-            extension: self.extension.clone(),
-            height,
-            round: round as i64,
-            r#type: self.r#type,
-        };
+        match self.r#type() {
+            VoteExtensionType::ThresholdRecover => {
+                let ve = CanonicalVoteExtension {
+                    chain_id: chain_id.to_string(),
+                    extension: self.extension.clone(),
+                    height,
+                    round: round as i64,
+                    r#type: self.r#type,
+                };
 
-        Ok(ve.encode_length_delimited_to_vec())
+                Ok(ve.encode_length_delimited_to_vec())
+            },
+            VoteExtensionType::ThresholdRecoverRaw => Ok(self.extension.to_vec()),
+            _ => Err(Error::Canonical(format!(
+                "unimplemented: vote extension of type {:?} cannot be signed",
+                self.r#type()
+            ))),
+        }
     }
 }
 
@@ -340,8 +426,11 @@ pub mod tests {
     use std::{string::ToString, vec::Vec};
 
     use super::SignBytes;
-    use crate::proto::types::{
-        Commit, PartSetHeader, SignedMsgType, Vote, VoteExtension, VoteExtensionType,
+    use crate::{
+        proto::types::{
+            Commit, PartSetHeader, SignedMsgType, Vote, VoteExtension, VoteExtensionType,
+        },
+        signatures::Signable,
     };
 
     #[test]
@@ -416,11 +505,12 @@ pub mod tests {
     }
 
     #[test]
-    fn vote_extension_sign_bytes() {
+    fn vote_extension_threshold_sign_bytes() {
         let ve = VoteExtension {
             extension: Vec::from([1u8, 2u8, 3u8, 4u8, 5u8, 6u8, 7u8, 8u8]),
             r#type: VoteExtensionType::ThresholdRecover.into(),
             signature: Default::default(),
+            sign_request_id: None,
         };
 
         let chain_id = "some-chain".to_string();
@@ -435,6 +525,40 @@ pub mod tests {
         let actual = ve.sign_bytes(&chain_id, height, round).unwrap();
 
         assert_eq!(expect_sign_bytes, actual);
+    }
+
+    /// test vector for threshold-raw vote extensions
+    ///
+    /// Returns expected sig hash and vote extension
+    fn ve_threshold_raw() -> ([u8; 32], VoteExtension) {
+        let ve = VoteExtension {
+            extension: [1, 2, 3, 4, 5, 6, 7, 8].repeat(4),
+            r#type: VoteExtensionType::ThresholdRecoverRaw.into(),
+            signature: Default::default(),
+            sign_request_id: Some("dpevote-someSignRequestID".as_bytes().to_vec()),
+        };
+        let expected_sign_hash: [u8; 32] = [
+            0xe, 0x88, 0x8d, 0xa8, 0x97, 0xf1, 0xc0, 0xfd, 0x6a, 0xe8, 0x3b, 0x77, 0x9b, 0x5, 0xdd,
+            0x28, 0xc, 0xe2, 0x58, 0xf6, 0x4c, 0x86, 0x1, 0x34, 0xfa, 0x4, 0x27, 0xe1, 0xaa, 0xab,
+            0x1a, 0xde,
+        ];
+
+        (expected_sign_hash, ve)
+    }
+
+    #[test]
+    fn test_ve_threshold_raw_sign_bytes() {
+        let (_, ve) = ve_threshold_raw();
+        let expected_sign_bytes = ve.extension.clone();
+
+        // chain_id, height and round are unused
+        let chain_id = String::new();
+        let height = -1;
+        let round = -1;
+
+        let actual = ve.sign_bytes(&chain_id, height, round).unwrap();
+
+        assert_eq!(expected_sign_bytes, actual);
     }
 
     #[test]
@@ -452,11 +576,28 @@ pub mod tests {
             hex::decode("0CA3D5F42BDFED0C4FDE7E6DE0F046CC76CDA6CEE734D65E8B2EE0E375D4C57D")
                 .unwrap();
 
-        let expect_sign_id =
+        let expect_sign_hash =
             hex::decode("DA25B746781DDF47B5D736F30B1D9D0CC86981EEC67CBE255265C4361DEF8C2E")
                 .unwrap();
 
-        let sign_id = super::sign_digest(100, &quorum_hash, request_id, &sign_bytes_hash);
-        assert_eq!(expect_sign_id, sign_id); // 194,4
+        let sign_hash = super::sign_hash(100, &quorum_hash, request_id, &sign_bytes_hash);
+        assert_eq!(expect_sign_hash, sign_hash); // 194,4
+    }
+
+    #[test]
+    fn test_ve_threshold_raw_sign_digest() {
+        const QUORUM_TYPE: u8 = 106;
+        let quorum_hash: [u8; 32] = [8u8, 7, 6, 5, 4, 3, 2, 1]
+            .repeat(4)
+            .try_into()
+            .expect("invalid quorum hash length");
+        let (expected_sign_hash, ve) = ve_threshold_raw();
+
+        // height, round, chain id are not used in sign digest for threshold-raw
+        let sign_hash = ve
+            .calculate_sign_hash("", QUORUM_TYPE, &quorum_hash, -1, -1)
+            .expect("sign digest failed");
+
+        assert_eq!(sign_hash, expected_sign_hash);
     }
 }

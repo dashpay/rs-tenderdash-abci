@@ -1,13 +1,13 @@
 use std::env;
 
 fn main() {
-    // let version = env!("CARGO_PKG_VERSION");
+    const DEFAULT_VERSION: &str = "v0.14.0-dev.2";
 
     // check if TENDERDASH_COMMITISH is already set; if not, set it to the current
     // version
     let commitish = env::var("TENDERDASH_COMMITISH").unwrap_or_default();
     if commitish.is_empty() {
-        env::set_var("TENDERDASH_COMMITISH", "v0.14.0-dev.1".to_owned());
+        env::set_var("TENDERDASH_COMMITISH", DEFAULT_VERSION);
     }
 
     tenderdash_proto_compiler::proto_compile();

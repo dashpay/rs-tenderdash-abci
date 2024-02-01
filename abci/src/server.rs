@@ -115,7 +115,7 @@ impl<'a, App: RequestDispatcher + 'a> ServerBuilder<App> {
         let _guard = server_runtime.handle.enter();
 
         // No cancel is defined, so we add some "mock"
-        let cancel = self.cancel.unwrap_or(CancellationToken::new());
+        let cancel = self.cancel.unwrap_or_default();
 
         let server = match bind_address.scheme() {
             #[cfg(feature = "tcp")]

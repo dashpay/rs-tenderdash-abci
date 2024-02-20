@@ -97,6 +97,14 @@ pub fn proto_compile() {
     let tenderdash_ver = tenderdash_version(tenderdash_dir);
 
     println!("[info] => Creating structs.");
+
+    #[cfg(feature = "grpc")]
+    tonic_build::configure()
+        .generate_default_stubs(true)
+        .compile_with_config(pb, &protos, &proto_includes_paths)
+        .unwrap();
+
+    #[cfg(not(feature = "grpc"))]
     pb.compile_protos(&protos, &proto_includes_paths).unwrap();
 
     println!("[info] => Removing old structs and copying new structs.");

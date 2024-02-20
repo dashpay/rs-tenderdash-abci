@@ -15,10 +15,21 @@ description = """
 [package.metadata.docs.rs]
 all-features = true
 
+[features]
+default = ["grpc-server"]
+
+# Enable standard library support
+std = ["prost/std", "prost-types/std"]
+# Build gRPC server
+grpc-server = ["tenderdash-proto-compiler/server", "std"]
+grpc-client = ["tenderdash-proto-compiler/client", "std"]
+
 [dependencies]
 prost = { version = "0.12", default-features = false, features = [
     "prost-derive",
 ] }
+prost-types = { version = "0.12", default-features = false }
+tonic = { version = "0.11" }
 bytes = { version = "1.0", default-features = false, features = ["serde"] }
 serde = { version = "1.0", default-features = false, features = ["derive"] }
 subtle-encoding = { version = "0.5", default-features = false, features = [

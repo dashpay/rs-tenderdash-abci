@@ -20,6 +20,8 @@ server = [
     "dep:tokio-util",
     "dep:futures",
 ]
+
+grpc-server = ["tenderdash-proto/grpc-server"]
 crypto = ["dep:lhash"]
 tcp = ["server"]
 unix = ["server"]

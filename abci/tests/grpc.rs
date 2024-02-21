@@ -10,10 +10,12 @@
 
 use std::sync::Arc;
 
-use proto::abci::{
-    abci_application_server::AbciApplication, RequestEcho, RequestInfo, ResponseInfo,
+use tenderdash_abci::{
+    proto::abci::{
+        abci_application_server::AbciApplication, RequestEcho, RequestInfo, ResponseInfo,
+    },
+    CancellationToken,
 };
-use tenderdash_abci::CancellationToken;
 mod common;
 use tenderdash_abci::proto;
 use tonic::{async_trait, Response, Status};

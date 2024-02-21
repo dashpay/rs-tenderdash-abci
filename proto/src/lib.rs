@@ -23,7 +23,13 @@ mod error;
 #[allow(warnings)]
 mod tenderdash;
 
+#[cfg(not(feature = "std"))]
 use core::{
+    convert::{TryFrom, TryInto},
+    fmt::Display,
+};
+#[cfg(feature = "std")]
+use std::{
     convert::{TryFrom, TryInto},
     fmt::Display,
 };

@@ -66,3 +66,5 @@ futures = { version = "0.3.26" }
 tokio = { version = "1", features = ["macros", "signal", "time", "io-std"] }
 hex = { version = "0.4" }
 lazy_static = { version = "1.4" }
+# For tests of gRPC server
+tonic = { version = "0.11" }

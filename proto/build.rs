@@ -16,4 +16,7 @@ fn main() {
     println!("cargo:rerun-if-changed=Cargo.toml");
     println!("cargo:rerun-if-env-changed=CARGO_PKG_VERSION");
     println!("cargo:rerun-if-env-changed=TENDERDASH_COMMITISH");
+    println!("cargo:rerun-if-env-changed=CARGO_FEATURE_STD");
+    println!("cargo:rerun-if-env-changed=CARGO_FEATURE_GRPC_SERVER");
+    println!("cargo:rerun-if-env-changed=CARGO_FEATURE_GRPC_CLIENT");
 }

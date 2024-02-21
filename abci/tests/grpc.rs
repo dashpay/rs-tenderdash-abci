@@ -6,6 +6,8 @@
 //! This test should be implemented in the tenderdash-proto crate; however, it
 //! is implemented here to use already existing docker container testing
 //! logic.
+#![cfg(feature = "grpc-server")]
+
 use std::sync::Arc;
 
 use proto::abci::{

@@ -8,11 +8,15 @@ use std::{
     str::FromStr,
 };
 
+use futures::Future;
 #[cfg(feature = "tcp")]
 use tokio::net::TcpListener;
 #[cfg(feature = "unix")]
 use tokio::net::UnixListener;
-use tokio::runtime::{Handle, Runtime};
+use tokio::{
+    runtime::{Handle, Runtime},
+    task::JoinHandle,
+};
 pub use tokio_util::sync::CancellationToken;
 
 use self::generic::GenericServer;
@@ -208,10 +212,24 @@ impl<'a, App: RequestDispatcher + 'a> ServerBuilder<App> {
 }
 
 /// Server runtime that must be alive for the whole lifespan of the server
-pub(crate) struct ServerRuntime {
+pub struct ServerRuntime {
     /// Runtime stored here to ensure it is never dropped
     _runtime: Option<Runtime>,
-    handle: Handle,
+    pub handle: Handle,
+}
+
+impl ServerRuntime {
+    pub fn block_on<F: std::future::Future>(&self, future: F) -> F::Output {
+        self.handle.block_on(future)
+    }
+
+    pub fn spawn<F>(&self, future: F) -> JoinHandle<F::Output>
+    where
+        F: Future + Send + 'static,
+        F::Output: Send + 'static,
+    {
+        self.handle.spawn(future)
+    }
 }
 
 impl Default for ServerRuntime {

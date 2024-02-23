@@ -29,10 +29,7 @@ use core::{
     fmt::Display,
 };
 #[cfg(feature = "std")]
-use std::{
-    convert::{TryFrom, TryInto},
-    fmt::Display,
-};
+use std::fmt::Display;
 
 use bytes::{Buf, BufMut};
 pub use error::Error;
@@ -43,7 +40,6 @@ pub mod serializers;
 
 use prelude::*;
 pub use tenderdash::meta::ABCI_VERSION;
-
 #[cfg(any(feature = "grpc-server", feature = "grpc-client"))]
 pub use tonic;
 

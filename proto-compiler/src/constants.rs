@@ -54,7 +54,6 @@ const DERIVE_FROM_STR: &str = r#"#[derive(derive_more::FromStr)]"#;
 /// here: <https://docs.rs/prost-build/0.6.1/prost_build/struct.Config.html#method.btree_map>
 pub static CUSTOM_TYPE_ATTRIBUTES: &[(&str, &str)] = &[
     (".tendermint.libs.bits.BitArray", SERIALIZED),
-    (".tendermint.types.EvidenceParams", SERIALIZED),
     (".tendermint.types.BlockIDFlag", PRIMITIVE_ENUM),
     (".tendermint.types.Block", SERIALIZED),
     (".tendermint.types.Data", SERIALIZED),
@@ -64,6 +63,14 @@ pub static CUSTOM_TYPE_ATTRIBUTES: &[(&str, &str)] = &[
     (".tendermint.types.DuplicateVoteEvidence", SERIALIZED),
     (".tendermint.types.Vote", SERIALIZED),
     (".tendermint.types.BlockID", SERIALIZED),
+    (".tendermint.types.ConsensusParams", SERIALIZED),
+    (".tendermint.types.ABCIParams", SERIALIZED),
+    (".tendermint.types.BlockParams", SERIALIZED),
+    (".tendermint.types.EvidenceParams", SERIALIZED),
+    (".tendermint.types.ValidatorParams", SERIALIZED),
+    (".tendermint.types.VersionParams", SERIALIZED),
+    (".tendermint.types.SynchronyParams", SERIALIZED),
+    (".tendermint.types.TimeoutParams", SERIALIZED),
     (".tendermint.types.PartSetHeader", SERIALIZED),
     (".tendermint.types.LightClientAttackEvidence", SERIALIZED),
     (".tendermint.types.LightBlock", SERIALIZED),

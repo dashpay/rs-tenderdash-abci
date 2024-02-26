@@ -3,7 +3,7 @@ use core::convert::TryFrom;
 
 use tenderdash_proto::{
     abci::ResponseException,
-    types::{BlockId as RawBlockId, PartSetHeader as RawPartSetHeader},
+    types::{BlockId as RawBlockId, ConsensusParams, PartSetHeader as RawPartSetHeader},
     Protobuf,
 };
 
@@ -133,4 +133,45 @@ pub fn test_response_exception_from() {
         ResponseException::from(&String::from("string")).error,
         "string"
     );
+}
+
+#[test]
+pub fn test_consensus_params_serde() {
+    let json = r#"
+    {
+        "block": {
+          "max_bytes": "2097152",
+          "max_gas": "500000000"
+        },
+        "evidence": {
+          "max_age_num_blocks": "10000",
+          "max_age_duration": "172800000000000",
+          "max_bytes": "0"
+        },
+        "validator": {
+          "pub_key_types": [
+            "bls12381"
+          ]
+        },
+        "version": {
+          "app_version": "1"
+        },
+        "synchrony": {
+          "precision": "500000000",
+          "message_delay": "60000000000"
+        },
+        "timeout": {
+          "propose": "40000000000",
+          "propose_delta": "5000000000",
+          "vote": "40000000000",
+          "vote_delta": "5000000000",
+          "bypass_commit_timeout": true
+        },
+        "abci": {
+          "recheck_tx": true
+        }
+    }
+    "#;
+
+    let _new_params: ConsensusParams = serde_json::from_str(json).unwrap();
 }

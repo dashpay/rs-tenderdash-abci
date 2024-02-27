@@ -11,6 +11,8 @@ use functions::{
 mod constants;
 use constants::{CUSTOM_FIELD_ATTRIBUTES, CUSTOM_TYPE_ATTRIBUTES, TENDERDASH_REPO};
 
+use crate::functions::{check_state, save_state};
+
 /// Import and compile protobuf definitions for Tenderdash.
 ///
 /// Checkouts tenderdash repository to ../target/tenderdash and generates
@@ -49,26 +51,18 @@ pub fn proto_compile() {
     let commitish = tenderdash_commitish();
 
     // check if this commitish is already downloaded
-    let download_info_file = PathBuf::from(&prost_out_dir).join("download.state");
-    let mut download = true;
-    if let Ok(content) = std::fs::read_to_string(&download_info_file) {
-        if content.eq(&commitish) {
-            println!(
-                "    [info] => Tenderdash {} already extracted, skipping download and build",
-                commitish,
-            );
-            download = false;
-        }
-    }
+    let download = !check_state(&prost_out_dir, &commitish);
 
     if download {
-        println!("[info] => Fetching {TENDERDASH_REPO} at {commitish} into {tenderdash_dir:?}");
+        println!("[info] => Fetching {TENDERDASH_REPO} at {commitish} into {tenderdash_dir:?}.");
         fetch_commitish(
             &PathBuf::from(&tenderdash_dir),
             &cargo_target_dir,
             TENDERDASH_REPO,
             &commitish,
         ); // This panics if it fails.
+    } else {
+        println!("[info] => Skipping download.");
     }
 
     // We need all files in proto/tendermint/abci, plus .../types/canonical.proto
@@ -117,19 +111,9 @@ pub fn proto_compile() {
 
     println!("[info] => Removing old structs and copying new structs.");
     copy_files(&out_dir, &prost_out_dir); // This panics if it fails.
-    println!("[info] => Removing old structs and copying new structs.");
 
     generate_tenderdash_lib(&out_dir, &tenderdash_lib_target, &abci_ver, &tenderdash_ver);
 
-    std::fs::write(&download_info_file, commitish)
-        .map_err(|e| {
-            println!(
-                "[warn] => Failed to write download.state file {}: {}",
-                download_info_file.display(),
-                e
-            );
-        })
-        .ok();
-
+    save_state(&prost_out_dir, &commitish);
     println!("[info] => Done!");
 }

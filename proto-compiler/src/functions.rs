@@ -325,3 +325,37 @@ pub(crate) fn tenderdash_commitish() -> String {
         Err(_) => DEFAULT_TENDERDASH_COMMITISH.to_string(),
     }
 }
+
+/// Save the commitish of last successful download to a file in a state file,
+/// located in the `dir` directory and named `download.state`.
+pub(crate) fn save_state(dir: &Path, commitish: &str) {
+    let state_file = PathBuf::from(&dir).join("download.state");
+
+    std::fs::write(&state_file, commitish)
+        .map_err(|e| {
+            println!(
+                "[warn] => Failed to write download.state file {}: {}",
+                state_file.display(),
+                e
+            );
+        })
+        .ok();
+}
+
+/// Check if the state file contains the same commitish as the one we are trying
+/// to download. State file should be located in the `dir` and named
+/// `download.state`
+pub(crate) fn check_state(dir: &Path, commitish: &str) -> bool {
+    let state_file = PathBuf::from(&dir).join("download.state");
+
+    match read_to_string(&state_file) {
+        Ok(content) => {
+            println!(
+                "[info] => Found previously downloaded Tenderdash {}.",
+               content.trim()
+            );
+            content.eq(commitish)
+        },
+        Err(_) => false,
+    }
+}

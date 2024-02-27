@@ -25,7 +25,7 @@ pub fn proto_compile() {
         .join("src")
         .join("tenderdash.rs");
 
-    let target_dir = root.join("..").join("proto").join("src").join("prost");
+    let prost_out_dir = root.join("..").join("proto").join("src").join("prost");
 
     let out_dir = var("OUT_DIR")
         .map(PathBuf::from)
@@ -47,13 +47,29 @@ pub fn proto_compile() {
     let thirdparty_dir = root.join("third_party");
 
     let commitish = tenderdash_commitish();
-    println!("[info] => Fetching {TENDERDASH_REPO} at {commitish} into {tenderdash_dir:?}");
-    fetch_commitish(
-        &PathBuf::from(&tenderdash_dir),
-        &cargo_target_dir,
-        TENDERDASH_REPO,
-        &commitish,
-    ); // This panics if it fails.
+
+    // check if this commitish is already downloaded
+    let download_info_file = PathBuf::from(&prost_out_dir).join("download.state");
+    let mut download = true;
+    if let Ok(content) = std::fs::read_to_string(&download_info_file) {
+        if content.eq(&commitish) {
+            println!(
+                "    [info] => Tenderdash {} already extracted, skipping download and build",
+                commitish,
+            );
+            download = false;
+        }
+    }
+
+    if download {
+        println!("[info] => Fetching {TENDERDASH_REPO} at {commitish} into {tenderdash_dir:?}");
+        fetch_commitish(
+            &PathBuf::from(&tenderdash_dir),
+            &cargo_target_dir,
+            TENDERDASH_REPO,
+            &commitish,
+        ); // This panics if it fails.
+    }
 
     // We need all files in proto/tendermint/abci, plus .../types/canonical.proto
     // for signature verification
@@ -100,9 +116,20 @@ pub fn proto_compile() {
     pb.compile_protos(&protos, &proto_includes_paths).unwrap();
 
     println!("[info] => Removing old structs and copying new structs.");
-    copy_files(&out_dir, &target_dir); // This panics if it fails.
+    copy_files(&out_dir, &prost_out_dir); // This panics if it fails.
+    println!("[info] => Removing old structs and copying new structs.");
 
     generate_tenderdash_lib(&out_dir, &tenderdash_lib_target, &abci_ver, &tenderdash_ver);
+
+    std::fs::write(&download_info_file, commitish)
+        .map_err(|e| {
+            println!(
+                "[warn] => Failed to write download.state file {}: {}",
+                download_info_file.display(),
+                e
+            );
+        })
+        .ok();
 
     println!("[info] => Done!");
 }

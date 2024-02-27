@@ -348,7 +348,7 @@ pub(crate) fn save_state(dir: &Path, commitish: &str) {
 pub(crate) fn check_state(dir: &Path, commitish: &str) -> bool {
     let state_file = PathBuf::from(&dir).join("download.state");
 
-    match read_to_string(&state_file) {
+    match read_to_string(state_file) {
         Ok(content) => {
             println!(
                 "[info] => Found previously downloaded Tenderdash {}.",

@@ -352,7 +352,7 @@ pub(crate) fn check_state(dir: &Path, commitish: &str) -> bool {
         Ok(content) => {
             println!(
                 "[info] => Found previously downloaded Tenderdash {}.",
-               content.trim()
+                content.trim()
             );
             content.eq(commitish)
         },

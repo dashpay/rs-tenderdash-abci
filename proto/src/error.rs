@@ -1,7 +1,7 @@
 //! This module defines the various errors that be raised during Protobuf
 //! conversions.
 
-use core::{convert::TryFrom, fmt::Display, num::TryFromIntError};
+use core::{fmt::Display, num::TryFromIntError};
 
 use flex_error::{define_error, DisplayOnly};
 use prost::{DecodeError, EncodeError};

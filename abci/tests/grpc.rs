@@ -21,7 +21,7 @@ use tenderdash_abci::proto;
 use tonic::{async_trait, Response, Status};
 
 #[cfg(feature = "docker-tests")]
-#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+#[tokio::test]
 /// Test server listening on ipv4 address.
 ///
 /// See [tcp_server_test()].

@@ -11,7 +11,15 @@ description = """tenderdash-abci provides a simple framework with which to build
 low-level applications on top of Tenderdash."""
 
 [features]
-default = ["server", "docker-tests", "crypto", "tcp", "unix", "tracing-span"]
+default = [
+    "server",
+    "docker-tests",
+    "crypto",
+    "tcp",
+    "unix",
+    "grpc",
+    "tracing-span",
+]
 # docker-tests includes integration tests that require docker to be available
 docker-tests = ["server"]
 server = [

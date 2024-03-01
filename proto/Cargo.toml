@@ -16,13 +16,16 @@ description = """
 all-features = true
 
 [features]
-default = ["grpc-server"]
+default = ["grpc"]
 
 # Enable standard library support
 std = ["prost/std", "prost-types/std"]
 # Build gRPC server
-grpc-server = ["tenderdash-proto-compiler/server", "std"]
-grpc-client = ["tenderdash-proto-compiler/client", "std"]
+grpc = [
+    "std",
+    "tenderdash-proto-compiler/server",
+    "tenderdash-proto-compiler/client",
+]
 
 [dependencies]
 prost = { version = "0.12", default-features = false, features = [

@@ -21,7 +21,7 @@ server = [
     "dep:futures",
 ]
 
-grpc-server = ["tenderdash-proto/grpc-server"]
+grpc = ["tenderdash-proto/grpc"]
 crypto = ["dep:lhash"]
 tcp = ["server"]
 unix = ["server"]

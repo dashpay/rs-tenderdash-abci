@@ -40,7 +40,7 @@ pub mod serializers;
 
 use prelude::*;
 pub use tenderdash::meta::ABCI_VERSION;
-#[cfg(any(feature = "grpc-server", feature = "grpc-client"))]
+#[cfg(feature = "grpc")]
 pub use tonic;
 
 /// Allows for easy Google Protocol Buffers encoding and decoding of domain

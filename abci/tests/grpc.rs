@@ -89,6 +89,7 @@ async fn grpc_server_test(test_name: &str, bind_address: &str) {
         tracing::debug!("starting Tenderdash in Docker container");
         let td = Arc::new(common::docker::TenderdashDocker::new(
             &container_name,
+            // TODO: replace with None once tenderdash dev is released
             Some("feat-ABCI-protocol-env-var"),
             &socket_uri,
         ));
@@ -100,8 +101,6 @@ async fn grpc_server_test(test_name: &str, bind_address: &str) {
     .await
     .expect("start tenderdash");
 
-    // tracing::debug!(?result, "connection handled");
-    // assert!(matches!(result, Ok(())));
     tokio::select! {
         _ = tokio::time::sleep(tokio::time::Duration::from_secs(60)) => {
             panic!("Test timed out");

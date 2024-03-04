@@ -1,7 +1,12 @@
-// Google protobuf Timestamp and Duration types reimplemented because their comments are turned
-// into invalid documentation texts and doctest chokes on them. See https://github.com/danburkert/prost/issues/374
-// Prost does not seem to have a way yet to remove documentations defined in protobuf files.
-// These structs are defined in gogoproto v1.3.1 at https://github.com/gogo/protobuf/tree/v1.3.1/protobuf/google/protobuf
+// Google protobuf Timestamp and Duration types reimplemented because their
+// comments are turned into invalid documentation texts and doctest chokes on them. See https://github.com/danburkert/prost/issues/374
+// Prost does not seem to have a way yet to remove documentations defined in
+// protobuf files. These structs are defined in gogoproto v1.3.1 at https://github.com/gogo/protobuf/tree/v1.3.1/protobuf/google/protobuf
+
+#[cfg(not(feature = "std"))]
+use core::fmt;
+#[cfg(feature = "std")]
+use std::fmt;
 
 /// A Timestamp represents a point in time independent of any time zone or local
 /// calendar, encoded as a count of seconds and fractions of seconds at
@@ -17,7 +22,10 @@
 /// restricting to that range, we ensure that we can convert to and from [RFC
 /// 3339](https://www.ietf.org/rfc/rfc3339.txt) date strings.
 #[derive(Clone, PartialEq, ::prost::Message, ::serde::Deserialize, ::serde::Serialize)]
-#[serde(from = "crate::serializers::timestamp::Rfc3339", into = "crate::serializers::timestamp::Rfc3339")]
+#[serde(
+    from = "crate::serializers::timestamp::Rfc3339",
+    into = "crate::serializers::timestamp::Rfc3339"
+)]
 pub struct Timestamp {
     /// Represents seconds of UTC time since Unix epoch
     /// 1970-01-01T00:00:00Z. Must be from 0001-01-01T00:00:00Z to
@@ -38,7 +46,7 @@ pub struct Timestamp {
 /// or "month". It is related to Timestamp in that the difference between
 /// two Timestamp values is a Duration and it can be added or subtracted
 /// from a Timestamp. Range is approximately +-10,000 years.
-#[derive(Clone, PartialEq, ::prost::Message, ::serde::Deserialize, ::serde::Serialize)]
+#[derive(Clone, PartialEq, ::prost::Message)]
 pub struct Duration {
     /// Signed seconds of the span of time. Must be from -315,576,000,000
     /// to +315,576,000,000 inclusive. Note: these bounds are computed from:
@@ -53,4 +61,50 @@ pub struct Duration {
     /// to +999,999,999 inclusive.
     #[prost(int32, tag = "2")]
     pub nanos: i32,
+}
+
+impl serde::Serialize for Duration {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::ser::Serializer,
+    {
+        let total_nanos = self.seconds * 1_000_000_000 + self.nanos as i64;
+        serializer.serialize_i64(total_nanos)
+    }
+}
+
+struct DurationVisitor;
+
+impl<'de> serde::de::Visitor<'de> for DurationVisitor {
+    type Value = Duration;
+
+    fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
+        formatter.write_str("a nanosecond representation of a duration")
+    }
+
+    fn visit_i128<E>(self, value: i128) -> Result<Duration, E>
+    where
+        E: serde::de::Error,
+    {
+        let seconds = (value / 1_000_000_000) as i64;
+        let nanos = (value % 1_000_000_000) as i32;
+        Ok(Duration { seconds, nanos })
+    }
+
+    fn visit_str<E>(self, value: &str) -> Result<Duration, E>
+    where
+        E: serde::de::Error,
+    {
+        let value = value.parse::<i128>().map_err(E::custom)?;
+        self.visit_i128(value)
+    }
+}
+
+impl<'de> serde::Deserialize<'de> for Duration {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::de::Deserializer<'de>,
+    {
+        deserializer.deserialize_str(DurationVisitor)
+    }
 }

@@ -1,6 +1,8 @@
 //! Serialize/deserialize Timestamp type from and into string:
-
+#[cfg(not(feature = "std"))]
 use core::fmt::{self, Debug};
+#[cfg(feature = "std")]
+use std::fmt::{self, Debug};
 
 use serde::{de::Error as _, ser::Error, Deserialize, Deserializer, Serialize, Serializer};
 use time::{
@@ -147,8 +149,8 @@ pub fn to_rfc3339_nanos(t: OffsetDateTime) -> String {
 /// ie. a RFC3339 date-time with left-padded subsecond digits without
 ///     trailing zeros and no trailing dot.
 ///
-/// [`Display`]: core::fmt::Display
-/// [`Debug`]: core::fmt::Debug
+/// [`Display`]: fmt::Display
+/// [`Debug`]: fmt::Debug
 pub fn fmt_as_rfc3339_nanos(t: OffsetDateTime, f: &mut impl fmt::Write) -> fmt::Result {
     let t = t.to_offset(offset!(UTC));
     let nanos = t.nanosecond();

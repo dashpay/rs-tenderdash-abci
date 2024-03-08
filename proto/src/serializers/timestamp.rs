@@ -47,8 +47,9 @@ pub trait ToMilis {
 impl ToMilis for Timestamp {
     /// Convert protobuf timestamp into miliseconds since epoch
     fn to_milis(&self) -> u64 {
-        chrono::NaiveDateTime::from_timestamp_opt(self.seconds, self.nanos as u32)
+        chrono::DateTime::from_timestamp(self.seconds, self.nanos as u32)
             .unwrap()
+            .to_utc()
             .timestamp_millis()
             .try_into()
             .expect("timestamp value out of u64 range")
@@ -75,12 +76,13 @@ impl FromMilis for Timestamp {
     ///  
     /// Panics when `millis` don't fit `i64` type
     fn from_milis(millis: u64) -> Self {
-        let dt = chrono::NaiveDateTime::from_timestamp_millis(
+        let dt = chrono::DateTime::from_timestamp_millis(
             millis
                 .try_into()
                 .expect("milliseconds timestamp out of i64 range"),
         )
-        .expect("cannot parse timestamp");
+        .expect("cannot parse timestamp")
+        .to_utc();
 
         Self {
             nanos: dt.timestamp_subsec_nanos() as i32,

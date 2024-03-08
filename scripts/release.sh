@@ -1,6 +1,6 @@
 #! /bin/bash
 
-PLATFORM_DIR="$(realpath "$(dirname $0)/../../platform")"
+PLATFORM_DIR="$(realpath "$(dirname "$0")/../../platform")"
 
 function help() {
     cat <<EOF
@@ -63,25 +63,27 @@ if [ -z "$td_version" ]; then
     echo "Please specify the version of Tenderdash."
     exit 1
 fi
+td_version=${td_version#v} # remove 'v' if it exists
 
 if [ -z "$rs_tenderdash_abci_version" ]; then
     echo "Please specify the version of the library."
     exit 1
 fi
 
+rs_tenderdash_abci_version=${rs_tenderdash_abci_version#v} # remove 'v' if it exists
+
 set -ex
 # Update the version in the Cargo.toml files.
 sed -i "s/^version = .*/version = \"$rs_tenderdash_abci_version\"/" ./*/Cargo.toml
-# sed -i "s/^\s*const DEFAULT_VERSION.*;/const DEFAULT_VERSION: &str = \"$td_version\";/g" ./proto/build.rs
-sed -i "s/^\s*const DEFAULT_VERSION: &str = \".*\";/const DEFAULT_VERSION: \&str = \"$td_version\";/" ./proto/build.rs
+sed -i "s/^\s*const DEFAULT_VERSION: &str = \".*\";/const DEFAULT_VERSION: \&str = \"v$td_version\";/" ./proto/build.rs
 cargo fmt -- ./proto/build.rs 2>/dev/null
 
 if [ -d "$PLATFORM_DIR" ]; then
     rs_tenderdash="git = \"https:\/\/github.com\/dashpay\/rs-tenderdash-abci\", version = \"$rs_tenderdash_abci_version\" "
     echo "INFO: Updating references to tenderdash-abci / tenderdash-proto in $PLATFORM_DIR"
 
-    sed -i "s/^tenderdash-abci = { git = .* }/tenderdash-abci = { $rs_tenderdash }/" ${PLATFORM_DIR}/packages/*/Cargo.toml
-    sed -i "s/^tenderdash-proto = { git = .* }/tenderdash-proto = { $rs_tenderdash }/" ${PLATFORM_DIR}/packages/*/Cargo.toml
+    sed -i "s/^tenderdash-abci = { git = .* }/tenderdash-abci = { $rs_tenderdash }/" "${PLATFORM_DIR}"/packages/*/Cargo.toml
+    sed -i "s/^tenderdash-proto = { git = .* }/tenderdash-proto = { $rs_tenderdash }/" "${PLATFORM_DIR}"/packages/*/Cargo.toml
 else
-    echo WARN: Dash Platform not found in $PLATFORM_DIR, skipping
+    echo "WARN: Dash Platform not found in $PLATFORM_DIR, skipping"
 fi

@@ -89,8 +89,7 @@ async fn grpc_server_test(test_name: &str, bind_address: &str) {
         tracing::debug!("starting Tenderdash in Docker container");
         let td = Arc::new(common::docker::TenderdashDocker::new(
             &container_name,
-            // TODO: replace with None once tenderdash dev is released
-            Some("feat-ABCI-protocol-env-var"),
+            None,
             &socket_uri,
         ));
         common::docker::setup_td_logs_panic(&td);

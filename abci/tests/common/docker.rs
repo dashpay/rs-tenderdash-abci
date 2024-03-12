@@ -6,7 +6,8 @@ use bollard::{
     Docker, API_DEFAULT_VERSION,
 };
 use futures::StreamExt;
-use tokio::{io::AsyncWriteExt, runtime::Runtime, time::timeout};
+use tenderdash_abci::ServerRuntime;
+use tokio::{io::AsyncWriteExt, time::timeout};
 use tracing::{debug, error, info};
 use url::Url;
 
@@ -16,7 +17,7 @@ pub struct TenderdashDocker {
     name: String,
     docker: Docker,
     image: String,
-    runtime: Runtime,
+    runtime: ServerRuntime,
 }
 impl TenderdashDocker {
     /// new() creates and starts new Tenderdash docker container for provided
@@ -31,8 +32,8 @@ impl TenderdashDocker {
     ///
     /// * `tag` - Docker tag to use; provide empty string to use default
     /// * `app_address` - address of ABCI app server; for example,
-    ///   `tcp://172.17.0.1:4567`, `tcp://[::ffff:ac11:1]:5678` or
-    ///   `unix:///path/to/file`
+    ///   `tcp://172.17.0.1:4567`, `tcp://[::ffff:ac11:1]:5678`,
+    ///   `grpc://172.17.01:5678` or `unix:///path/to/file`
     pub(crate) fn new(
         container_name: &str,
         tag: Option<&str>,
@@ -45,14 +46,14 @@ impl TenderdashDocker {
         };
 
         let app_address = url::Url::parse(app_address).expect("invalid app address");
-        if app_address.scheme() != "tcp" && app_address.scheme() != "unix" {
-            panic!("app_address must be either tcp:// or unix://");
+        if app_address.scheme() != "tcp"
+            && app_address.scheme() != "unix"
+            && app_address.scheme() != "grpc"
+        {
+            panic!("app_address must be either grpc://, tcp:// or unix://");
         }
 
-        let runtime = tokio::runtime::Builder::new_multi_thread()
-            .enable_all()
-            .build()
-            .expect("cannot initialize tokio runtime");
+        let runtime = tenderdash_abci::ServerRuntime::default();
 
         info!("Starting Tenderdash docker container");
 
@@ -152,12 +153,24 @@ impl TenderdashDocker {
             None
         };
 
-        let app_address = app_address.to_string().replace('/', "\\/");
+        let (abci, app_address) = match app_address.scheme() {
+            "grpc" => {
+                let address = app_address
+                    .to_string()
+                    .replace("grpc://", "")
+                    .replace('/', "\\/");
+                ("grpc", address)
+            },
+            _ => ("socket", app_address.to_string().replace('/', "\\/")),
+        };
 
         debug!("Tenderdash will connect to ABCI address: {}", app_address);
         let container_config = Config {
             image: Some(self.image.clone()),
-            env: Some(vec![format!("PROXY_APP={}", app_address)]),
+            env: Some(vec![
+                format!("PROXY_APP={}", app_address),
+                format!("ABCI={}", abci),
+            ]),
             host_config: Some(HostConfig {
                 binds,
                 ..Default::default()
@@ -263,6 +276,7 @@ impl Drop for TenderdashDocker {
         }
     }
 }
+
 /// Use custom panic handler to dump logs on panic
 #[allow(dead_code)]
 pub fn setup_td_logs_panic(td_docker: &Arc<TenderdashDocker>) {

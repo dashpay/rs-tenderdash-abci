@@ -1,5 +1,5 @@
 [package]
-version = "0.14.0-dev.6"
+version = "0.14.0-dev.7"
 name = "tenderdash-proto"
 edition = "2021"
 license = "Apache-2.0"
@@ -15,10 +15,33 @@ description = """
 [package.metadata.docs.rs]
 all-features = true
 
+[features]
+# Features configuration.
+#
+# Note that, due to the way build.rs scripts work, change of features does not trigger
+# regeneration of protobuf files. This means you need to be extra careful when changing
+# features, as you might end up with outdated and/or conflicting generated files.
+#
+# Sometimes cleaning the build cache with `cargo clean` might be necessary to solve
+# issues related to outdated generated files.
+default = ["grpc"]
+
+# Enable standard library support
+std = ["prost/std", "prost-types/std"]
+# Build gRPC server
+grpc = [
+    "std",
+    "tenderdash-proto-compiler/server",
+    "tenderdash-proto-compiler/client",
+    "dep:tonic",
+]
+
 [dependencies]
 prost = { version = "0.12", default-features = false, features = [
     "prost-derive",
 ] }
+prost-types = { version = "0.12", default-features = false }
+tonic = { version = "0.11", optional = true }
 bytes = { version = "1.0", default-features = false, features = ["serde"] }
 serde = { version = "1.0", default-features = false, features = ["derive"] }
 subtle-encoding = { version = "0.5", default-features = false, features = [

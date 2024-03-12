@@ -1,3 +1,4 @@
+#[cfg(not(feature = "std"))]
 use core::convert::TryFrom;
 
 use tenderdash_proto::{

@@ -1,5 +1,5 @@
 [package]
-version = "0.14.0-dev.7"
+version = "0.14.0-dev.8"
 name = "tenderdash-proto-compiler"
 authors = ["Informal Systems <hello@informal.systems>", "Dash Core Group"]
 edition = "2021"

@@ -51,7 +51,8 @@ pub fn proto_compile() {
     let commitish = tenderdash_commitish();
 
     // check if this commitish is already downloaded
-    let download = !check_state(&prost_out_dir, &commitish);
+    let download = std::fs::metadata(tenderdash_dir.join("proto")).is_err()
+        || !check_state(&prost_out_dir, &commitish);
 
     if download {
         println!("[info] => Fetching {TENDERDASH_REPO} at {commitish} into {tenderdash_dir:?}.");

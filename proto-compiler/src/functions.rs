@@ -350,10 +350,7 @@ pub(crate) fn check_state(dir: &Path, commitish: &str) -> bool {
 
     match read_to_string(state_file) {
         Ok(content) => {
-            println!(
-                "[info] => Found previously downloaded Tenderdash {}.",
-                content.trim()
-            );
+            println!("[info] => Detected Tenderdash version: {}.", content.trim());
             content.eq(commitish)
         },
         Err(_) => false,

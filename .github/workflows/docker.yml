@@ -1,0 +1,59 @@
+---
+name: Docker
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths-ignore:
+      - "docs/**"
+  push:
+    paths-ignore:
+      - "docs/**"
+    branches:
+      - master
+      - "v*.*.*"
+
+jobs:
+  build:
+    strategy:
+      matrix:
+        os: [alpine, debian]
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@master
+        with:
+          platforms: amd64
+
+      - name: Set up Docker Build
+        uses: docker/setup-buildx-action@v2.4.1
+
+      # ARM build takes very long time, so we build PRs for AMD64 only
+      - name: Select target platform
+        id: select_platforms
+        run: |
+          if  [[ "${GITHUB_EVENT_NAME}" == "pull_request" ]] ; then
+            echo "build_platforms=linux/amd64" >> $GITHUB_ENV
+          else
+            echo "build_platforms=linux/amd64,linux/arm64" >> $GITHUB_ENV
+          fi
+
+      - name: Build Docker sample image
+        id: docker_build
+        uses: docker/build-push-action@v4.0.0
+        with:
+          context: .
+          file: ./Dockerfile-${{ matrix.os }}
+          build-args: |
+            REVISION=${{ github.ref }}
+          platforms: ${{ env.build_platforms }}
+          push: false
+          cache-from: |
+            type=gha
+          cache-to: |
+            type=gha,mode=max
+
+      - name: Show Docker image digest
+        run: echo ${{ steps.docker_build.outputs.digest }}

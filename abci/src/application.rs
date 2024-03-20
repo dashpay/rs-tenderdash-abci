@@ -1,7 +1,6 @@
 //! ABCI application interface.
-use std::panic::RefUnwindSafe;
 
-use tracing::debug;
+use tracing::{debug, error};
 
 use crate::proto::{
     abci,
@@ -139,7 +138,7 @@ pub trait Application {
     }
 }
 
-pub trait RequestDispatcher: RefUnwindSafe {
+pub trait RequestDispatcher {
     /// Executes the relevant application method based on the type of the
     /// request, and produces the corresponding response.
     ///
@@ -149,11 +148,13 @@ pub trait RequestDispatcher: RefUnwindSafe {
 }
 
 // Implement `RequestDispatcher` for all `Application`s.
-impl<A: Application + RefUnwindSafe> RequestDispatcher for A {
+impl<A: Application> RequestDispatcher for A {
     fn handle(&self, request: abci::Request) -> Option<abci::Response> {
-        tracing::trace!(?request, "received request");
+        #[cfg(feature = "tracing-span")]
+        let _span = super::tracing_span::span(request.clone().value?);
+        tracing::trace!(?request, "received ABCI request");
 
-        let response: Result<response::Value, abci::ResponseException> = match request.value? {
+        let response: response::Value = match request.value? {
             request::Value::Echo(req) => self.echo(req).map(|v| v.into()),
             request::Value::Flush(req) => self.flush(req).map(|v| v.into()),
             request::Value::Info(req) => self.info(req).map(|v| v.into()),
@@ -175,14 +176,14 @@ impl<A: Application + RefUnwindSafe> RequestDispatcher for A {
             request::Value::VerifyVoteExtension(req) => {
                 self.verify_vote_extension(req).map(|v| v.into())
             },
-        };
+        }
+        .unwrap_or_else(|e| e.into());
 
-        let response = match response {
-            Ok(v) => v,
-            Err(e) => response::Value::from(e),
+        if let response::Value::Exception(_) = response {
+            tracing::error!(?response, "sending ABCI exception");
+        } else {
+            tracing::trace!(?response, "sending ABCI response");
         };
-
-        tracing::trace!(?response, "sending response");
 
         Some(abci::Response {
             value: Some(response),
@@ -198,6 +199,8 @@ impl<A: Application + RefUnwindSafe> RequestDispatcher for A {
 /// Versioning rules, as defined for '^' operator.
 ///
 /// ## Examples
+///
+/// ### Using `check_version` in `Application::info` handler
 ///
 /// ```should_panic
 /// use tenderdash_abci::{check_version, Application};
@@ -225,42 +228,123 @@ pub fn check_version(tenderdash_version: &str) -> bool {
     match_versions(tenderdash_version, tenderdash_proto::ABCI_VERSION)
 }
 
-fn match_versions(tenderdash_abci_requirement: &str, our_abci_version: &str) -> bool {
-    let our_version =
-        semver::Version::parse(our_abci_version).expect("cannot parse protobuf library version");
+/// Check if Tenderdash provides ABCI interface compatible with our library.
+///
+/// Tenderdash is compatible if its abci version matches the abci version of
+/// linked protobuf data objects, eg. version provided in
+/// `rs_tenderdash_abci_version` argument. The PATCH level can be ignored, as is
+/// should be backwards-compatible.
+///
+/// For example, Tenderdash abci version `1.23.2` should work with
+/// rs-tenderdash-abci linked with abci version `1.23.1` and `1.22.1`, but not
+/// with `1.24.1` or `0.23.1`.
+fn match_versions(tenderdash_version: &str, rs_tenderdash_abci_version: &str) -> bool {
+    let rs_tenderdash_abci_version = semver::Version::parse(rs_tenderdash_abci_version)
+        .expect("cannot parse protobuf library version");
+    let tenderdash_version =
+        semver::Version::parse(tenderdash_version).expect("cannot parse tenderdash version");
 
-    let require = String::from("^") + tenderdash_abci_requirement;
-    let td_version =
-        semver::VersionReq::parse(require.as_str()).expect("cannot parse tenderdash version");
+    let requirement = match rs_tenderdash_abci_version.pre.as_str() {
+        "" => format!(
+            "^{}.{}",
+            rs_tenderdash_abci_version.major, rs_tenderdash_abci_version.minor
+        ),
+        pre => format!(
+            "^{}.{}.0-{}",
+            rs_tenderdash_abci_version.major, rs_tenderdash_abci_version.minor, pre
+        ),
+    };
 
-    debug!("ABCI version: required: {}, our: {}", require, our_version);
+    let matcher = semver::VersionReq::parse(&requirement).expect("cannot parse tenderdash version");
 
-    td_version.matches(&our_version)
+    match matcher.matches(&tenderdash_version) {
+        true => {
+            debug!(
+                "version match(rs-tenderdash-abci proto version: {}), tenderdash server proto version {} = {}",
+                rs_tenderdash_abci_version, tenderdash_version, requirement
+            );
+            true
+        },
+        false => {
+            error!(
+                "version mismatch(rs-tenderdash-abci proto version: {}), tenderdash server proto version {} != {}",
+                rs_tenderdash_abci_version, tenderdash_version, requirement
+            );
+            false
+        },
+    }
 }
 
 #[cfg(test)]
 mod tests {
     use super::match_versions;
 
+    fn setup_logs() {
+        tracing_subscriber::fmt()
+            .with_env_filter(tracing_subscriber::EnvFilter::new("trace"))
+            .try_init()
+            .ok();
+    }
+
     /// test_versions! {} (td_version, our_version, expected); }
+    // Test if various combinations of versions match
+    //
+    // ## Arguments
+    //
+    // * `td_version` - Tenderdash version, as returned by the Tenderdash
+    // * `our_version` - our version - version of rs-tenderdash-abci library
+    // * `expected` - expected result - true or false
+    //
     macro_rules! test_versions {
         ($($name:ident: $value:expr,)*) => {
         $(
             #[test]
             fn $name() {
+                setup_logs();
                 let (td, our, expect) = $value;
-                assert_eq!(match_versions(td, our),expect);
+                assert_eq!(match_versions(td, our),expect,
+                    "tenderdash version: {}, rs-tenderdash-abci version: {}, expect: {}", td, our,expect);
             }
         )*
         }
     }
 
     test_versions! {
-        test_versions_td_newer: ("0.1.2-dev.1", "0.1.0", false),
-        test_versions_equal: ("0.1.0","0.1.0",true),
-        test_versions_td_older: ("0.1.0","0.1.2",true),
-        test_versions_equal_dev: ("0.1.0-dev.1","0.1.0-dev.1",true),
-        test_versions_our_newer_dev: ("0.1.0-dev.1", "0.1.0-dev.2",true),
-        test_versions_our_dev:("0.1.0","0.1.0-dev.1",false),
+        // rs-tenderdash-abci should be able to connect to any Tenderdash that is backwards-compatible
+        // It means that:
+        // * MAJOR of Tenderdash must match MAJOR of rs-tenderdash-abci
+        // * MINOR of Tenderdash must be greater or equal to MINOR of rs-tenderdash-abci
+        // * PATCH of Tenderdash can be anything
+
+        // MAJOR 0
+
+        // vesions match
+        test_major_0: ("0.23.1", "0.23.1", true),
+        // tenderdash is newer than our library, but it's backwards-compatible
+        test_major_0_old_minor: ("0.23.1", "0.22.1", false),
+        // tenderdash patch level is higher than ours; it should not matter
+        test_major_0_new_patch: ("0.23.2", "0.23.1", true),
+        // tenderdash patch level is lower than ours; it should not matter
+        test_major_0_old_patch: ("0.23.0", "0.23.1", true),
+        // tenderdash is older than our library, it should not match
+        test_major_0_new_minor: ("0.23.1", "0.24.1", false),
+        test_major_0_new_major: ("0.23.1", "1.23.1", false),
+
+        // MAJOR 1
+
+        test_major_1: ("1.23.1", "1.23.1", true),
+        // tenderdash is newer than our library, but it's backwards-compatible
+        test_major_1_old_minor: ("1.23.1", "1.22.1", true),
+        // tenderdash patch level is higher than ours; it should not matter
+        test_major_1_new_patch: ("1.23.2", "1.23.1", true),
+        // tenderdash patch level is lower than ours; it should not matter
+        test_major_1_old_patch: ("1.23.0", "1.23.1", true),
+        // tenderdash is older than our library, it should not match
+        test_major_1_new_minor: ("1.23.1", "1.24.1", false),
+        test_major_1_old_major: ("1.23.1", "0.23.1", false),
+
+        test_dev_td_newer: ("0.1.2-dev.1", "0.1.0", false),
+        test_dev_equal: ("0.1.0-dev.1","0.1.0-dev.1",true),
+        test_dev_our_newer_dev: ("0.1.0-dev.1", "0.1.0-dev.2",false),
     }
 }

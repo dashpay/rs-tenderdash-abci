@@ -12,7 +12,13 @@ Cargo.lock
 # These are log files emitted by model-based tests
 **/*.log
 
+# These are intelj files 
+.idea
+
 # Proptest regressions dumps
 **/*.proptest-regressions
 .vscode/launch.json
 *.profraw
+
+# Mac spotlight
+.DS_Store

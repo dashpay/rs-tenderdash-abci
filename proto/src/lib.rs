@@ -1,7 +1,7 @@
 //! tenderdash-proto library gives the developer access to the Tenderdash
 //! proto-defined structs.
 
-#![no_std]
+#![cfg_attr(not(feature = "std"), no_std)]
 #![deny(warnings, trivial_casts, trivial_numeric_casts, unused_import_braces)]
 #![allow(clippy::large_enum_variant)]
 #![forbid(unsafe_code)]
@@ -23,10 +23,13 @@ mod error;
 #[allow(warnings)]
 mod tenderdash;
 
+#[cfg(not(feature = "std"))]
 use core::{
     convert::{TryFrom, TryInto},
     fmt::Display,
 };
+#[cfg(feature = "std")]
+use std::fmt::Display;
 
 use bytes::{Buf, BufMut};
 pub use error::Error;
@@ -36,8 +39,9 @@ pub use tenderdash::*;
 pub mod serializers;
 
 use prelude::*;
-
 pub use tenderdash::meta::ABCI_VERSION;
+#[cfg(feature = "grpc")]
+pub use tonic;
 
 /// Allows for easy Google Protocol Buffers encoding and decoding of domain
 /// types with validation.

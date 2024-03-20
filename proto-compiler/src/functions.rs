@@ -5,163 +5,150 @@ use std::{
     path::{Path, PathBuf},
 };
 
-use git2::{
-    build::{CheckoutBuilder, RepoBuilder},
-    AutotagOption, Commit, FetchOptions, Oid, Reference, Repository,
-};
-use subtle_encoding::hex;
 use walkdir::WalkDir;
 
 use crate::constants::DEFAULT_TENDERDASH_COMMITISH;
 
-/// Clone or open+fetch a repository and check out a specific commitish
-/// In case of an existing repository, the origin remote will be set to `url`.
-pub fn fetch_commitish(dir: &Path, url: &str, commitish: &str) {
-    let mut dotgit = dir.to_path_buf();
-    dotgit.push(".git");
-    let repo = if dotgit.is_dir() {
-        fetch_existing(dir, url)
-    } else {
-        clone_new(dir, url)
-    };
-    checkout_commitish(&repo, commitish)
-}
+/// Check out a specific commitish of the tenderdash repository.
+///
+/// As this tool is mainly used by build.rs script, we rely
+/// on cargo to decide wherther or not to call it. It means
+/// we will not be called too frequently, so the fetch will
+/// not happen too often.
+pub fn fetch_commitish(tenderdash_dir: &Path, cache_dir: &Path, url: &str, commitish: &str) {
+    let url = format!("{url}/archive/{commitish}.zip");
 
-fn clone_new(dir: &Path, url: &str) -> Repository {
     println!(
-        "  [info] => Cloning {} into {} folder",
+        "  [info] => Downloading and extracting {} into {}",
         url,
-        dir.to_string_lossy()
+        tenderdash_dir.to_string_lossy()
     );
 
-    let mut fo = FetchOptions::new();
-    fo.download_tags(AutotagOption::All);
-    fo.update_fetchhead(true);
+    // ensure cache dir exists
+    if !cache_dir.is_dir() {
+        std::fs::create_dir_all(cache_dir).expect("cannot create cache directory");
+    }
 
-    let mut builder = RepoBuilder::new();
-    builder.fetch_options(fo);
+    let archive_file = cache_dir.join(format!("tenderdash-{}.zip", commitish));
+    // Unzip Tenderdash sources to tmpdir and move to target/tenderdash
+    let tmpdir = tempfile::tempdir().expect("cannot create temporary dir to extract archive");
+    download_and_unzip(&url, archive_file.as_path(), tmpdir.path());
 
-    builder.clone(url, dir).unwrap()
+    // Downloaded zip contains subdirectory like tenderdash-0.12.0-dev.2. We need to
+    // move its contents to target/tederdash, so that we get correct paths like
+    // target/tenderdash/version/version.go
+    let src_dir = find_subdir(tmpdir.path(), "tenderdash-");
+
+    let options = fs_extra::dir::CopyOptions::new().content_only(true);
+
+    fs_extra::dir::create(tenderdash_dir, true).expect("cannot create destination directory");
+    fs_extra::dir::move_dir(src_dir, tenderdash_dir, &options)
+        .expect("cannot move tenderdash directory");
 }
 
-fn fetch_existing(dir: &Path, url: &str) -> Repository {
-    println!(
-        "  [info] => Fetching from {} into existing {} folder",
-        url,
-        dir.to_string_lossy()
-    );
-    let repo = Repository::open(dir).unwrap();
+/// Download file from URL and unzip it to `dest_dir`
+fn download_and_unzip(url: &str, archive_file: &Path, dest_dir: &Path) {
+    const RETRIES: usize = 2;
 
-    let mut fo = git2::FetchOptions::new();
-    fo.download_tags(git2::AutotagOption::All);
-    fo.update_fetchhead(true);
-
-    let mut remote = repo
-        .find_remote("origin")
-        .unwrap_or_else(|_| repo.remote("origin", url).unwrap());
-    if remote.url().is_none() || remote.url().unwrap() != url {
-        repo.remote_set_url("origin", url).unwrap();
-    }
-    println!("  [info] => Fetching repo using remote `origin`");
-    let specs: &[&str] = &[];
-    remote.fetch(specs, Some(&mut fo), None).unwrap();
-
-    let stats = remote.stats();
-    if stats.local_objects() > 0 {
+    for retry in 1..=RETRIES {
         println!(
-            "  [info] => Received {}/{} objects in {} bytes (used {} local objects)",
-            stats.indexed_objects(),
-            stats.total_objects(),
-            stats.received_bytes(),
-            stats.local_objects()
+            "    [info] => Download and extract tenderdash sources, attempt {}/{}",
+            retry, RETRIES
         );
-    } else {
-        println!(
-            "  [info] => Received {}/{} objects in {} bytes",
-            stats.indexed_objects(),
-            stats.total_objects(),
-            stats.received_bytes()
-        );
-    }
 
-    Repository::open(dir).unwrap()
-}
-
-fn checkout_commitish(repo: &Repository, commitish: &str) {
-    let (reference, commit) = find_reference_or_commit(repo, commitish);
-
-    println!(
-        "  [info] => Checking out repo in detached HEAD mode:\n    \
-             [info] => id: {},\n    \
-             [info] => author: {},\n    \
-             [info] => committer: {},\n    \
-             [info] => summary: {}",
-        commit.id(),
-        commit.author(),
-        commit.committer(),
-        commit.summary().unwrap_or(""),
-    );
-
-    match reference {
-        None => repo.set_head_detached(commit.id()).unwrap(),
-        Some(reference) => {
-            println!("    [info] => name: {}", reference.shorthand().unwrap());
-            repo.set_head(reference.name().unwrap()).unwrap();
-        },
-    }
-
-    let mut checkout_options = CheckoutBuilder::new();
-    checkout_options
-        .force()
-        .remove_untracked(true)
-        .remove_ignored(true)
-        .use_theirs(true);
-    repo.checkout_head(Some(&mut checkout_options)).unwrap();
-}
-
-fn find_reference_or_commit<'a>(
-    repo: &'a Repository,
-    commitish: &str,
-) -> (Option<Reference<'a>>, Commit<'a>) {
-    let mut tried_origin = false; // we tried adding 'origin/' to the commitish
-
-    let mut try_reference = repo.resolve_reference_from_short_name(commitish);
-    if try_reference.is_err() {
-        // Local branch might be missing, try the remote branch
-        try_reference = repo.resolve_reference_from_short_name(&format!("origin/{commitish}"));
-        tried_origin = true;
-        if try_reference.is_err() {
-            // Remote branch not found, last chance: try as a commit ID
-            // Note: Oid::from_str() currently does an incorrect conversion and cuts the
-            // second half of the ID. We are falling back on Oid::from_bytes()
-            // for now.
-            let commitish_vec = hex::decode(commitish).unwrap_or_else(|_| {
-                hex::decode_upper(commitish).expect(
-                    "TENDERDASH_COMMITISH refers to non-existing or invalid git branch/tag/commit",
-                )
-            });
-            return (
-                None,
-                repo.find_commit(Oid::from_bytes(commitish_vec.as_slice()).unwrap())
-                    .unwrap(),
+        if !archive_file.is_file() {
+            println!("      [info] => Downloading {}", url);
+            download(url, archive_file)
+                .unwrap_or_else(|e| println!(" [error] => Cannot download archive: {:?}", e));
+        } else {
+            println!(
+                "      [info] => Archive file {} already exists, skipping download",
+                archive_file.display()
             );
         }
+
+        println!(
+            "      [info] => Extracting downloaded archive {}",
+            archive_file.display()
+        );
+        match unzip(archive_file, dest_dir) {
+            Ok(_) => break,
+            Err(e) => {
+                println!(
+                    "        [error] => Cannot unzip archive: {}: {:?}",
+                    archive_file.display(),
+                    e
+                );
+            },
+        }
+
+        // remove invalid file
+        std::fs::remove_file(archive_file)
+            .unwrap_or_else(|_| println!("      [warn] => Cannot remove file: {:?}", archive_file));
     }
 
-    let mut reference = try_reference.unwrap();
-    if reference.is_branch() {
-        if tried_origin {
-            panic!("[error] => local branch names with 'origin/' prefix not supported");
-        }
-        try_reference = repo.resolve_reference_from_short_name(&format!("origin/{commitish}"));
-        reference = try_reference.unwrap();
-        if reference.is_branch() {
-            panic!("[error] => local branch names with 'origin/' prefix not supported");
-        }
-    }
+    println!(
+        "      [info] => Extracted tenderdash sources to {}",
+        dest_dir.display()
+    );
+}
 
-    let commit = reference.peel_to_commit().unwrap();
-    (Some(reference), commit)
+/// Download file from URL
+fn download(url: &str, archive_file: &Path) -> Result<(), String> {
+    let mut file =
+        File::create(archive_file).map_err(|e| format!("cannot create file: {:?}", e))?;
+    let rb = ureq::get(url)
+        .call()
+        .map_err(|e| format!("cannot download archive from: {}: {:?}", url, e))?;
+
+    let mut reader = rb.into_reader();
+    std::io::copy(&mut reader, &mut file).map_err(|e| {
+        format!(
+            "cannot save downloaded data to: {:?}: {:?}",
+            archive_file, e
+        )
+    })?;
+
+    file.flush()
+        .map_err(|e| format!("cannot flush downloaded file: {:?}: {:?}", archive_file, e))
+}
+
+// Unzip archive; when return false, it means that the archive file does not
+// exist or is corrupted and should be downloaded again
+fn unzip(archive_file: &Path, dest_dir: &Path) -> Result<(), String> {
+    if !archive_file.is_file() {
+        // no archive file, so we request another download
+        return Err("archive file does not exist".to_string());
+    }
+    let file = File::open(archive_file).expect("cannot open downloaded zip");
+    let mut archive =
+        zip::ZipArchive::new(&file).map_err(|e| format!("cannot open zip archive: {:?}", e))?;
+
+    archive
+        .extract(dest_dir)
+        .map_err(|e| format!("cannot extract archive: {:?}", e))?;
+
+    Ok(())
+}
+
+/// Find a subdirectory of a parent path which has provided name prefix
+fn find_subdir(parent: &Path, name_prefix: &str) -> PathBuf {
+    let dir_content = fs_extra::dir::get_dir_content(parent).expect("cannot ls tmp dir");
+    let mut src_dir = String::new();
+    for directory in dir_content.directories {
+        let directory = Path::new(&directory)
+            .file_name()
+            .expect("cannot extract dir name");
+
+        if directory.to_string_lossy().starts_with(name_prefix) {
+            src_dir = directory.to_string_lossy().into();
+            break;
+        };
+    }
+    if src_dir.is_empty() {
+        panic!("cannot find extracted Tenderdash sources")
+    }
+    parent.join(src_dir)
 }
 
 /// Copy generated files to target folder
@@ -235,8 +222,32 @@ pub fn abci_version<T: AsRef<Path>>(dir: T) -> String {
         .to_string()
 }
 
+pub fn tenderdash_version<T: AsRef<Path>>(dir: T) -> String {
+    let mut file_path = dir.as_ref().to_path_buf();
+    file_path.push("version/version.go");
+
+    let contents = read_to_string(&file_path).expect("cannot read version/version.go");
+    use regex::Regex;
+
+    let re = Regex::new(r##"(?m)^\s+TMVersionDefault\s*=\s*"([^"]+)"\s+*$"##).unwrap();
+    let captures = re
+        .captures(&contents)
+        .expect("cannot find TMVersionDefault in version/version.go");
+
+    captures
+        .get(1)
+        .expect("TMVersionDefault not found in version/version.go")
+        .as_str()
+        .to_string()
+}
+
 /// Create tenderdash.rs with library information
-pub fn generate_tenderdash_lib(prost_dir: &Path, tenderdash_lib_target: &Path, abci_version: &str) {
+pub fn generate_tenderdash_lib(
+    prost_dir: &Path,
+    tenderdash_lib_target: &Path,
+    abci_ver: &str,
+    td_ver: &str,
+) {
     let mut file_names = WalkDir::new(prost_dir)
         .into_iter()
         .filter_map(|e| e.ok())
@@ -292,13 +303,14 @@ pub mod meta {{
     /// Semantic version of ABCI protocol
     pub const ABCI_VERSION: &str = \"{}\";
     /// Version of Tenderdash server used to generate protobuf configs
-    pub const TENDERDASH_VERSION: &str = env!(\"CARGO_PKG_VERSION\");
+    pub const TENDERDASH_VERSION: &str = \"{}\";
 }}
 ",
         content,
         crate::constants::TENDERDASH_REPO,
         tenderdash_commitish(),
-        abci_version,
+        abci_ver,
+        td_ver,
     );
 
     let mut file =
@@ -311,5 +323,36 @@ pub(crate) fn tenderdash_commitish() -> String {
     match env::var("TENDERDASH_COMMITISH") {
         Ok(v) => v,
         Err(_) => DEFAULT_TENDERDASH_COMMITISH.to_string(),
+    }
+}
+
+/// Save the commitish of last successful download to a file in a state file,
+/// located in the `dir` directory and named `download.state`.
+pub(crate) fn save_state(dir: &Path, commitish: &str) {
+    let state_file = PathBuf::from(&dir).join("download.state");
+
+    std::fs::write(&state_file, commitish)
+        .map_err(|e| {
+            println!(
+                "[warn] => Failed to write download.state file {}: {}",
+                state_file.display(),
+                e
+            );
+        })
+        .ok();
+}
+
+/// Check if the state file contains the same commitish as the one we are trying
+/// to download. State file should be located in the `dir` and named
+/// `download.state`
+pub(crate) fn check_state(dir: &Path, commitish: &str) -> bool {
+    let state_file = PathBuf::from(&dir).join("download.state");
+
+    match read_to_string(state_file) {
+        Ok(content) => {
+            println!("[info] => Detected Tenderdash version: {}.", content.trim());
+            content.eq(commitish)
+        },
+        Err(_) => false,
     }
 }

@@ -1,6 +1,6 @@
 [package]
+version = "0.14.0-dev.9"
 name = "tenderdash-abci"
-version = "0.12.0-dev.1"
 edition = "2021"
 license = "Apache-2.0"
 readme = "README.md"
@@ -13,29 +13,70 @@ description = """tenderdash-abci provides a simple framework with which to build
 low-level applications on top of Tenderdash."""
 
 [features]
-default = ["server", "docker-tests"]
+default = [
+    "server",
+    "docker-tests",
+    "crypto",
+    "tcp",
+    "unix",
+    "grpc",
+    "tracing-span",
+]
 # docker-tests includes integration tests that require docker to be available
 docker-tests = ["server"]
-server = ["tracing-subscriber/fmt"]
+server = [
+    "tracing-subscriber/fmt",
+    "dep:tokio",
+    "dep:tokio-util",
+    "dep:futures",
+]
+
+grpc = ["tenderdash-proto/grpc"]
+crypto = ["dep:lhash"]
+tcp = ["server"]
+unix = ["server"]
+tracing-span = ["dep:uuid"]
 
 [[example]]
 name = "echo_socket"
 required-features = ["server"]
 
 [dependencies]
+uuid = { version = "1.4.1", features = ["v4", "fast-rng"], optional = true }
+tenderdash-proto = { path = "../proto" }
 bytes = { version = "1.0" }
-prost = { version = "0.11" }
-tenderdash-proto = { version = "0.12.0-dev.1", default-features = false, path = "../proto" }
+prost = { version = "0.12" }
 tracing = { version = "0.1", default-features = false }
-tracing-subscriber = { version = "0.3", optional = true, default-features = false }
-thiserror = "1.0.39"
+tracing-subscriber = { version = "0.3", optional = true, default-features = false, features = [
+    "ansi",
+    "env-filter",
+] }
+thiserror = { version = "1.0.39" }
 url = { version = "2.3.1" }
 semver = { version = "1.0.17" }
+lhash = { version = "1.0.1", features = ["sha256"], optional = true }
+hex = { version = "0.4" }
+tokio-util = { version = "0.7.8", features = [
+    "net",
+    "codec",
+], default-features = false, optional = true }
+tokio = { version = "1.28", features = [
+    "net",
+    "io-util",
+    "rt-multi-thread",
+    "sync",
+    "macros",
+], default-features = false, optional = true }
+futures = { version = "0.3.28", optional = true }
 
 [dev-dependencies]
-anyhow = "1.0.69"
-bincode = "2.0.0-rc.2"
-blake2 = "0.10.6"
-bollard = { version = "0.14.0" }
+anyhow = { version = "1.0.69" }
+bincode = { version = "2.0.0-rc.2" }
+blake2 = { version = "0.10.6" }
+bollard = { version = "0.16.0" }
 futures = { version = "0.3.26" }
 tokio = { version = "1", features = ["macros", "signal", "time", "io-std"] }
+hex = { version = "0.4" }
+lazy_static = { version = "1.4" }
+# For tests of gRPC server
+tonic = { version = "0.11" }

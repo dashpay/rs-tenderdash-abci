@@ -1,7 +1,9 @@
 //! This module defines the various errors that be raised during Protobuf
 //! conversions.
-
+#[cfg(not(feature = "std"))]
 use core::{convert::TryFrom, fmt::Display, num::TryFromIntError};
+#[cfg(feature = "std")]
+use std::{fmt::Display, num::TryFromIntError};
 
 use flex_error::{define_error, DisplayOnly};
 use prost::{DecodeError, EncodeError};

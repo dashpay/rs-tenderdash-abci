@@ -4,124 +4,283 @@
 //!
 //! [tsp]: https://github.com/tendermint/tendermint/blob/v0.34.x/spec/abci/client-server.md#tsp
 
-use std::io::{self, Read, Write};
+use std::{fmt::Debug, sync::Arc};
 
 use bytes::{Buf, BufMut, BytesMut};
-use prost::{DecodeError, EncodeError, Message};
+use futures::{SinkExt, StreamExt};
+use prost::Message;
+use proto::abci::{Request, Response};
+use tokio::{
+    io::{AsyncRead, AsyncWrite},
+    sync::{
+        mpsc::{self, Receiver, Sender},
+        Mutex,
+    },
+};
+use tokio_util::{
+    codec::{Decoder, Encoder, Framed},
+    net::Listener,
+};
 
-use crate::{proto, Error};
+use super::ServerRuntime;
+use crate::{proto, CancellationToken, Error};
 
 /// The maximum number of bytes we expect in a varint. We use this to check if
 /// we're encountering a decoding error for a varint.
 pub const MAX_VARINT_LENGTH: usize = 16;
 
-/// Allows for iteration over `S` to produce instances of `I`, as well as
-/// sending instances of `O`.
-pub struct Codec<S> {
-    stream: S,
-    // Long-running read buffer
-    read_buf: BytesMut,
-    // Fixed-length read window
-    read_window: Vec<u8>,
-    write_buf: BytesMut,
+pub struct Codec {
+    request_rx: Receiver<Request>,
+    response_tx: Sender<Response>,
 }
 
-impl<S> Codec<S> {
-    pub fn new(stream: S, read_buf_size: usize) -> Self {
+impl<'a> Codec {
+    pub(crate) fn new<L>(
+        listener: Arc<Mutex<L>>,
+        cancel: CancellationToken,
+        runtime: &ServerRuntime,
+    ) -> Self
+    where
+        L: Listener + Send + Sync + 'static,
+        L::Addr: Send + Debug,
+        L::Io: Send,
+    {
+        let (request_tx, request_rx) = mpsc::channel::<proto::abci::Request>(1);
+        let (response_tx, response_rx) = mpsc::channel::<proto::abci::Response>(1);
+
+        runtime
+            .handle
+            .spawn(Self::worker(listener, request_tx, response_rx, cancel));
+
         Self {
-            stream,
-            read_buf: BytesMut::new(),
-            read_window: vec![0_u8; read_buf_size],
-            write_buf: BytesMut::new(),
+            request_rx,
+            response_tx,
+        }
+    }
+
+    /// Worker that bridges data between async streams and sync processing code.
+    ///
+    /// ## Error handling
+    ///
+    /// Any error will cause disconnect
+    async fn worker<L>(
+        listener: Arc<Mutex<L>>,
+        request_tx: Sender<proto::abci::Request>,
+        response_rx: Receiver<proto::abci::Response>,
+        cancel: CancellationToken,
+    ) where
+        L: Listener + Send + Sync,
+        L::Addr: Debug,
+    {
+        let mut listener = listener.lock().await;
+        tracing::trace!("listening for new connection");
+
+        let (stream, address) = tokio::select! {
+            conn = listener.accept() => match conn {
+                Ok(r) => r,
+                Err(error) => {
+                    tracing::error!(?error, "cannot accept connection");
+                    cancel.cancel();
+                    return;
+                },
+            },
+            _ = cancel.cancelled() => return,
+        };
+
+        tracing::info!(?address, "accepted connection");
+
+        let stream = Box::pin(stream);
+        let codec = Framed::new(stream, Coder {});
+
+        Self::process_worker_queues(codec, request_tx, response_rx, cancel).await;
+    }
+    async fn process_worker_queues<L: AsyncRead + AsyncWrite + Unpin>(
+        mut codec: Framed<L, Coder>,
+        request_tx: Sender<proto::abci::Request>,
+        mut response_rx: Receiver<proto::abci::Response>,
+        cancel: CancellationToken,
+    ) {
+        loop {
+            tokio::select! {
+                // Only read next message if we have capacity in request_tx to process it.
+                // Otherwise, we might block the codec worker on request_tx.send() and never
+                // process the next message from the response_rx stream.
+                request = codec.next(), if request_tx.capacity() > 0 => match request {
+                    Some(Ok(i)) => {
+                        if let Err(error) = request_tx.try_send(i) {
+                            tracing::error!(?error, "unable to forward request for processing");
+                            cancel.cancel();
+                        }
+                    },
+                    Some(Err(error)) => {
+                        tracing::error!(?error, "unable to parse request");
+                        cancel.cancel();
+                    },
+                    None => {
+                        tracing::warn!("client connection terminated");
+                        cancel.cancel();
+                    },
+                },
+                response = response_rx.recv() => match response{
+                    Some(msg) => {
+                        if let Err(error) =   codec.send(msg).await {
+                            tracing::error!(?error, "unable to send response to tenderdash");
+                            cancel.cancel();
+                        }
+                    },
+                    None => {
+                        tracing::warn!("client connection terminated");
+                        cancel.cancel();
+                    }
+                },
+                _ = cancel.cancelled() => {
+                    tracing::debug!("codec worker shutting down");
+                    return; // stop processing
+                }
+            }
+        }
+    }
+
+    pub fn next(&mut self) -> Option<Request> {
+        self.request_rx.blocking_recv()
+    }
+
+    pub fn send(&self, value: Response) -> Result<(), Error> {
+        self.response_tx
+            .blocking_send(value)
+            .map_err(|e| Error::Async(e.to_string()))
+    }
+}
+
+pub struct Coder;
+
+impl Decoder for Coder {
+    type Error = Error;
+    type Item = proto::abci::Request;
+
+    fn decode(&mut self, src: &mut BytesMut) -> Result<Option<Self::Item>, Self::Error> {
+        let src_len = src.len();
+
+        let mut tmp = src.clone().freeze();
+        let encoded_len = match prost::encoding::decode_varint(&mut tmp) {
+            Ok(len) => len,
+            // We've potentially only received a partial length delimiter
+            Err(_) if src_len <= MAX_VARINT_LENGTH => return Ok(None),
+            Err(e) => return Err(e.into()),
+        };
+        let remaining = tmp.remaining() as u64;
+        if remaining < encoded_len {
+            // We don't have enough data yet to decode the entire message
+            Ok(None)
+        } else {
+            let delim_len = src_len - tmp.remaining();
+            // We only advance the source buffer once we're sure we have enough
+            // data to try to decode the result.
+            src.advance(delim_len + (encoded_len as usize));
+
+            let mut result_bytes = BytesMut::from(tmp.split_to(encoded_len as usize).as_ref());
+            let res = proto::abci::Request::decode(&mut result_bytes)?;
+
+            Ok(Some(res))
         }
     }
 }
 
-impl<S> Codec<S>
-where
-    S: Read + Write,
-{
-    pub(crate) fn receive(&mut self) -> Result<Option<proto::abci::Request>, Error> {
-        loop {
-            // Try to decode an incoming message from our buffer first
-            if let Some(incoming) = decode_length_delimited(&mut self.read_buf)? {
-                return Ok(Some(incoming));
-            }
+impl Encoder<proto::abci::Response> for Coder {
+    type Error = Error;
 
-            // If we don't have enough data to decode a message, try to read more
-            let bytes_read = self.stream.read(self.read_window.as_mut())?;
-            if bytes_read == 0 {
-                // The underlying stream terminated
-                return Ok(None);
-            }
-            self.read_buf
-                .extend_from_slice(&self.read_window[..bytes_read]);
-        }
-    }
+    fn encode(
+        &mut self,
+        message: proto::abci::Response,
+        dst: &mut BytesMut,
+    ) -> Result<(), Self::Error> {
+        let mut buf = BytesMut::new();
+        message.encode(&mut buf)?;
 
-    /// Send a message using this codec.
-    pub(crate) fn send(&mut self, message: proto::abci::Response) -> Result<(), Error> {
-        encode_length_delimited(message, &mut self.write_buf)?;
-        while !self.write_buf.is_empty() {
-            let bytes_written = self.stream.write(self.write_buf.as_ref())?;
-
-            if bytes_written == 0 {
-                return Err(Error::Connection(io::Error::new(
-                    io::ErrorKind::WriteZero,
-                    "failed to write to underlying stream",
-                )));
-            }
-            self.write_buf.advance(bytes_written);
-        }
-
-        self.stream.flush()?;
-
+        let buf = buf.freeze();
+        prost::encoding::encode_varint(buf.len() as u64, dst);
+        dst.put(buf);
         Ok(())
     }
 }
 
-/// Encode the given message with a length prefix.
-pub fn encode_length_delimited<B>(
-    message: proto::abci::Response,
-    mut dst: &mut B,
-) -> Result<(), EncodeError>
-where
-    B: BufMut,
-{
-    let mut buf = BytesMut::new();
-    message.encode(&mut buf)?;
+#[cfg(test)]
+mod test {
+    use prost::Message;
+    use tenderdash_proto::abci;
+    use tokio::{io::AsyncWriteExt, sync::mpsc};
+    use tokio_util::sync::CancellationToken;
 
-    let buf = buf.freeze();
-    prost::encoding::encode_varint(buf.len() as u64, &mut dst);
-    dst.put(buf);
-    Ok(())
-}
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    /// Test if a bug in the codec receiving 2 requests without a response in
+    /// between is fixed.
+    async fn test_codec_msg_msg_resp() {
+        tracing_subscriber::fmt()
+            .with_env_filter(tracing_subscriber::EnvFilter::from_default_env())
+            .with_ansi(true)
+            .try_init()
+            .ok();
 
-/// Attempt to decode a message of type `M` from the given source buffer.
-pub fn decode_length_delimited(
-    src: &mut BytesMut,
-) -> Result<Option<proto::abci::Request>, DecodeError> {
-    let src_len = src.len();
-    let mut tmp = src.clone().freeze();
-    let encoded_len = match prost::encoding::decode_varint(&mut tmp) {
-        Ok(len) => len,
-        // We've potentially only received a partial length delimiter
-        Err(_) if src_len <= MAX_VARINT_LENGTH => return Ok(None),
-        Err(e) => return Err(e),
-    };
-    let remaining = tmp.remaining() as u64;
-    if remaining < encoded_len {
-        // We don't have enough data yet to decode the entire message
-        Ok(None)
-    } else {
-        let delim_len = src_len - tmp.remaining();
-        // We only advance the source buffer once we're sure we have enough
-        // data to try to decode the result.
-        src.advance(delim_len + (encoded_len as usize));
+        let (request_tx, mut request_rx) = mpsc::channel::<abci::Request>(1);
+        let (response_tx, response_rx) = mpsc::channel::<abci::Response>(1);
+        let cancel = CancellationToken::new();
 
-        let mut result_bytes = BytesMut::from(tmp.split_to(encoded_len as usize).as_ref());
-        let res = proto::abci::Request::decode(&mut result_bytes)?;
+        let (mut client, server) = tokio::io::duplex(10240);
 
-        Ok(Some(res))
+        let codec = tokio_util::codec::Framed::new(server, super::Coder {});
+
+        let worker_cancel = cancel.clone();
+        let hdl = tokio::spawn(super::Codec::process_worker_queues(
+            codec,
+            request_tx,
+            response_rx,
+            worker_cancel,
+        ));
+
+        // We send 2 requests over the wire
+        for n_requests in 0..5 {
+            let encoded = abci::Request {
+                value: Some(abci::request::Value::Echo(abci::RequestEcho {
+                    message: format!("hello {}", n_requests),
+                })),
+            }
+            .encode_length_delimited_to_vec();
+
+            client.write_all(&encoded).await.unwrap();
+        }
+
+        // Now, wait till the codec has processed the requests
+        // The bug we fixed was that the codec would not process the second request
+        // until a response was sent.
+        // If the bug is still present, the test should report error here.
+        tokio::time::sleep(tokio::time::Duration::from_millis(10)).await;
+
+        // Then, we read one request
+        tracing::debug!("MAIN THREAD: reading request 1");
+        request_rx.recv().await.expect("dequeue request 1");
+        tracing::debug!("MAIN THREAD: dequeued request 1");
+
+        //  Then, we send a response
+        tracing::debug!("MAIN THREAD: sending response 1");
+        response_tx
+            .send(abci::Response {
+                value: Some(abci::response::Value::Echo(abci::ResponseEcho {
+                    message: "hello".to_string(),
+                })),
+            })
+            .await
+            .expect("enqueue response 1");
+        tracing::debug!("MAIN THREAD: enqueued response 1");
+
+        // Then, we read second request
+        tracing::debug!("MAIN THREAD: reading request 2");
+        request_rx.recv().await.expect("dequeue request 2");
+        tracing::debug!("MAIN THREAD: dequeued request 2");
+
+        // Success :)
+
+        // Cleanup
+        cancel.cancel();
+        hdl.await.unwrap();
     }
 }

@@ -20,8 +20,16 @@ use std::io;
 
 pub use application::{check_version, Application, RequestDispatcher};
 use prost::{DecodeError, EncodeError};
-pub use server::{start_server, Server};
+#[allow(deprecated)]
+#[cfg(feature = "server")]
+pub use server::{start_server, CancellationToken, Server, ServerBuilder, ServerRuntime};
 pub use tenderdash_proto as proto;
+
+#[cfg(feature = "crypto")]
+pub mod signatures;
+#[cfg(feature = "tracing-span")]
+/// Create tracing::Span for better logging
+pub mod tracing_span;
 
 /// Errors that may happen during protobuf communication
 #[derive(Debug, thiserror::Error)]
@@ -34,4 +42,10 @@ pub enum Error {
     Decode(#[from] DecodeError),
     #[error("cannot encode protobuf message")]
     Encode(#[from] EncodeError),
+    #[error("cannot create canonical message: {0}")]
+    Canonical(String),
+    #[error("server terminated")]
+    Cancelled(),
+    #[error("async runtime error")]
+    Async(String),
 }

@@ -2,7 +2,6 @@ mod common;
 
 use std::{
     collections::{BTreeMap, BTreeSet},
-    mem,
     ops::Deref,
     sync::{RwLock, RwLockWriteGuard},
 };
@@ -12,17 +11,25 @@ use blake2::{
     digest::{consts::U32, FixedOutput},
     Blake2b, Digest,
 };
+use lazy_static::lazy_static;
 use proto::abci::{self, ResponseException};
-use tenderdash_abci::{check_version, proto, start_server, Application, RequestDispatcher};
-use tracing::{debug, error};
+use tenderdash_abci::{check_version, proto, Application, CancellationToken};
+use tracing::error;
 use tracing_subscriber::filter::LevelFilter;
 
 const SOCKET: &str = "/tmp/abci.sock";
 
+lazy_static! {
+    static ref CANCEL_TOKEN: CancellationToken = CancellationToken::new();
+}
+
 #[cfg(feature = "docker-tests")]
+#[cfg(feature = "unix")]
 #[test]
 fn test_kvstore() {
     use std::{fs, os::unix::prelude::PermissionsExt};
+
+    use tenderdash_abci::ServerBuilder;
     tracing_subscriber::fmt()
         .with_max_level(LevelFilter::DEBUG)
         .init();
@@ -45,8 +52,12 @@ fn test_kvstore() {
     state_reference.insert("ayy".to_owned(), "lmao".to_owned());
 
     let bind_address = format!("unix://{}", SOCKET);
-    let app = TestDispatcher::new(abci_app);
-    let server = start_server(&bind_address, app).expect("server failed");
+
+    let cancel = CANCEL_TOKEN.clone();
+    let server = ServerBuilder::new(abci_app, &bind_address)
+        .with_cancel_token(cancel)
+        .build()
+        .expect("server failed");
 
     let perms = fs::Permissions::from_mode(0o777);
     fs::set_permissions(SOCKET, perms).expect("set perms");
@@ -54,39 +65,15 @@ fn test_kvstore() {
     let socket_uri = bind_address.to_string();
     let _td = common::docker::TenderdashDocker::new("tenderdash", None, &socket_uri);
 
-    assert!(matches!(server.handle_connection(), Ok(())));
+    assert!(matches!(
+        server.next_client(),
+        Err(tenderdash_abci::Error::Cancelled())
+    ));
     drop(server);
 
     let kvstore_app = kvstore.into_inner().expect("kvstore lock is poisoned");
     assert_eq!(kvstore_app.persisted_state, state_reference);
     assert_eq!(kvstore_app.last_block_height, 1);
-}
-
-pub struct TestDispatcher<'a> {
-    abci_app: KVStoreABCI<'a>,
-}
-
-impl<'a> TestDispatcher<'a> {
-    fn new(abci_app: KVStoreABCI<'a>) -> Self {
-        Self { abci_app }
-    }
-}
-
-impl RequestDispatcher for TestDispatcher<'_> {
-    fn handle(&self, request: proto::abci::Request) -> Option<abci::Response> {
-        debug!("Incoming request: {:?}", request);
-
-        if let Some(proto::abci::request::Value::FinalizeBlock(req)) = request.value {
-            self.abci_app
-                .finalize_block(req)
-                .expect("finalize block failed");
-
-            // Shudown ABCI application after one block
-            return None;
-        }
-        // We use generic dispatcher implementation here
-        self.abci_app.handle(request)
-    }
 }
 
 /// An example storage.
@@ -107,7 +94,7 @@ impl KVStore {
     }
 
     pub(crate) fn commit(&mut self) {
-        let pending_operations = mem::replace(&mut self.pending_operations, BTreeSet::new());
+        let pending_operations = std::mem::take(&mut self.pending_operations);
         pending_operations
             .into_iter()
             .for_each(|op| op.apply(&mut self.persisted_state));
@@ -239,7 +226,9 @@ impl Application for KVStoreABCI<'_> {
             .collect::<Option<BTreeSet<Operation>>>()
         else {
             error!("Cannot decode transactions");
-            return Err(abci::ResponseException {error:"cannot decode transactions".to_string()});
+            return Err(abci::ResponseException {
+                error: "cannot decode transactions".to_string(),
+            });
         };
 
         // Mark transactions that should be added to the proposed transactions
@@ -265,7 +254,9 @@ impl Application for KVStoreABCI<'_> {
 
         let Some(tx_records) = tx_records_encoded else {
             error!("cannot encode transactions");
-            return Err(ResponseException{error:"cannot encode transactions".to_string()});
+            return Err(ResponseException {
+                error: "cannot encode transactions".to_string(),
+            });
         };
 
         // Put both local and proposed transactions into staging area
@@ -298,7 +289,9 @@ impl Application for KVStoreABCI<'_> {
             .map(decode_transaction)
             .collect::<Option<BTreeSet<Operation>>>()
         else {
-            return Err(ResponseException{error:"cannot decode transactions".to_string()});
+            return Err(ResponseException {
+                error: "cannot decode transactions".to_string(),
+            });
         };
 
         let tx_results = tx_results_accept(td_proposed_transactions.len());
@@ -327,6 +320,7 @@ impl Application for KVStoreABCI<'_> {
             vote_extensions: vec![proto::abci::ExtendVoteExtension {
                 r#type: proto::types::VoteExtensionType::ThresholdRecover as i32,
                 extension: height,
+                sign_request_id: None,
             }],
         })
     }
@@ -358,6 +352,10 @@ impl Application for KVStoreABCI<'_> {
         assert_block_height(request.height, &kvstore_lock);
 
         kvstore_lock.commit();
+
+        // we want to end the test and shutdown the server
+        let cancel = CANCEL_TOKEN.clone();
+        cancel.cancel();
 
         Ok(Default::default())
     }

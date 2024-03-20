@@ -1,61 +1,62 @@
 //! Tenderdash ABCI Server.
 mod codec;
-mod tcp;
-mod unix;
+mod generic;
 
+#[cfg(feature = "tcp")]
 use std::{
-    io::{Read, Write},
     net::{IpAddr, SocketAddr, SocketAddrV4, SocketAddrV6},
-    panic::RefUnwindSafe,
     str::FromStr,
 };
 
-use tracing::{error, info};
+use futures::Future;
+#[cfg(feature = "tcp")]
+use tokio::net::TcpListener;
+#[cfg(feature = "unix")]
+use tokio::net::UnixListener;
+use tokio::{
+    runtime::{Handle, Runtime},
+    task::JoinHandle,
+};
+pub use tokio_util::sync::CancellationToken;
 
-use self::{tcp::TcpServer, unix::UnixSocketServer};
-use crate::{application::RequestDispatcher, proto::abci, server::codec::Codec, Error};
+use self::generic::GenericServer;
+use crate::{application::RequestDispatcher, Error};
 
-/// The size of the read buffer for each incoming connection to the ABCI
-/// server (1MB).
-pub(crate) const DEFAULT_SERVER_READ_BUF_SIZE: usize = 1024 * 1024;
+#[cfg(not(any(feature = "tcp", feature = "unix")))]
+compile_error!("At least one of `tcp` or `unix` features must be enabled");
 
 /// ABCI Server handle.
 ///
 /// Use [`Server::handle_connection()`] to accept connection and process all
 /// traffic in this connection. Each incoming connection will be processed using
 /// `app`.
-pub trait Server: RefUnwindSafe {
+pub trait Server {
     /// Process one incoming connection.
     ///
-    /// Returns when the connection is terminated or RequestDispatcher returns
-    /// error.
+    /// Returns when the connection is terminated, [CancellationToken::cancel()]
+    /// is called or RequestDispatcher returns `None`.
     ///
     /// It is safe to call this method multiple times after it finishes;
     /// however, errors must be examined and handled, as the connection
-    /// should not terminate.
-    fn handle_connection(&self) -> Result<(), Error>;
+    /// should not terminate. One exception is [Error::Cancelled], which
+    /// means server shutdown was requested.
+    fn next_client(&self) -> Result<(), Error>;
+
+    #[deprecated = "use `next_client()`"]
+    fn handle_connection(&self) -> Result<(), Error> {
+        self.next_client()
+    }
 }
 
-/// Create new ABCI server and bind to provided address/port or socket.
+/// ABCI server builder that creates and starts ABCI server
 ///
-/// Use [`handle_connection()`] to accept connection and process all traffic in
-/// this connection. Each incoming connection will be processed using `app`.
+/// Create new server with [`ServerBuilder::new()`], configure it as needed, and
+/// finalize using [`ServerBuilder::build()`]. This will create and start new
+/// ABCI server.
 ///
-/// # Arguments
-///
-/// * `address` - address in URI format, pointing either to TCP address and port
-///   (eg. `tcp://0.0.0.0:1234`, `tcp://[::1]:1234`) or Unix socket
-///   (`unix:///var/run/abci.sock`)
-/// * `app` - request dispatcher, most likely implementation of Application
-///   trait
-///
-///
-/// # Return
-///
-/// Returns [`Server`] which provides [`handle_connection()`] method. Call it
-/// in a loop to accept and process incoming connections.
-///
-/// [`handle_connection()`]: Server::handle_connection()
+/// Use [`Server::next_client()`] to accept connection from ABCI client
+/// (Tenderdash) and start processing incoming requests. Each incoming
+/// connection will be processed using `app`.
 ///
 /// # Examples
 ///
@@ -64,11 +65,202 @@ pub trait Server: RefUnwindSafe {
 /// impl tenderdash_abci::Application for MyAbciApplication {};
 /// let app = MyAbciApplication {};
 /// let bind_address = "unix:///tmp/abci.sock";
-/// let server = tenderdash_abci::start_server(&bind_address, app).expect("server failed");
+/// let server = tenderdash_abci::ServerBuilder::new(app, &bind_address).build().expect("server failed");
 /// loop {
-///     server.handle_connection();
+///     if let Err(tenderdash_abci::Error::Cancelled()) = server.next_client() {
+///         break;
+///     }
 /// }
 /// ```
+pub struct ServerBuilder<D>
+where
+    D: RequestDispatcher,
+{
+    app: D,
+    bind_address: String,
+    cancel: Option<CancellationToken>,
+    server_runtime: Option<ServerRuntime>,
+}
+
+impl<'a, App: RequestDispatcher + 'a> ServerBuilder<App> {
+    /// Create new server builder.
+    ///
+    /// # Arguments
+    ///
+    /// * `address` - address in URI format, pointing either to TCP address and
+    ///   port (eg. `tcp://0.0.0.0:1234`, `tcp://[::1]:1234`) or Unix socket
+    ///   (`unix:///var/run/abci.sock`)
+    /// * `app` - request dispatcher, most likely implementation of Application
+    ///   trait
+    pub fn new(app: App, address: &str) -> Self {
+        Self {
+            app,
+            bind_address: address.to_string(),
+            cancel: None,
+            server_runtime: None,
+        }
+    }
+
+    /// Build and start the ABCI server.
+    ///
+    /// # Return
+    ///
+    /// Returns [`Server`] which provides [`Server::next_client()`]
+    /// method. Call it in a loop to accept and process incoming
+    /// connections.
+    pub fn build(self) -> Result<Box<dyn Server + 'a>, crate::Error> {
+        let bind_address =
+            url::Url::parse(self.bind_address.as_ref()).expect("invalid bind address");
+        if bind_address.scheme() != "tcp" && bind_address.scheme() != "unix" {
+            panic!("app_address must be either tcp:// or unix://");
+        }
+        let server_runtime: ServerRuntime = self.server_runtime.unwrap_or_default();
+
+        let _guard = server_runtime.handle.enter();
+
+        // No cancel is defined, so we add some "mock"
+        let cancel = self.cancel.unwrap_or_default();
+
+        let server = match bind_address.scheme() {
+            #[cfg(feature = "tcp")]
+            "tcp" => Box::new(GenericServer::<App, TcpListener>::bind(
+                self.app,
+                parse_tcp_uri(bind_address),
+                cancel,
+                server_runtime,
+            )?) as Box<dyn Server + 'a>,
+            #[cfg(feature = "unix")]
+            "unix" => Box::new(GenericServer::<App, UnixListener>::bind(
+                self.app,
+                bind_address.path(),
+                cancel,
+                server_runtime,
+            )?) as Box<dyn Server + 'a>,
+            _ => panic!(
+                "listen address uses unsupported scheme `{}`",
+                bind_address.scheme()
+            ),
+        };
+
+        Ok(server)
+    }
+    /// Set a [CancellationToken] token to support graceful shutdown.
+    ///
+    /// Call [`CancellationToken::cancel()`] to stop the server gracefully.
+    ///
+    /// [`CancellationToken::cancel()`]: tokio_util::sync::CancellationToken::cancel()
+    pub fn with_cancel_token(self, cancel: CancellationToken) -> Self {
+        Self {
+            cancel: Some(cancel),
+            ..self
+        }
+    }
+    /// Set tokio [Runtime](tokio::runtime::Runtime) to use.
+    ///
+    /// By default, current tokio runtime is used. If no runtime is active
+    /// ([Handle::try_current()] returns error), new multi-threaded runtime
+    /// is started. If this is not what you want, use
+    /// [ServerBuilder::with_runtime()] to provide handler to correct Tokio
+    /// runtime.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use tokio::runtime::{Handle, Runtime};
+    /// use tenderdash_abci::{RequestDispatcher, ServerBuilder, CancellationToken, Application};
+    ///
+    /// // Your custom RequestDispatcher implementation
+    /// struct MyApp;
+    ///
+    /// impl Application for MyApp {}
+    ///
+    /// // Create a Tokio runtime
+    /// let runtime = Runtime::new().unwrap();
+    /// let runtime_handle = runtime.handle().clone();
+    ///
+    /// // Create an instance of your RequestDispatcher implementation
+    /// let app = MyApp;
+    ///
+    /// // Create cancellation token
+    /// let cancel = CancellationToken::new();
+    /// # cancel.cancel();
+    /// // Create a ServerBuilder instance and set the runtime using with_runtime()
+    ///     
+    /// let server = ServerBuilder::new(app, "tcp://0.0.0.0:17534")
+    ///     .with_runtime(runtime_handle)
+    ///     .with_cancel_token(cancel)
+    ///     .build();
+    /// ```
+    ///
+    /// In this example, we first create a Tokio runtime and get its handle.
+    /// Then we create an instance of our `MyApp` struct that implements the
+    /// `RequestDispatcher` trait. We create a `ServerBuilder` instance by
+    /// calling `new()` with our `MyApp` instance and then use the
+    /// `with_runtime()` method to set the runtime handle. Finally, you can
+    /// continue building your server and eventually run it.
+    ///
+    /// [Handle::try_current()]: tokio::runtime::Handle::try_current()
+    pub fn with_runtime(self, runtime_handle: Handle) -> Self {
+        Self {
+            server_runtime: Some(ServerRuntime {
+                _runtime: None,
+                handle: runtime_handle,
+            }),
+            ..self
+        }
+    }
+}
+
+/// Server runtime that must be alive for the whole lifespan of the server
+pub struct ServerRuntime {
+    /// Runtime stored here to ensure it is never dropped
+    _runtime: Option<Runtime>,
+    pub handle: Handle,
+}
+
+impl ServerRuntime {
+    pub fn block_on<F: std::future::Future>(&self, future: F) -> F::Output {
+        self.handle.block_on(future)
+    }
+
+    pub fn spawn<F>(&self, future: F) -> JoinHandle<F::Output>
+    where
+        F: Future + Send + 'static,
+        F::Output: Send + 'static,
+    {
+        self.handle.spawn(future)
+    }
+}
+
+impl Default for ServerRuntime {
+    /// Return default server runtime.
+    ///
+    /// If tokio runtime is already initialized and entered, returns handle to
+    /// it. Otherwise, creates new runtime and returns handle AND the
+    /// runtime itself.
+    fn default() -> Self {
+        match Handle::try_current() {
+            Ok(runtime_handle) => Self {
+                handle: runtime_handle,
+                _runtime: None,
+            },
+            Err(_) => {
+                let rt = tokio::runtime::Builder::new_multi_thread()
+                    .worker_threads(4)
+                    .enable_all()
+                    .build()
+                    .expect("cannot create runtime");
+                tracing::trace!("created new runtime");
+                Self {
+                    handle: rt.handle().clone(),
+                    _runtime: Some(rt),
+                }
+            },
+        }
+    }
+}
+
+#[deprecated = "use `ServerBuilder::new(app, &bind_address).build()` instead"]
 pub fn start_server<'a, App: RequestDispatcher + 'a, Addr>(
     bind_address: Addr,
     app: App,
@@ -76,63 +268,9 @@ pub fn start_server<'a, App: RequestDispatcher + 'a, Addr>(
 where
     Addr: AsRef<str>,
 {
-    let app_address = url::Url::parse(bind_address.as_ref()).expect("invalid app address");
-    if app_address.scheme() != "tcp" && app_address.scheme() != "unix" {
-        panic!("app_address must be either tcp:// or unix://");
-    }
-
-    let server = match app_address.scheme() {
-        "tcp" => {
-            Box::new(TcpServer::bind(app, parse_tcp_uri(app_address))?) as Box<dyn Server + 'a>
-        },
-        "unix" => Box::new(UnixSocketServer::bind(
-            app,
-            app_address.path(),
-            DEFAULT_SERVER_READ_BUF_SIZE,
-        )?) as Box<dyn Server + 'a>,
-        _ => panic!(
-            "listen address uses unsupported scheme `{}`",
-            app_address.scheme()
-        ),
-    };
-
-    Ok(server)
+    ServerBuilder::new(app, bind_address.as_ref()).build()
 }
-
-/// handle_client accepts one client connection and handles received messages.
-pub(crate) fn handle_client<App, S>(
-    stream: S,
-    name: String,
-    app: &App,
-    read_buf_size: usize,
-) -> Result<(), Error>
-where
-    App: RequestDispatcher,
-    S: Read + Write,
-{
-    let mut codec = Codec::new(stream, read_buf_size);
-    info!("Listening for incoming requests from {}", name);
-
-    loop {
-        let Some(request) = codec.receive()? else {
-            error!("Client {} terminated stream", name);
-            return Ok(())
-        };
-
-        let Some(response) = app.handle(request.clone())  else {
-            // `RequestDispatcher` decided to stop receiving new requests:
-            info!("ABCI Application is shutting down");
-            return Ok(());
-        };
-
-        if let Some(abci::response::Value::Exception(ex)) = response.value.clone() {
-            error!(error = ex.error, ?request, "error processing request")
-        }
-
-        codec.send(response)?;
-    }
-}
-
+#[cfg(feature = "tcp")]
 fn parse_tcp_uri(uri: url::Url) -> SocketAddr {
     let host = uri.host_str().unwrap();
     // remove '[' and ']' from ipv6 address, as per https://github.com/servo/rust-url/issues/770

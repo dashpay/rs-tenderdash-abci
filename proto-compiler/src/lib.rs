@@ -1,41 +1,40 @@
-//! Convert Tenderdash ABCI++ protocol buffers (protobuf3) definitions to Rust.
-//!
-//! This tool is for internal use. Used by tenderdash-proto/build.rs.
-use std::{
-    env::{self, var},
-    path::PathBuf,
-};
+use std::{env::var, path::PathBuf};
 
 use tempfile::tempdir;
 
 mod functions;
 use functions::{
     abci_version, copy_files, fetch_commitish, find_proto_files, generate_tenderdash_lib,
-    tenderdash_commitish,
+    tenderdash_commitish, tenderdash_version,
 };
 
 mod constants;
 use constants::{CUSTOM_FIELD_ATTRIBUTES, CUSTOM_TYPE_ATTRIBUTES, TENDERDASH_REPO};
 
-/// Internal tool to download and compile protobuf definitions for Tenderdash.
+use crate::functions::{check_state, save_state};
+
+/// Import and compile protobuf definitions for Tenderdash.
 ///
 /// Checkouts tenderdash repository to ../target/tenderdash and generates
 /// Rust protobuf definitions in ../proto/src/prost/ and
 /// ../proto/src/tenderdash.rs
 pub fn proto_compile() {
     let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+
     let tenderdash_lib_target = root
         .join("..")
         .join("proto")
         .join("src")
         .join("tenderdash.rs");
-    let target_dir = root.join("..").join("proto").join("src").join("prost");
+
+    let prost_out_dir = root.join("..").join("proto").join("src").join("prost");
+
     let out_dir = var("OUT_DIR")
         .map(PathBuf::from)
         .or_else(|_| tempdir().map(|d| d.into_path()))
         .unwrap();
 
-    let cargo_target_dir = match env::var("CARGO_TARGET_DIR") {
+    let cargo_target_dir = match std::env::var("CARGO_TARGET_DIR") {
         Ok(s) => PathBuf::from(s),
         Err(_) => root.join("..").join("target"),
     };
@@ -50,13 +49,37 @@ pub fn proto_compile() {
     let thirdparty_dir = root.join("third_party");
 
     let commitish = tenderdash_commitish();
-    println!("[info] => Fetching {TENDERDASH_REPO} at {commitish} into {tenderdash_dir:?}");
-    fetch_commitish(&PathBuf::from(&tenderdash_dir), TENDERDASH_REPO, &commitish); // This panics if it fails.
 
+    // check if this commitish is already downloaded
+    let download = std::fs::metadata(tenderdash_dir.join("proto")).is_err()
+        || !check_state(&prost_out_dir, &commitish);
+
+    if download {
+        println!("[info] => Fetching {TENDERDASH_REPO} at {commitish} into {tenderdash_dir:?}.");
+        fetch_commitish(
+            &PathBuf::from(&tenderdash_dir),
+            &cargo_target_dir,
+            TENDERDASH_REPO,
+            &commitish,
+        ); // This panics if it fails.
+    } else {
+        println!("[info] => Skipping download.");
+    }
+
+    // We need all files in proto/tendermint/abci, plus .../types/canonical.proto
+    // for signature verification
     let proto_paths = vec![tenderdash_dir.join("proto").join("tendermint").join("abci")];
     let proto_includes_paths = vec![tenderdash_dir.join("proto"), thirdparty_dir];
     // List available proto files
-    let protos = find_proto_files(proto_paths);
+    let mut protos = find_proto_files(proto_paths);
+    // On top of that, we add canonical.proto, required to verify signatures
+    protos.push(
+        tenderdash_dir
+            .join("proto")
+            .join("tendermint")
+            .join("types")
+            .join("canonical.proto"),
+    );
 
     let mut pb = prost_build::Config::new();
 
@@ -81,15 +104,25 @@ pub fn proto_compile() {
     );
 
     println!("[info] => Determining ABCI protocol version.");
-    let abci_ver = abci_version(tenderdash_dir);
+    let abci_ver = abci_version(&tenderdash_dir);
+    let tenderdash_ver = tenderdash_version(tenderdash_dir);
 
     println!("[info] => Creating structs.");
+
+    #[cfg(feature = "grpc")]
+    tonic_build::configure()
+        .generate_default_stubs(true)
+        .compile_with_config(pb, &protos, &proto_includes_paths)
+        .unwrap();
+
+    #[cfg(not(feature = "grpc"))]
     pb.compile_protos(&protos, &proto_includes_paths).unwrap();
 
     println!("[info] => Removing old structs and copying new structs.");
-    copy_files(&out_dir, &target_dir); // This panics if it fails.
+    copy_files(&out_dir, &prost_out_dir); // This panics if it fails.
 
-    generate_tenderdash_lib(&out_dir, &tenderdash_lib_target, &abci_ver);
+    generate_tenderdash_lib(&out_dir, &tenderdash_lib_target, &abci_ver, &tenderdash_ver);
 
+    save_state(&prost_out_dir, &commitish);
     println!("[info] => Done!");
 }

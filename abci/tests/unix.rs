@@ -4,12 +4,13 @@ use tenderdash_abci::RequestDispatcher;
 mod common;
 use std::{fs, os::unix::prelude::PermissionsExt};
 
-use tenderdash_abci::{proto, start_server};
+use tenderdash_abci::proto;
 use tracing_subscriber::filter::LevelFilter;
 
 const SOCKET: &str = "/tmp/abci.sock";
 
 #[cfg(feature = "docker-tests")]
+#[cfg(feature = "unix")]
 #[test]
 /// Feature: ABCI App socket server
 ///
@@ -18,6 +19,8 @@ const SOCKET: &str = "/tmp/abci.sock";
 /// * When we estabilish connection with Tenderdash
 /// * Then Tenderdash sends Info request
 fn test_unix_socket_server() {
+    use tenderdash_abci::ServerBuilder;
+
     tracing_subscriber::fmt()
         .with_max_level(LevelFilter::DEBUG)
         .init();
@@ -25,7 +28,10 @@ fn test_unix_socket_server() {
     let bind_address = format!("unix://{}", SOCKET);
 
     let app = TestDispatcher {};
-    let server = start_server(&bind_address, app).expect("server failed");
+
+    let server = ServerBuilder::new(app, &bind_address)
+        .build()
+        .expect("server failed");
 
     let perms = fs::Permissions::from_mode(0o777);
     fs::set_permissions(SOCKET, perms).expect("set perms");
@@ -38,7 +44,7 @@ fn test_unix_socket_server() {
 
     common::docker::setup_td_logs_panic(&td);
 
-    assert!(matches!(server.handle_connection(), Ok(())));
+    assert!(matches!(server.next_client(), Ok(())));
 }
 
 /// Returns error containing string [`INFO_CALLED_ERROR`] when Tenderdash calls

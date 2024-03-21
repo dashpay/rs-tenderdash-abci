@@ -1,6 +1,8 @@
 //! Serialize/deserialize Timestamp type from and into string:
-
+#[cfg(not(feature = "std"))]
 use core::fmt::{self, Debug};
+#[cfg(feature = "std")]
+use std::fmt::{self, Debug};
 
 use serde::{de::Error as _, ser::Error, Deserialize, Deserializer, Serialize, Serializer};
 use time::{
@@ -45,8 +47,9 @@ pub trait ToMilis {
 impl ToMilis for Timestamp {
     /// Convert protobuf timestamp into miliseconds since epoch
     fn to_milis(&self) -> u64 {
-        chrono::NaiveDateTime::from_timestamp_opt(self.seconds, self.nanos as u32)
+        chrono::DateTime::from_timestamp(self.seconds, self.nanos as u32)
             .unwrap()
+            .to_utc()
             .timestamp_millis()
             .try_into()
             .expect("timestamp value out of u64 range")
@@ -73,12 +76,13 @@ impl FromMilis for Timestamp {
     ///  
     /// Panics when `millis` don't fit `i64` type
     fn from_milis(millis: u64) -> Self {
-        let dt = chrono::NaiveDateTime::from_timestamp_millis(
+        let dt = chrono::DateTime::from_timestamp_millis(
             millis
                 .try_into()
                 .expect("milliseconds timestamp out of i64 range"),
         )
-        .expect("cannot parse timestamp");
+        .expect("cannot parse timestamp")
+        .to_utc();
 
         Self {
             nanos: dt.timestamp_subsec_nanos() as i32,
@@ -147,8 +151,8 @@ pub fn to_rfc3339_nanos(t: OffsetDateTime) -> String {
 /// ie. a RFC3339 date-time with left-padded subsecond digits without
 ///     trailing zeros and no trailing dot.
 ///
-/// [`Display`]: core::fmt::Display
-/// [`Debug`]: core::fmt::Debug
+/// [`Display`]: fmt::Display
+/// [`Debug`]: fmt::Debug
 pub fn fmt_as_rfc3339_nanos(t: OffsetDateTime, f: &mut impl fmt::Write) -> fmt::Result {
     let t = t.to_offset(offset!(UTC));
     let nanos = t.nanosecond();

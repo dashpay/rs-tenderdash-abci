@@ -56,7 +56,6 @@ pub static CUSTOM_TYPE_ATTRIBUTES: &[(&str, &str)] = &[
     (".tendermint.abci.Event", SERIALIZED),
     (".tendermint.abci.EventAttribute", SERIALIZED),
     (".tendermint.libs.bits.BitArray", SERIALIZED),
-    (".tendermint.types.EvidenceParams", SERIALIZED),
     (".tendermint.types.BlockIDFlag", PRIMITIVE_ENUM),
     (".tendermint.types.Block", SERIALIZED),
     (".tendermint.types.Data", SERIALIZED),
@@ -93,6 +92,15 @@ pub static CUSTOM_TYPE_ATTRIBUTES: &[(&str, &str)] = &[
     (".tendermint.crypto.Proof", SERIALIZED),
     (".tendermint.abci.Response.value", DERIVE_FROM),
     (".tendermint.abci.Request.value", DERIVE_FROM),
+    // Consensus params
+    (".tendermint.types.ConsensusParams", SERIALIZED),
+    (".tendermint.types.ABCIParams", SERIALIZED),
+    (".tendermint.types.BlockParams", SERIALIZED),
+    (".tendermint.types.EvidenceParams", SERIALIZED),
+    (".tendermint.types.ValidatorParams", SERIALIZED),
+    (".tendermint.types.VersionParams", SERIALIZED),
+    (".tendermint.types.SynchronyParams", SERIALIZED),
+    (".tendermint.types.TimeoutParams", SERIALIZED),
 ];
 
 /// Custom field attributes applied on top of protobuf fields in (a) struct(s)
@@ -101,10 +109,6 @@ pub static CUSTOM_TYPE_ATTRIBUTES: &[(&str, &str)] = &[
 /// The first item is a path as defined in the prost_build::Config::btree_map
 /// here: <https://docs.rs/prost-build/0.6.1/prost_build/struct.Config.html#method.btree_map>
 pub static CUSTOM_FIELD_ATTRIBUTES: &[(&str, &str)] = &[
-    (
-        ".tendermint.types.EvidenceParams.max_bytes",
-        QUOTED_WITH_DEFAULT,
-    ),
     (".tendermint.version.Consensus.block", QUOTED),
     (".tendermint.version.Consensus.app", QUOTED_WITH_DEFAULT),
     (".tendermint.abci.ResponseInfo.data", DEFAULT),
@@ -202,4 +206,22 @@ pub static CUSTOM_FIELD_ATTRIBUTES: &[(&str, &str)] = &[
     (".tendermint.crypto.Proof.total", QUOTED),
     (".tendermint.crypto.Proof.aunts", VEC_BASE64STRING),
     (".tendermint.crypto.Proof.leaf_hash", BASE64STRING),
+    // Consensus params
+    (
+        ".tendermint.types.BlockParams.max_bytes",
+        QUOTED_WITH_DEFAULT,
+    ),
+    (".tendermint.types.BlockParams.max_gas", QUOTED_WITH_DEFAULT),
+    (
+        ".tendermint.types.EvidenceParams.max_age_num_blocks",
+        QUOTED_WITH_DEFAULT,
+    ),
+    (
+        ".tendermint.types.EvidenceParams.max_bytes",
+        QUOTED_WITH_DEFAULT,
+    ),
+    (
+        ".tendermint.types.VersionParams.app_version",
+        QUOTED_WITH_DEFAULT,
+    ),
 ];

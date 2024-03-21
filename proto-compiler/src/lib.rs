@@ -11,6 +11,8 @@ use functions::{
 mod constants;
 use constants::{CUSTOM_FIELD_ATTRIBUTES, CUSTOM_TYPE_ATTRIBUTES, TENDERDASH_REPO};
 
+use crate::functions::{check_state, save_state};
+
 /// Import and compile protobuf definitions for Tenderdash.
 ///
 /// Checkouts tenderdash repository to ../target/tenderdash and generates
@@ -25,7 +27,7 @@ pub fn proto_compile() {
         .join("src")
         .join("tenderdash.rs");
 
-    let target_dir = root.join("..").join("proto").join("src").join("prost");
+    let prost_out_dir = root.join("..").join("proto").join("src").join("prost");
 
     let out_dir = var("OUT_DIR")
         .map(PathBuf::from)
@@ -47,13 +49,22 @@ pub fn proto_compile() {
     let thirdparty_dir = root.join("third_party");
 
     let commitish = tenderdash_commitish();
-    println!("[info] => Fetching {TENDERDASH_REPO} at {commitish} into {tenderdash_dir:?}");
-    fetch_commitish(
-        &PathBuf::from(&tenderdash_dir),
-        &cargo_target_dir,
-        TENDERDASH_REPO,
-        &commitish,
-    ); // This panics if it fails.
+
+    // check if this commitish is already downloaded
+    let download = std::fs::metadata(tenderdash_dir.join("proto")).is_err()
+        || !check_state(&prost_out_dir, &commitish);
+
+    if download {
+        println!("[info] => Fetching {TENDERDASH_REPO} at {commitish} into {tenderdash_dir:?}.");
+        fetch_commitish(
+            &PathBuf::from(&tenderdash_dir),
+            &cargo_target_dir,
+            TENDERDASH_REPO,
+            &commitish,
+        ); // This panics if it fails.
+    } else {
+        println!("[info] => Skipping download.");
+    }
 
     // We need all files in proto/tendermint/abci, plus .../types/canonical.proto
     // for signature verification
@@ -97,12 +108,21 @@ pub fn proto_compile() {
     let tenderdash_ver = tenderdash_version(tenderdash_dir);
 
     println!("[info] => Creating structs.");
+
+    #[cfg(feature = "grpc")]
+    tonic_build::configure()
+        .generate_default_stubs(true)
+        .compile_with_config(pb, &protos, &proto_includes_paths)
+        .unwrap();
+
+    #[cfg(not(feature = "grpc"))]
     pb.compile_protos(&protos, &proto_includes_paths).unwrap();
 
     println!("[info] => Removing old structs and copying new structs.");
-    copy_files(&out_dir, &target_dir); // This panics if it fails.
+    copy_files(&out_dir, &prost_out_dir); // This panics if it fails.
 
     generate_tenderdash_lib(&out_dir, &tenderdash_lib_target, &abci_ver, &tenderdash_ver);
 
+    save_state(&prost_out_dir, &commitish);
     println!("[info] => Done!");
 }

@@ -1,7 +1,8 @@
 use std::env;
 
 fn main() {
-    const DEFAULT_VERSION: &str = "v0.14.0-dev.2";
+    // default Tenderdash version to use if TENDERDASH_COMMITISH is not set
+    const DEFAULT_VERSION: &str = "v0.14.0-dev.4";
 
     // check if TENDERDASH_COMMITISH is already set; if not, set it to the current
     // version

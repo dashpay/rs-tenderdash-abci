@@ -22,7 +22,7 @@ pub use application::{check_version, Application, RequestDispatcher};
 use prost::{DecodeError, EncodeError};
 #[allow(deprecated)]
 #[cfg(feature = "server")]
-pub use server::{start_server, CancellationToken, Server, ServerBuilder};
+pub use server::{start_server, CancellationToken, Server, ServerBuilder, ServerRuntime};
 pub use tenderdash_proto as proto;
 
 #[cfg(feature = "crypto")]

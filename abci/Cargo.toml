@@ -1,5 +1,5 @@
 [package]
-version = "0.14.0-dev.7"
+version = "0.14.0-dev.10"
 name = "tenderdash-abci"
 edition = "2021"
 license = "Apache-2.0"
@@ -11,7 +11,15 @@ description = """tenderdash-abci provides a simple framework with which to build
 low-level applications on top of Tenderdash."""
 
 [features]
-default = ["server", "docker-tests", "crypto", "tcp", "unix", "tracing-span"]
+default = [
+    "server",
+    "docker-tests",
+    "crypto",
+    "tcp",
+    "unix",
+    "grpc",
+    "tracing-span",
+]
 # docker-tests includes integration tests that require docker to be available
 docker-tests = ["server"]
 server = [
@@ -20,6 +28,8 @@ server = [
     "dep:tokio-util",
     "dep:futures",
 ]
+
+grpc = ["tenderdash-proto/grpc"]
 crypto = ["dep:lhash"]
 tcp = ["server"]
 unix = ["server"]
@@ -62,8 +72,10 @@ futures = { version = "0.3.28", optional = true }
 anyhow = { version = "1.0.69" }
 bincode = { version = "2.0.0-rc.2" }
 blake2 = { version = "0.10.6" }
-bollard = { version = "0.15.0" }
+bollard = { version = "0.16.0" }
 futures = { version = "0.3.26" }
 tokio = { version = "1", features = ["macros", "signal", "time", "io-std"] }
 hex = { version = "0.4" }
 lazy_static = { version = "1.4" }
+# For tests of gRPC server
+tonic = { version = "0.11" }

@@ -183,7 +183,8 @@ impl<A: Application> RequestDispatcher for A {
         if let response::Value::Exception(_) = response {
             tracing::error!(?response, "sending ABCI exception");
         } else {
-            tracing::trace!(?response, "sending ABCI response");
+            let response_log = serialize_response_for_logging(&response);
+            tracing::trace!(?response_log, "sending ABCI response");
         };
 
         Some(abci::Response {

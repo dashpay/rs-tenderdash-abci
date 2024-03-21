@@ -275,7 +275,6 @@ fn exec_tx_results_to_string(tx_results: &Vec<ExecTxResult>) -> Vec<String> {
                 "data": data_hex,
                 "log": tx_result.log,
                 "info": tx_result.info,
-                "gas_wanted": tx_result.gas_wanted,
                 "gas_used": tx_result.gas_used,
                 "events": events_serialized,
                 "codespace": tx_result.codespace,

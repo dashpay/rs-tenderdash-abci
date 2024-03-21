@@ -1,5 +1,6 @@
 //! ABCI application interface.
 
+use tenderdash_proto::abci::{ExecTxResult, ValidatorSetUpdate};
 use tracing::{debug, error};
 
 use crate::proto::{
@@ -189,6 +190,128 @@ impl<A: Application> RequestDispatcher for A {
             value: Some(response),
         })
     }
+}
+
+fn serialize_response_for_logging(response: &response::Value) -> String {
+    match response {
+        response::Value::PrepareProposal(response) => {
+            let tx_records_hex: Vec<String> = response
+                .tx_records
+                .iter()
+                .map(|tx_record| {
+                    // Convert each byte array in tx_record to hex string
+                    let tx_hex = hex::encode(&tx_record.tx);
+                    serde_json::json!({
+                        "action": tx_record.action, // Adjust according to actual fields
+                        "tx": tx_hex,
+                    })
+                    .to_string()
+                })
+                .collect();
+
+            let app_hash_hex = hex::encode(&response.app_hash);
+
+            let tx_results_hex: Vec<String> = exec_tx_results_to_string(&response.tx_results);
+
+            let consensus_params = format!("{:?}", response.consensus_param_updates);
+
+            let validator_set_update =
+                validator_set_update_to_string(response.validator_set_update.as_ref());
+
+            serde_json::json!({
+                "tx_records": tx_records_hex,
+                "app_hash": app_hash_hex,
+                "tx_results": tx_results_hex,
+                "consensus_param_updates": consensus_params,
+                "core_chain_lock_update": response.core_chain_lock_update,
+                "validator_set_update": validator_set_update,
+            })
+            .to_string()
+        },
+        response::Value::ProcessProposal(response) => {
+            let status_string = match response.status {
+                0 => "Unknown",
+                1 => "Accepted",
+                2 => "Rejected",
+                _ => "Unknown(too high)",
+            };
+
+            let app_hash_hex = hex::encode(&response.app_hash);
+
+            let tx_results_hex: Vec<String> = exec_tx_results_to_string(&response.tx_results);
+
+            let consensus_params = format!("{:?}", response.consensus_param_updates);
+
+            let validator_set_update =
+                validator_set_update_to_string(response.validator_set_update.as_ref());
+
+            serde_json::json!({
+                "status": status_string,
+                "app_hash": app_hash_hex,
+                "tx_results": tx_results_hex,
+                "consensus_param_updates": consensus_params,
+                "validator_set_update": validator_set_update,
+            })
+            .to_string()
+        },
+        value => format!("{:?}", value),
+    }
+}
+
+fn exec_tx_results_to_string(tx_results: &Vec<ExecTxResult>) -> Vec<String> {
+    tx_results
+        .iter()
+        .map(|tx_result| {
+            let data_hex = hex::encode(&tx_result.data);
+
+            // Assuming `Event` is another complex type, you would serialize it similarly.
+            // Here, we'll just represent events as an array of placeholders. You should
+            // replace this with the actual serialization of `Event`.
+            let events_serialized = format!("{:?}", tx_result.events);
+
+            serde_json::json!({
+                "code": tx_result.code,
+                "data": data_hex,
+                "log": tx_result.log,
+                "info": tx_result.info,
+                "gas_wanted": tx_result.gas_wanted,
+                "gas_used": tx_result.gas_used,
+                "events": events_serialized,
+                "codespace": tx_result.codespace,
+            })
+            .to_string()
+        })
+        .collect()
+}
+
+fn validator_set_update_to_string(validator_set_update: Option<&ValidatorSetUpdate>) -> String {
+    validator_set_update
+        .as_ref()
+        .map(|validator_set_update| {
+            let quorum_hash_hex = hex::encode(&validator_set_update.quorum_hash);
+
+            let validator_updates_string: Vec<String> = validator_set_update
+                .validator_updates
+                .iter()
+                .map(|validator_update| {
+                    let pro_tx_hash_hex = hex::encode(&validator_update.pro_tx_hash);
+                    serde_json::json!({
+                    "pub_key" : validator_update.pub_key,
+                                        "power" :validator_update.power,
+                    "pro_tx_hash" : pro_tx_hash_hex,
+                    "node_address" : validator_update.node_address,
+                                })
+                    .to_string()
+                })
+                .collect();
+            serde_json::json!({
+            "validator_updates": validator_updates_string,
+            "threshold_public_key": validator_set_update.threshold_public_key,
+            "quorum_hash": quorum_hash_hex,
+                        })
+            .to_string()
+        })
+        .unwrap_or("None".to_string())
 }
 
 /// Check if ABCI version sent by Tenderdash matches version of linked protobuf

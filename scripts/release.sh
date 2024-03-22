@@ -19,7 +19,7 @@ Arguments:
 
 Examples:
 
-   ./scripts/release.sh -t 0.14.0-dev.2 -a 0.14.0-dev.6
+   ./scripts/release.sh -t 0.14.0-dev.2 -a 0.14.0-dev.7
    ./scripts/release.sh -t 0.14.5 -a 0.14.12
 
 

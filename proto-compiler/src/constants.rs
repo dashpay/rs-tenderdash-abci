@@ -53,6 +53,8 @@ const DERIVE_FROM_STR: &str = r#"#[derive(derive_more::FromStr)]"#;
 /// The first item is a path as defined in the prost_build::Config::btree_map
 /// here: <https://docs.rs/prost-build/0.6.1/prost_build/struct.Config.html#method.btree_map>
 pub static CUSTOM_TYPE_ATTRIBUTES: &[(&str, &str)] = &[
+    (".tendermint.abci.Event", SERIALIZED),
+    (".tendermint.abci.EventAttribute", SERIALIZED),
     (".tendermint.libs.bits.BitArray", SERIALIZED),
     (".tendermint.types.BlockIDFlag", PRIMITIVE_ENUM),
     (".tendermint.types.Block", SERIALIZED),

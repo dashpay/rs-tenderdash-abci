@@ -259,7 +259,7 @@ fn serialize_response_for_logging(response: &response::Value) -> String {
     }
 }
 
-fn exec_tx_results_to_string(tx_results: &Vec<ExecTxResult>) -> Vec<String> {
+fn exec_tx_results_to_string(tx_results: &[ExecTxResult]) -> Vec<String> {
     tx_results
         .iter()
         .map(|tx_result| {

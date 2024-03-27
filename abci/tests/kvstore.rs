@@ -270,6 +270,7 @@ impl Application for KVStoreABCI<'_> {
             tx_records,
             tx_results,
             app_hash: kvstore_lock.calculate_uncommited_state_hash().to_vec(),
+            app_version: 1,
             ..Default::default()
         })
     }

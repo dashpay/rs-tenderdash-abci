@@ -11,7 +11,10 @@ fn main() {
         env::set_var("TENDERDASH_COMMITISH", DEFAULT_VERSION);
     }
 
-    tenderdash_proto_compiler::proto_compile();
+    #[cfg(feature = "std")]
+    tenderdash_proto_compiler::proto_compile("tenderdash_std");
+    #[cfg(not(feature = "std"))]
+    tenderdash_proto_compiler::proto_compile("tenderdash_nostd");
 
     println!("cargo:rerun-if-changed=../proto-compiler/src");
     println!("cargo:rerun-if-changed=Cargo.toml");

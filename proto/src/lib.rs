@@ -20,8 +20,6 @@ pub mod google {
 }
 
 mod error;
-#[allow(warnings)]
-mod tenderdash;
 
 #[cfg(not(feature = "std"))]
 use core::{
@@ -34,12 +32,22 @@ use std::fmt::Display;
 use bytes::{Buf, BufMut};
 pub use error::Error;
 use prost::{encoding::encoded_len_varint, Message};
-pub use tenderdash::*;
+#[cfg(not(feature = "std"))]
+#[rustfmt::skip]
+pub mod tenderdash_nostd;
+#[cfg(not(feature = "std"))]
+pub use tenderdash_nostd::*;
+
+#[cfg(feature = "std")]
+#[rustfmt::skip]
+pub mod tenderdash_std;
+#[cfg(feature = "std")]
+pub use tenderdash_std::*;
 
 pub mod serializers;
 
+pub use meta::ABCI_VERSION;
 use prelude::*;
-pub use tenderdash::meta::ABCI_VERSION;
 #[cfg(feature = "grpc")]
 pub use tonic;
 

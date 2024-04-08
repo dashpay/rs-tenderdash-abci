@@ -247,6 +247,7 @@ pub fn generate_tenderdash_lib(
     tenderdash_lib_target: &Path,
     abci_ver: &str,
     td_ver: &str,
+    module_name: &str,
 ) {
     let mut file_names = WalkDir::new(prost_dir)
         .into_iter()
@@ -276,11 +277,7 @@ pub fn generate_tenderdash_lib(
 
         let mut tab_count = parts.len();
 
-        let mut inner_content = format!(
-            "{}include!(\"prost/{}\");",
-            tab.repeat(tab_count),
-            file_name
-        );
+        let mut inner_content = format!("{}include!(\"./{}\");", tab.repeat(tab_count), file_name);
 
         for part in parts {
             tab_count -= 1;
@@ -304,6 +301,8 @@ pub mod meta {{
     pub const ABCI_VERSION: &str = \"{}\";
     /// Version of Tenderdash server used to generate protobuf configs
     pub const TENDERDASH_VERSION: &str = \"{}\";
+    /// Name of module where generated files are stored; used to distinguish between std and no-std version
+    pub const TENDERDASH_MODULE_NAME: &str = \"{}\";
 }}
 ",
         content,
@@ -311,6 +310,7 @@ pub mod meta {{
         tenderdash_commitish(),
         abci_ver,
         td_ver,
+        module_name,
     );
 
     let mut file =
@@ -348,10 +348,12 @@ pub(crate) fn save_state(dir: &Path, commitish: &str) {
 pub(crate) fn check_state(dir: &Path, commitish: &str) -> bool {
     let state_file = PathBuf::from(&dir).join("download.state");
 
+    let expected = commitish.to_string();
+
     match read_to_string(state_file) {
         Ok(content) => {
-            println!("[info] => Detected Tenderdash version: {}.", content.trim());
-            content.eq(commitish)
+            println!("[info] => Detected Tenderdash version: {}.", content);
+            content == expected
         },
         Err(_) => false,
     }

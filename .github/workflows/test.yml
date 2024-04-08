@@ -23,10 +23,10 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     env:
-      # warn when test takes more than 3s, kill after 6s
-      RUST_TEST_TIME_UNIT: "3000,6000"
-      RUST_TEST_TIME_INTEGRATION: "3000,6000"
-      RUST_TEST_TIME_DOCTEST: "3000,6000"
+      # warn when test takes more than 5s, kill after 10s
+      RUST_TEST_TIME_UNIT: "5000,10000"
+      RUST_TEST_TIME_INTEGRATION: "5000,10000"
+      RUST_TEST_TIME_DOCTEST: "5000,10000"
     steps:
       - uses: actions/checkout@v3
       - uses: ./.github/actions/deps

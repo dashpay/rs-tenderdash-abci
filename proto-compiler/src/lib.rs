@@ -51,7 +51,7 @@ pub fn proto_compile(module_name: &str) {
 
     // check if this commitish is already downloaded
     let download = std::fs::metadata(tenderdash_dir.join("proto")).is_err()
-        || !check_state(&prost_out_dir, &commitish, module_name);
+        || !check_state(&prost_out_dir, &commitish);
 
     if download {
         println!("[info] => Fetching {TENDERDASH_REPO} at {commitish} into {tenderdash_dir:?}.");
@@ -128,6 +128,6 @@ pub fn proto_compile(module_name: &str) {
         module_name,
     );
 
-    save_state(&prost_out_dir, &commitish, module_name);
+    save_state(&prost_out_dir, &commitish);
     println!("[info] => Done!");
 }

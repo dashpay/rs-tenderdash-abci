@@ -1,11 +1,10 @@
 use std::{
     env,
-    fs::{copy, create_dir_all, read, read_to_string, remove_dir_all, File},
+    fs::{copy, create_dir_all, read_to_string, remove_dir_all, File},
     io::Write,
     path::{Path, PathBuf},
 };
 
-use prost::Message;
 use walkdir::WalkDir;
 
 use crate::constants::DEFAULT_TENDERDASH_COMMITISH;
@@ -329,15 +328,10 @@ pub(crate) fn tenderdash_commitish() -> String {
 
 /// Save the commitish of last successful download to a file in a state file,
 /// located in the `dir` directory and named `download.state`.
-pub(crate) fn save_state(dir: &Path, commitish: &str, module: &str) {
+pub(crate) fn save_state(dir: &Path, commitish: &str) {
     let state_file = PathBuf::from(&dir).join("download.state");
 
-    let state = StateInfo {
-        commitish: commitish.to_string(),
-        module_name: module.to_string(),
-    };
-
-    std::fs::write(&state_file, state.encode_to_vec())
+    std::fs::write(&state_file, commitish)
         .map_err(|e| {
             println!(
                 "[warn] => Failed to write download.state file {}: {}",
@@ -348,48 +342,18 @@ pub(crate) fn save_state(dir: &Path, commitish: &str, module: &str) {
         .ok();
 }
 
-#[derive(prost::Message)]
-struct StateInfo {
-    #[prost(string, tag = "1")]
-    commitish: String,
-    #[prost(string, tag = "2")]
-    module_name: String,
-}
-
-impl PartialEq for StateInfo {
-    fn eq(&self, other: &Self) -> bool {
-        self.commitish == other.commitish && self.module_name == other.module_name
-    }
-}
-
 /// Check if the state file contains the same commitish as the one we are trying
 /// to download. State file should be located in the `dir` and named
 /// `download.state`
-pub(crate) fn check_state(dir: &Path, commitish: &str, module_name: &str) -> bool {
+pub(crate) fn check_state(dir: &Path, commitish: &str) -> bool {
     let state_file = PathBuf::from(&dir).join("download.state");
 
-    let expected = StateInfo {
-        commitish: commitish.to_string(),
-        module_name: module_name.to_string(),
-    };
+    let expected = commitish.to_string();
 
-    match read(&state_file) {
-        Ok(content) => match StateInfo::decode(content.as_slice()) {
-            Ok(state) => {
-                println!(
-                    "[info] => Detected Tenderdash version: {}.",
-                    state.commitish
-                );
-                state.eq(&expected)
-            },
-            Err(e) => {
-                println!(
-                    "[warn] => Failed to decode download.state file {}: {}",
-                    state_file.display(),
-                    e
-                );
-                false
-            },
+    match read_to_string(&state_file) {
+        Ok(content) => {
+            println!("[info] => Detected Tenderdash version: {}.", content);
+            content == expected
         },
         Err(_) => false,
     }

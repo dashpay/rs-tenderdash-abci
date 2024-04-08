@@ -18,16 +18,15 @@ use crate::functions::{check_state, save_state};
 /// Checkouts tenderdash repository to ../target/tenderdash and generates
 /// Rust protobuf definitions in ../proto/src/prost/ and
 /// ../proto/src/tenderdash.rs
-pub fn proto_compile() {
+///
+/// # Arguments
+///
+/// * `module_name` - name of module to put generated files into
+pub fn proto_compile(module_name: &str) {
     let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
 
-    let tenderdash_lib_target = root
-        .join("..")
-        .join("proto")
-        .join("src")
-        .join("tenderdash.rs");
-
-    let prost_out_dir = root.join("..").join("proto").join("src").join("prost");
+    let prost_out_dir = root.join("..").join("proto").join("src").join(module_name);
+    let tenderdash_lib_target = prost_out_dir.join("mod.rs");
 
     let out_dir = var("OUT_DIR")
         .map(PathBuf::from)
@@ -52,7 +51,7 @@ pub fn proto_compile() {
 
     // check if this commitish is already downloaded
     let download = std::fs::metadata(tenderdash_dir.join("proto")).is_err()
-        || !check_state(&prost_out_dir, &commitish);
+        || !check_state(&prost_out_dir, &commitish, module_name);
 
     if download {
         println!("[info] => Fetching {TENDERDASH_REPO} at {commitish} into {tenderdash_dir:?}.");
@@ -121,8 +120,14 @@ pub fn proto_compile() {
     println!("[info] => Removing old structs and copying new structs.");
     copy_files(&out_dir, &prost_out_dir); // This panics if it fails.
 
-    generate_tenderdash_lib(&out_dir, &tenderdash_lib_target, &abci_ver, &tenderdash_ver);
+    generate_tenderdash_lib(
+        &out_dir,
+        &tenderdash_lib_target,
+        &abci_ver,
+        &tenderdash_ver,
+        module_name,
+    );
 
-    save_state(&prost_out_dir, &commitish);
+    save_state(&prost_out_dir, &commitish, module_name);
     println!("[info] => Done!");
 }

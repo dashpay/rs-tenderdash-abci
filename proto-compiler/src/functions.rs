@@ -1,10 +1,11 @@
 use std::{
     env,
-    fs::{copy, create_dir_all, read_to_string, remove_dir_all, File},
+    fs::{copy, create_dir_all, read, read_to_string, remove_dir_all, File},
     io::Write,
     path::{Path, PathBuf},
 };
 
+use prost::Message;
 use walkdir::WalkDir;
 
 use crate::constants::DEFAULT_TENDERDASH_COMMITISH;
@@ -247,6 +248,7 @@ pub fn generate_tenderdash_lib(
     tenderdash_lib_target: &Path,
     abci_ver: &str,
     td_ver: &str,
+    module_name: &str,
 ) {
     let mut file_names = WalkDir::new(prost_dir)
         .into_iter()
@@ -276,11 +278,7 @@ pub fn generate_tenderdash_lib(
 
         let mut tab_count = parts.len();
 
-        let mut inner_content = format!(
-            "{}include!(\"prost/{}\");",
-            tab.repeat(tab_count),
-            file_name
-        );
+        let mut inner_content = format!("{}include!(\"./{}\");", tab.repeat(tab_count), file_name);
 
         for part in parts {
             tab_count -= 1;
@@ -304,6 +302,8 @@ pub mod meta {{
     pub const ABCI_VERSION: &str = \"{}\";
     /// Version of Tenderdash server used to generate protobuf configs
     pub const TENDERDASH_VERSION: &str = \"{}\";
+    /// Name of module where generated files are stored; used to distinguish between std and no-std version
+    pub const TENDERDASH_MODULE_NAME: &str = \"{}\";
 }}
 ",
         content,
@@ -311,6 +311,7 @@ pub mod meta {{
         tenderdash_commitish(),
         abci_ver,
         td_ver,
+        module_name,
     );
 
     let mut file =
@@ -328,10 +329,15 @@ pub(crate) fn tenderdash_commitish() -> String {
 
 /// Save the commitish of last successful download to a file in a state file,
 /// located in the `dir` directory and named `download.state`.
-pub(crate) fn save_state(dir: &Path, commitish: &str) {
+pub(crate) fn save_state(dir: &Path, commitish: &str, module: &str) {
     let state_file = PathBuf::from(&dir).join("download.state");
 
-    std::fs::write(&state_file, commitish)
+    let state = StateInfo {
+        commitish: commitish.to_string(),
+        module_name: module.to_string(),
+    };
+
+    std::fs::write(&state_file, state.encode_to_vec())
         .map_err(|e| {
             println!(
                 "[warn] => Failed to write download.state file {}: {}",
@@ -342,16 +348,48 @@ pub(crate) fn save_state(dir: &Path, commitish: &str) {
         .ok();
 }
 
+#[derive(prost::Message)]
+struct StateInfo {
+    #[prost(string, tag = "1")]
+    commitish: String,
+    #[prost(string, tag = "2")]
+    module_name: String,
+}
+
+impl PartialEq for StateInfo {
+    fn eq(&self, other: &Self) -> bool {
+        self.commitish == other.commitish && self.module_name == other.module_name
+    }
+}
+
 /// Check if the state file contains the same commitish as the one we are trying
 /// to download. State file should be located in the `dir` and named
 /// `download.state`
-pub(crate) fn check_state(dir: &Path, commitish: &str) -> bool {
+pub(crate) fn check_state(dir: &Path, commitish: &str, module_name: &str) -> bool {
     let state_file = PathBuf::from(&dir).join("download.state");
 
-    match read_to_string(state_file) {
-        Ok(content) => {
-            println!("[info] => Detected Tenderdash version: {}.", content.trim());
-            content.eq(commitish)
+    let expected = StateInfo {
+        commitish: commitish.to_string(),
+        module_name: module_name.to_string(),
+    };
+
+    match read(&state_file) {
+        Ok(content) => match StateInfo::decode(content.as_slice()) {
+            Ok(state) => {
+                println!(
+                    "[info] => Detected Tenderdash version: {}.",
+                    state.commitish
+                );
+                state.eq(&expected)
+            },
+            Err(e) => {
+                println!(
+                    "[warn] => Failed to decode download.state file {}: {}",
+                    state_file.display(),
+                    e
+                );
+                false
+            },
         },
         Err(_) => false,
     }

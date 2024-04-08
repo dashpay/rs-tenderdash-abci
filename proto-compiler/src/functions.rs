@@ -350,7 +350,7 @@ pub(crate) fn check_state(dir: &Path, commitish: &str) -> bool {
 
     let expected = commitish.to_string();
 
-    match read_to_string(&state_file) {
+    match read_to_string(state_file) {
         Ok(content) => {
             println!("[info] => Detected Tenderdash version: {}.", content);
             content == expected

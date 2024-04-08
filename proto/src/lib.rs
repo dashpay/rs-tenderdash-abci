@@ -34,12 +34,10 @@ pub use error::Error;
 use prost::{encoding::encoded_len_varint, Message};
 #[cfg(not(feature = "std"))]
 pub mod tenderdash_nostd;
-#[allow(warnings)]
 #[cfg(not(feature = "std"))]
 pub use tenderdash_nostd::*;
 
 #[cfg(feature = "std")]
-#[allow(warnings)]
 pub mod tenderdash_std;
 #[cfg(feature = "std")]
 pub use tenderdash_std::*;

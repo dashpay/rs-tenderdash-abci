@@ -21,6 +21,7 @@ default = [
     "unix",
     "grpc",
     "tracing-span",
+    "std",
 ]
 # docker-tests includes integration tests that require docker to be available
 docker-tests = ["server"]
@@ -30,8 +31,8 @@ server = [
     "dep:tokio-util",
     "dep:futures",
 ]
-
-grpc = ["tenderdash-proto/grpc"]
+std = ["tenderdash-proto/std"]
+grpc = ["std", "tenderdash-proto/grpc"]
 crypto = ["dep:lhash"]
 tcp = ["server"]
 unix = ["server"]
@@ -43,7 +44,7 @@ required-features = ["server"]
 
 [dependencies]
 uuid = { version = "1.4.1", features = ["v4", "fast-rng"], optional = true }
-tenderdash-proto = { path = "../proto" }
+tenderdash-proto = { path = "../proto", default-features = false }
 bytes = { version = "1.0" }
 prost = { version = "0.12" }
 tracing = { version = "0.1", default-features = false }

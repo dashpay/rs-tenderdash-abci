@@ -1,5 +1,5 @@
 [package]
-version = "0.14.0-dev.11"
+version = "0.14.0-dev.12"
 name = "tenderdash-abci"
 edition = "2021"
 license = "Apache-2.0"
@@ -21,6 +21,7 @@ default = [
     "unix",
     "grpc",
     "tracing-span",
+    "std",
 ]
 # docker-tests includes integration tests that require docker to be available
 docker-tests = ["server"]
@@ -30,8 +31,8 @@ server = [
     "dep:tokio-util",
     "dep:futures",
 ]
-
-grpc = ["tenderdash-proto/grpc"]
+std = ["tenderdash-proto/std"]
+grpc = ["std", "tenderdash-proto/grpc"]
 crypto = ["dep:lhash"]
 tcp = ["server"]
 unix = ["server"]
@@ -43,7 +44,7 @@ required-features = ["server"]
 
 [dependencies]
 uuid = { version = "1.8.0", features = ["v4", "fast-rng"], optional = true }
-tenderdash-proto = { path = "../proto" }
+tenderdash-proto = { path = "../proto", default-features = false }
 bytes = { version = "1.6.0" }
 prost = { version = "0.12.4" }
 tracing = { version = "0.1.40", default-features = false }
@@ -76,7 +77,12 @@ bincode = { version = "2.0.0-rc.3" }
 blake2 = { version = "0.10.6" }
 bollard = { version = "0.16.1" }
 futures = { version = "0.3.30" }
-tokio = { version = "1.37.0", features = ["macros", "signal", "time", "io-std"] }
+tokio = { version = "1.37.0", features = [
+    "macros",
+    "signal",
+    "time",
+    "io-std",
+] }
 hex = { version = "0.4.3" }
 lazy_static = { version = "1.4.0" }
 # For tests of gRPC server

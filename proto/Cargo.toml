@@ -1,5 +1,5 @@
 [package]
-version = "0.14.0-dev.11"
+version = "0.14.0-dev.12"
 name = "tenderdash-proto"
 edition = "2021"
 license = "Apache-2.0"

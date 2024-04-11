@@ -3,15 +3,30 @@
 /// Tenderdash repository URL.
 pub const TENDERDASH_REPO: &str = "https://github.com/dashpay/tenderdash";
 
-pub enum ModuleType {
-    Std,
+/// How to generate the protobuf files.
+
+pub enum GenerationMode {
+    /// Generate the files using `tonic` and put them into `tenderdash_grpc`
+    /// module.
+    Grpc,
+    /// Generate the files without `std` and put them into `tenderdash_nostd`
+    /// module.
     NoStd,
 }
-impl ToString for ModuleType {
+impl GenerationMode {
+    pub fn module_name(&self) -> String {
+        match self {
+            GenerationMode::Grpc => "tenderdash_grpc".to_string(),
+            GenerationMode::NoStd => "tenderdash_nostd".to_string(),
+        }
+    }
+}
+
+impl ToString for GenerationMode {
     fn to_string(&self) -> String {
         match self {
-            ModuleType::Std => "tenderdash_std".to_string(),
-            ModuleType::NoStd => "tenderdash_nostd".to_string(),
+            GenerationMode::Grpc => "tonic".to_string(),
+            GenerationMode::NoStd => "nostd".to_string(),
         }
     }
 }

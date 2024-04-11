@@ -40,9 +40,9 @@ pub use tenderdash_nostd::*;
 
 #[cfg(feature = "grpc")]
 #[rustfmt::skip]
-pub mod tenderdash_std;
+pub mod tenderdash_grpc;
 #[cfg(feature = "grpc")]
-pub use tenderdash_std::*;
+pub use tenderdash_grpc::*;
 
 pub mod serializers;
 

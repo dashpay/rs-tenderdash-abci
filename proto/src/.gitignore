@@ -1,5 +1,5 @@
 tenderdash_nostd/
-tenderdash_std/
+tenderdash_grpc/
 
 # prost/ and tenderdash.rs are deprecated and can be removed in the future
 prost/

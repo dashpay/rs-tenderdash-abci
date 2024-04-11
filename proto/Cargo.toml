@@ -58,7 +58,7 @@ subtle-encoding = { version = "0.5.1", default-features = false, features = [
 ] }
 num-traits = { version = "0.2.18", default-features = false }
 num-derive = { version = "0.4.2", default-features = false }
-time = { version = "0.3.34", default-features = false, features = [
+time = { version = "0.3.36", default-features = false, features = [
     "macros",
     "parsing",
 ] }
@@ -68,7 +68,9 @@ derive_more = { version = "0.99.17" }
 
 
 [dev-dependencies]
-serde_json = { version = "1.0.115", default-features = false, features = ["alloc"] }
+serde_json = { version = "1.0.115", default-features = false, features = [
+    "alloc",
+] }
 
 [build-dependencies]
 tenderdash-proto-compiler = { path = "../proto-compiler" }

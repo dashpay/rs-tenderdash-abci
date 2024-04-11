@@ -7,7 +7,7 @@ use std::{
 
 use walkdir::WalkDir;
 
-use crate::constants::DEFAULT_TENDERDASH_COMMITISH;
+use crate::constants::{ModuleType, DEFAULT_TENDERDASH_COMMITISH};
 
 /// Check out a specific commitish of the tenderdash repository.
 ///
@@ -247,7 +247,7 @@ pub fn generate_tenderdash_lib(
     tenderdash_lib_target: &Path,
     abci_ver: &str,
     td_ver: &str,
-    module_name: &str,
+    module_type: &ModuleType,
 ) {
     let mut file_names = WalkDir::new(prost_dir)
         .into_iter()
@@ -310,7 +310,7 @@ pub mod meta {{
         tenderdash_commitish(),
         abci_ver,
         td_ver,
-        module_name,
+        module_type.to_string(),
     );
 
     let mut file =

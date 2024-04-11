@@ -1,5 +1,7 @@
 use std::env;
 
+use tenderdash_proto_compiler::ModuleType;
+
 fn main() {
     // default Tenderdash version to use if TENDERDASH_COMMITISH is not set
     const DEFAULT_VERSION: &str = "v0.14.0-dev.5";
@@ -11,10 +13,10 @@ fn main() {
         env::set_var("TENDERDASH_COMMITISH", DEFAULT_VERSION);
     }
 
-    #[cfg(feature = "std")]
-    tenderdash_proto_compiler::proto_compile("tenderdash_std");
-    #[cfg(not(feature = "std"))]
-    tenderdash_proto_compiler::proto_compile("tenderdash_nostd");
+    #[cfg(feature = "grpc")]
+    tenderdash_proto_compiler::proto_compile(ModuleType::Std);
+    // we always build nostd version
+    tenderdash_proto_compiler::proto_compile(ModuleType::NoStd);
 
     println!("cargo:rerun-if-changed=../proto-compiler/src");
     println!("cargo:rerun-if-changed=Cargo.toml");

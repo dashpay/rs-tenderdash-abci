@@ -1,4 +1,4 @@
-#[cfg(not(feature = "std"))]
+#[cfg(not(feature = "grpc"))]
 use core::convert::TryFrom;
 
 use tenderdash_proto::{

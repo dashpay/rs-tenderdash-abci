@@ -2,6 +2,20 @@
 
 /// Tenderdash repository URL.
 pub const TENDERDASH_REPO: &str = "https://github.com/dashpay/tenderdash";
+
+pub enum ModuleType {
+    Std,
+    NoStd,
+}
+impl ToString for ModuleType {
+    fn to_string(&self) -> String {
+        match self {
+            ModuleType::Std => "tenderdash_std".to_string(),
+            ModuleType::NoStd => "tenderdash_nostd".to_string(),
+        }
+    }
+}
+
 // Commitish formats:
 // Tag: v0.34.0-rc4
 // Branch: master

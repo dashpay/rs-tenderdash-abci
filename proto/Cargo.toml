@@ -33,11 +33,12 @@ all-features = true
 # issues related to outdated generated files.
 default = ["grpc"]
 
-# Enable standard library support
-std = ["prost/std", "prost-types/std"]
-# Build gRPC server
+# Enable standard library support; DEPRECATED - use `grpc` instead
+std = ["grpc"]
+# Build gRPC server using tonic
 grpc = [
-    "std",
+    "prost/std",
+    "prost-types/std",
     "tenderdash-proto-compiler/server",
     "tenderdash-proto-compiler/client",
     "dep:tonic",

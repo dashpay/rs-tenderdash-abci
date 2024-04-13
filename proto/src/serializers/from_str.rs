@@ -1,9 +1,9 @@
 //! Serialize and deserialize any `T` that implements [[core::str::FromStr]]
 //! and [[core::fmt::Display]] from or into string. Note this can be used for
 //! all primitive data types.
-#[cfg(not(feature = "std"))]
+#[cfg(not(feature = "grpc"))]
 use core::{fmt::Display, str::FromStr};
-#[cfg(feature = "std")]
+#[cfg(feature = "grpc")]
 use std::{fmt::Display, str::FromStr};
 
 use serde::{de::Error as _, Deserialize, Deserializer, Serialize, Serializer};

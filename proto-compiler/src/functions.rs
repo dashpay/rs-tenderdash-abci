@@ -7,7 +7,7 @@ use std::{
 
 use walkdir::WalkDir;
 
-use crate::constants::DEFAULT_TENDERDASH_COMMITISH;
+use crate::constants::{GenerationMode, DEFAULT_TENDERDASH_COMMITISH};
 
 /// Check out a specific commitish of the tenderdash repository.
 ///
@@ -247,7 +247,7 @@ pub fn generate_tenderdash_lib(
     tenderdash_lib_target: &Path,
     abci_ver: &str,
     td_ver: &str,
-    module_name: &str,
+    mode: &GenerationMode,
 ) {
     let mut file_names = WalkDir::new(prost_dir)
         .into_iter()
@@ -301,8 +301,8 @@ pub mod meta {{
     pub const ABCI_VERSION: &str = \"{}\";
     /// Version of Tenderdash server used to generate protobuf configs
     pub const TENDERDASH_VERSION: &str = \"{}\";
-    /// Name of module where generated files are stored; used to distinguish between std and no-std version
-    pub const TENDERDASH_MODULE_NAME: &str = \"{}\";
+    /// Module generation mode
+    pub const TENDERDASH_MODULE_MODE: &str = \"{}\";
 }}
 ",
         content,
@@ -310,7 +310,7 @@ pub mod meta {{
         tenderdash_commitish(),
         abci_ver,
         td_ver,
-        module_name,
+        mode.to_string(),
     );
 
     let mut file =

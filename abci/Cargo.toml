@@ -21,7 +21,6 @@ default = [
     "unix",
     "grpc",
     "tracing-span",
-    "std",
 ]
 # docker-tests includes integration tests that require docker to be available
 docker-tests = ["server"]
@@ -31,8 +30,9 @@ server = [
     "dep:tokio-util",
     "dep:futures",
 ]
-std = ["tenderdash-proto/std"]
-grpc = ["std", "tenderdash-proto/grpc"]
+# std is deprecated, use "grpc" instead
+std = ["grpc"]
+grpc = ["tenderdash-proto/grpc"]
 crypto = ["dep:lhash"]
 tcp = ["server"]
 unix = ["server"]

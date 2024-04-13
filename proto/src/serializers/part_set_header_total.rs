@@ -6,9 +6,9 @@
 //! Tendermint Core v0.34.0. This deserializer allows backwards-compatibility by
 //! deserializing both ways. See also: <https://github.com/informalsystems/tendermint-rs/issues/679>
 
-#[cfg(not(feature = "std"))]
+#[cfg(not(feature = "grpc"))]
 use core::{convert::TryFrom, fmt::Formatter};
-#[cfg(feature = "std")]
+#[cfg(feature = "grpc")]
 use std::fmt::Formatter;
 
 use serde::{

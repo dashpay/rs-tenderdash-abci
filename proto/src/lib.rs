@@ -1,7 +1,7 @@
 //! tenderdash-proto library gives the developer access to the Tenderdash
 //! proto-defined structs.
 
-#![cfg_attr(not(feature = "std"), no_std)]
+#![cfg_attr(not(feature = "grpc"), no_std)]
 #![deny(warnings, trivial_casts, trivial_numeric_casts, unused_import_braces)]
 #![allow(clippy::large_enum_variant)]
 #![forbid(unsafe_code)]
@@ -21,28 +21,28 @@ pub mod google {
 
 mod error;
 
-#[cfg(not(feature = "std"))]
+#[cfg(not(feature = "grpc"))]
 use core::{
     convert::{TryFrom, TryInto},
     fmt::Display,
 };
-#[cfg(feature = "std")]
+#[cfg(feature = "grpc")]
 use std::fmt::Display;
 
 use bytes::{Buf, BufMut};
 pub use error::Error;
 use prost::{encoding::encoded_len_varint, Message};
-#[cfg(not(feature = "std"))]
 #[rustfmt::skip]
 pub mod tenderdash_nostd;
-#[cfg(not(feature = "std"))]
+#[cfg(not(feature = "grpc"))]
+// Re-export the nostd module only if the std one is not available
 pub use tenderdash_nostd::*;
 
-#[cfg(feature = "std")]
+#[cfg(feature = "grpc")]
 #[rustfmt::skip]
-pub mod tenderdash_std;
-#[cfg(feature = "std")]
-pub use tenderdash_std::*;
+pub mod tenderdash_grpc;
+#[cfg(feature = "grpc")]
+pub use tenderdash_grpc::*;
 
 pub mod serializers;
 

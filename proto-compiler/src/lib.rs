@@ -9,6 +9,7 @@ use functions::{
 };
 
 mod constants;
+pub use constants::GenerationMode;
 use constants::{CUSTOM_FIELD_ATTRIBUTES, CUSTOM_TYPE_ATTRIBUTES, TENDERDASH_REPO};
 
 use crate::functions::{check_state, save_state};
@@ -22,10 +23,14 @@ use crate::functions::{check_state, save_state};
 /// # Arguments
 ///
 /// * `module_name` - name of module to put generated files into
-pub fn proto_compile(module_name: &str) {
+pub fn proto_compile(mode: GenerationMode) {
     let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
 
-    let prost_out_dir = root.join("..").join("proto").join("src").join(module_name);
+    let prost_out_dir = root
+        .join("..")
+        .join("proto")
+        .join("src")
+        .join(mode.module_name());
     let tenderdash_lib_target = prost_out_dir.join("mod.rs");
 
     let out_dir = var("OUT_DIR")
@@ -108,14 +113,20 @@ pub fn proto_compile(module_name: &str) {
 
     println!("[info] => Creating structs.");
 
-    #[cfg(feature = "grpc")]
-    tonic_build::configure()
-        .generate_default_stubs(true)
-        .compile_with_config(pb, &protos, &proto_includes_paths)
-        .unwrap();
-
-    #[cfg(not(feature = "grpc"))]
-    pb.compile_protos(&protos, &proto_includes_paths).unwrap();
+    match mode {
+        GenerationMode::Grpc => {
+            #[cfg(feature = "grpc")]
+            tonic_build::configure()
+                .generate_default_stubs(true)
+                .compile_with_config(pb, &protos, &proto_includes_paths)
+                .unwrap();
+            #[cfg(not(feature = "grpc"))]
+            panic!("grpc feature is required to compile {}", mode.to_string());
+        },
+        GenerationMode::NoStd => {
+            pb.compile_protos(&protos, &proto_includes_paths).unwrap();
+        },
+    }
 
     println!("[info] => Removing old structs and copying new structs.");
     copy_files(&out_dir, &prost_out_dir); // This panics if it fails.
@@ -125,7 +136,7 @@ pub fn proto_compile(module_name: &str) {
         &tenderdash_lib_target,
         &abci_ver,
         &tenderdash_ver,
-        module_name,
+        &mode,
     );
 
     save_state(&prost_out_dir, &commitish);

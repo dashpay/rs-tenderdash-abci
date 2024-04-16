@@ -399,7 +399,6 @@ fn dep_protoc(expected_version: f32) -> Result<f32, String> {
         .parse()
         .map_err(|e| format!("failed to parse protoc version {}: {}", version_output, e))?;
 
-    // Check if the version is equal or higher than 25.1
     if version < expected_version {
         Err(format!(
             "protoc version must be {} or higher, but found {}; please upgrade: https://github.com/protocolbuffers/protobuf/releases/",

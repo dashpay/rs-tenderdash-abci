@@ -365,7 +365,7 @@ pub(crate) fn check_deps() -> Result<(), String> {
     // Check if the required
     let mut errors = vec![];
 
-    if let Err(e) = dep_protoc() {
+    if let Err(e) = dep_protoc(DEP_PROTOC_VERSION) {
         errors.push(format!("protoc: {}", e));
     };
 
@@ -377,7 +377,7 @@ pub(crate) fn check_deps() -> Result<(), String> {
 }
 
 /// Check if protoc is installed and has the required version
-fn dep_protoc() -> Result<f32, String> {
+fn dep_protoc(expected_version: f32) -> Result<f32, String> {
     let protoc = prost_build::protoc_from_env();
 
     // Run `protoc --version` and capture the output
@@ -400,12 +400,25 @@ fn dep_protoc() -> Result<f32, String> {
         .map_err(|e| format!("failed to parse protoc version {}: {}", version_output, e))?;
 
     // Check if the version is equal or higher than 25.1
-    if version < DEP_PROTOC_VERSION {
+    if version < expected_version {
         Err(format!(
-            "protoc version must be {} or higher, but found {}; please upgrade",
-            DEP_PROTOC_VERSION, version
+            "protoc version must be {} or higher, but found {}; please upgrade: https://github.com/protocolbuffers/protobuf/releases/",
+            expected_version, version
         ))
     } else {
         Ok(version)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_protoc_dep() {
+        let expected_versions = vec![(10.1, true), (DEP_PROTOC_VERSION, true), (90.5, false)];
+        for expect in expected_versions {
+            assert_eq!(dep_protoc(expect.0).is_ok(), expect.1);
+        }
     }
 }

@@ -362,18 +362,7 @@ pub(crate) fn check_state(dir: &Path, commitish: &str) -> bool {
 
 /// Check if all dependencies are met
 pub(crate) fn check_deps() -> Result<(), String> {
-    // Check if the required
-    let mut errors = vec![];
-
-    if let Err(e) = dep_protoc(DEP_PROTOC_VERSION) {
-        errors.push(format!("protoc: {}", e));
-    };
-
-    if errors.is_empty() {
-        Ok(())
-    } else {
-        Err(errors.join("\n"))
-    }
+    dep_protoc(DEP_PROTOC_VERSION).map(|_| ())
 }
 
 /// Check if protoc is installed and has the required version

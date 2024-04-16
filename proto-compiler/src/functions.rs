@@ -3,11 +3,12 @@ use std::{
     fs::{copy, create_dir_all, read_to_string, remove_dir_all, File},
     io::Write,
     path::{Path, PathBuf},
+    process::Command,
 };
 
 use walkdir::WalkDir;
 
-use crate::constants::{GenerationMode, DEFAULT_TENDERDASH_COMMITISH};
+use crate::constants::{GenerationMode, DEFAULT_TENDERDASH_COMMITISH, DEP_PROTOC_VERSION};
 
 /// Check out a specific commitish of the tenderdash repository.
 ///
@@ -356,5 +357,55 @@ pub(crate) fn check_state(dir: &Path, commitish: &str) -> bool {
             content == expected
         },
         Err(_) => false,
+    }
+}
+
+/// Check if all dependencies are met
+pub(crate) fn check_deps() -> Result<(), String> {
+    // Check if the required
+    let mut errors = vec![];
+
+    if let Err(e) = dep_protoc() {
+        errors.push(format!("protoc: {}", e));
+    };
+
+    if errors.is_empty() {
+        Ok(())
+    } else {
+        Err(errors.join("\n"))
+    }
+}
+
+/// Check if protoc is installed and has the required version
+fn dep_protoc() -> Result<f32, String> {
+    let protoc = prost_build::protoc_from_env();
+
+    // Run `protoc --version` and capture the output
+    let output = Command::new(&protoc)
+        .arg("--version")
+        .output()
+        .map_err(|e| format!("failed to run: {}", e))?;
+
+    // Convert the output to a string
+    let out = output.stdout;
+    let version_output = String::from_utf8(out.clone())
+        .map_err(|e| format!("output {:?} is not utf8 string: {}", out, e.to_string()))?;
+
+    // Extract the version number from string like `libprotoc 25.1`
+    let version: f32 = version_output
+        .split_whitespace()
+        .last()
+        .unwrap()
+        .parse()
+        .map_err(|e| format!("failed to parse protoc version {}: {}", version_output, e))?;
+
+    // Check if the version is equal or higher than 25.1
+    if version < DEP_PROTOC_VERSION {
+        Err(format!(
+            "protoc version must be {} or higher, but found {}; please upgrade",
+            DEP_PROTOC_VERSION, version
+        ))
+    } else {
+        Ok(version)
     }
 }

@@ -12,7 +12,7 @@ mod constants;
 pub use constants::GenerationMode;
 use constants::{CUSTOM_FIELD_ATTRIBUTES, CUSTOM_TYPE_ATTRIBUTES, TENDERDASH_REPO};
 
-use crate::functions::{check_state, save_state};
+use crate::functions::{check_deps, check_state, save_state};
 
 /// Import and compile protobuf definitions for Tenderdash.
 ///
@@ -53,6 +53,12 @@ pub fn proto_compile(mode: GenerationMode) {
     let thirdparty_dir = root.join("third_party");
 
     let commitish = tenderdash_commitish();
+
+    // ensure dependencies are up to date
+    if let Err(e) = check_deps() {
+        eprintln!("[error] => {}", e);
+        std::process::exit(1);
+    }
 
     // check if this commitish is already downloaded
     let download = std::fs::metadata(tenderdash_dir.join("proto")).is_err()

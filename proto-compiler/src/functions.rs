@@ -381,7 +381,7 @@ fn dep_protoc(expected_version: f32) -> Result<f32, String> {
     let protoc = prost_build::protoc_from_env();
 
     // Run `protoc --version` and capture the output
-    let output = Command::new(&protoc)
+    let output = Command::new(protoc)
         .arg("--version")
         .output()
         .map_err(|e| format!("failed to run: {}", e))?;
@@ -389,7 +389,7 @@ fn dep_protoc(expected_version: f32) -> Result<f32, String> {
     // Convert the output to a string
     let out = output.stdout;
     let version_output = String::from_utf8(out.clone())
-        .map_err(|e| format!("output {:?} is not utf8 string: {}", out, e.to_string()))?;
+        .map_err(|e| format!("output {:?} is not utf8 string: {}", out, e))?;
 
     // Extract the version number from string like `libprotoc 25.1`
     let version: f32 = version_output

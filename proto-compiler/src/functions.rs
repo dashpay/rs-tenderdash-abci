@@ -3,11 +3,12 @@ use std::{
     fs::{copy, create_dir_all, read_to_string, remove_dir_all, File},
     io::Write,
     path::{Path, PathBuf},
+    process::Command,
 };
 
 use walkdir::WalkDir;
 
-use crate::constants::{GenerationMode, DEFAULT_TENDERDASH_COMMITISH};
+use crate::constants::{GenerationMode, DEFAULT_TENDERDASH_COMMITISH, DEP_PROTOC_VERSION};
 
 /// Check out a specific commitish of the tenderdash repository.
 ///
@@ -356,5 +357,56 @@ pub(crate) fn check_state(dir: &Path, commitish: &str) -> bool {
             content == expected
         },
         Err(_) => false,
+    }
+}
+
+/// Check if all dependencies are met
+pub(crate) fn check_deps() -> Result<(), String> {
+    dep_protoc(DEP_PROTOC_VERSION).map(|_| ())
+}
+
+/// Check if protoc is installed and has the required version
+fn dep_protoc(expected_version: f32) -> Result<f32, String> {
+    let protoc = prost_build::protoc_from_env();
+
+    // Run `protoc --version` and capture the output
+    let output = Command::new(protoc)
+        .arg("--version")
+        .output()
+        .map_err(|e| format!("failed to run: {}", e))?;
+
+    // Convert the output to a string
+    let out = output.stdout;
+    let version_output = String::from_utf8(out.clone())
+        .map_err(|e| format!("output {:?} is not utf8 string: {}", out, e))?;
+
+    // Extract the version number from string like `libprotoc 25.1`
+    let version: f32 = version_output
+        .split_whitespace()
+        .last()
+        .unwrap()
+        .parse()
+        .map_err(|e| format!("failed to parse protoc version {}: {}", version_output, e))?;
+
+    if version < expected_version {
+        Err(format!(
+            "protoc version must be {} or higher, but found {}; please upgrade: https://github.com/protocolbuffers/protobuf/releases/",
+            expected_version, version
+        ))
+    } else {
+        Ok(version)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_protoc_dep() {
+        let expected_versions = vec![(10.1, true), (DEP_PROTOC_VERSION, true), (90.5, false)];
+        for expect in expected_versions {
+            assert_eq!(dep_protoc(expect.0).is_ok(), expect.1);
+        }
     }
 }

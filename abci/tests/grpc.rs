@@ -21,7 +21,7 @@ use tenderdash_abci::proto;
 use tonic::{async_trait, Response, Status};
 
 #[cfg(feature = "docker-tests")]
-#[tokio::test]
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 /// Test server listening on ipv4 address.
 ///
 /// See [tcp_server_test()].
@@ -34,7 +34,7 @@ async fn test_ipv4_server() {
 }
 
 #[cfg(feature = "docker-tests")]
-#[tokio::test]
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 #[ignore = "IPv6 does not work for gRPC, most likely bug on Tenderdash side"]
 /// Test server listening on ipv6 address.
 ///
@@ -74,7 +74,7 @@ async fn grpc_server_test(test_name: &str, bind_address: &str) {
     let addr = bind_address.parse().expect("address must be valid");
     let server_cancel = cancel.clone();
     let server_handle = tokio::spawn(async move {
-        tracing::debug!("starting gRPC server");
+        tracing::debug!(?addr, "starting gRPC server");
         Server::builder()
             .add_service(AbciApplicationServer::new(app))
             .serve_with_shutdown(addr, server_cancel.cancelled())
@@ -87,7 +87,7 @@ async fn grpc_server_test(test_name: &str, bind_address: &str) {
     let container_name = format!("tenderdash_{}", test_name);
 
     let td = tokio::task::spawn_blocking(move || {
-        tracing::debug!("starting Tenderdash in Docker container");
+        tracing::debug!(addr=?socket_uri, "starting Tenderdash in Docker container");
         let td = Arc::new(common::docker::TenderdashDocker::new(
             &container_name,
             None,

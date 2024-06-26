@@ -95,7 +95,7 @@ impl TenderdashDocker {
             tokio::signal::ctrl_c().await.unwrap();
             error!("Received ctrl+c, removing Tenderdash container");
 
-            let stopped = timeout(Duration::from_secs(15), Self::stop(id, &docker))
+            let stopped = timeout(Duration::from_secs(15), Self::stop(id, docker))
                 .await
                 .expect("timeout removing tenderdash container");
             if stopped.is_err() {
@@ -210,24 +210,28 @@ impl TenderdashDocker {
     /// Print 200 most recent logs from Tenderdash on standard error.
     #[allow(dead_code)]
     pub fn print_logs(&self) {
-        let id = &self.id;
+        let id = self.id.clone();
 
         if !id.is_empty() {
             debug!("Printing Tenderdash logs");
             let rt = &self.runtime;
-            let docker = &self.docker;
+            let docker = self.docker.clone();
 
-            rt.block_on(Self::emit_logs(id, docker))
+            // We use `pollster` to block on the future, as tokio might not block_on()
+            // when called inside a running runtime.
+            let fut = rt.spawn(Self::emit_logs(id, docker));
+            pollster::block_on(fut)
+                .expect("cannot spawn log emitting fn")
                 .expect("cannot emit logs");
         }
     }
 
-    async fn emit_logs(id: &str, docker: &Docker) -> Result<(), anyhow::Error> {
+    async fn emit_logs(id: String, docker: Docker) -> Result<(), anyhow::Error> {
         let stderror = tokio::io::stderr();
         let mut dest = tokio::io::BufWriter::new(stderror);
 
         let mut logs = docker.logs(
-            id,
+            &id,
             Some(bollard::container::LogsOptions {
                 follow: false,
                 stdout: true,
@@ -251,7 +255,7 @@ impl TenderdashDocker {
         Ok(())
     }
 
-    async fn stop(id: String, docker: &Docker) -> Result<(), anyhow::Error> {
+    async fn stop(id: String, docker: Docker) -> Result<(), anyhow::Error> {
         debug!("Stopping Tenderdash container");
         docker
             .remove_container(
@@ -270,9 +274,13 @@ impl TenderdashDocker {
 impl Drop for TenderdashDocker {
     fn drop(&mut self) {
         if !self.id.is_empty() {
-            let _ = self
-                .runtime
-                .block_on(Self::stop(self.id.clone(), &self.docker));
+            let id = self.id.clone();
+            let docker = self.docker.clone();
+
+            let fut = self.runtime.spawn(Self::stop(id, docker));
+            pollster::block_on(fut)
+                .expect("cannot stop container")
+                .expect("cannot stop container");
         }
     }
 }
@@ -281,9 +289,11 @@ impl Drop for TenderdashDocker {
 #[allow(dead_code)]
 pub fn setup_td_logs_panic(td_docker: &Arc<TenderdashDocker>) {
     let weak_ref = Arc::downgrade(td_docker);
-    std::panic::set_hook(Box::new(move |_| {
+    let original = std::panic::take_hook();
+    std::panic::set_hook(Box::new(move |info| {
         if let Some(td) = weak_ref.upgrade() {
             td.print_logs()
         }
+        original(info);
     }));
 }

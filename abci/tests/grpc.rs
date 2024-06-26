@@ -113,10 +113,7 @@ async fn grpc_server_test(test_name: &str, bind_address: &str) {
         }
     }
 
-    tokio::task::spawn_blocking(move || drop(td))
-        .await
-        .expect("tenderdash cleanup");
-
+    drop(td);
     tracing::info!("Test finished successfully");
 }
 

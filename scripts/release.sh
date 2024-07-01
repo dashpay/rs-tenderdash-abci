@@ -79,11 +79,11 @@ sed -i "s/^\s*const DEFAULT_VERSION: &str = \".*\";/const DEFAULT_VERSION: \&str
 cargo fmt -- ./proto/build.rs 2>/dev/null
 
 if [ -d "$PLATFORM_DIR" ]; then
-    rs_tenderdash="git = \"https:\/\/github.com\/dashpay\/rs-tenderdash-abci\", version = \"$rs_tenderdash_abci_version\""
+    rs_tenderdash="git = \"https:\/\/github.com\/dashpay\/rs-tenderdash-abci\", version = \"$rs_tenderdash_abci_version\", tag = \"v$rs_tenderdash_abci_version\""
     echo "INFO: Updating references to tenderdash-abci / tenderdash-proto in $PLATFORM_DIR"
 
-    sed -i "s/^tenderdash-abci = { git = .*, version = [^,\}]*/tenderdash-abci = { $rs_tenderdash/" "${PLATFORM_DIR}"/packages/*/Cargo.toml
-    sed -i "s/^tenderdash-proto = { git = .*, version = [^,\}]*/tenderdash-proto = { $rs_tenderdash/" "${PLATFORM_DIR}"/packages/*/Cargo.toml
+    sed -i "s/^tenderdash-abci = { git = .*, version = [^,\}]*, tag = [^,\}]*/tenderdash-abci = { $rs_tenderdash/" "${PLATFORM_DIR}"/packages/*/Cargo.toml
+    sed -i "s/^tenderdash-proto = { git = .*, version = [^,\}]*, tag = [^,\}]*/tenderdash-proto = { $rs_tenderdash/" "${PLATFORM_DIR}"/packages/*/Cargo.toml
 else
     echo "WARN: Dash Platform not found in $PLATFORM_DIR, skipping"
 fi

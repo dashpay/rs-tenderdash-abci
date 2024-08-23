@@ -1,7 +1,6 @@
 # This is an example Dockerfile, demonstrating build process of rs-tenderdash-abci
 
-# rust:alpine3.17, published Mar 24, 2023 at 2:55 am
-FROM rust:alpine3.17
+FROM rust:alpine3.20
 
 RUN apk add --no-cache \
         git \

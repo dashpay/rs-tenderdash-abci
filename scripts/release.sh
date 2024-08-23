@@ -74,7 +74,7 @@ rs_tenderdash_abci_version=${rs_tenderdash_abci_version#v} # remove 'v' if it ex
 
 set -ex
 # Update the version in the Cargo.toml files.
-sed -i "s/^version = .*/version = \"$rs_tenderdash_abci_version\"/" ./*/Cargo.toml
+sed -i "s/^version = .*/version = \"$rs_tenderdash_abci_version\"/" ./Cargo.toml
 sed -i "s/^\s*const DEFAULT_VERSION: &str = \".*\";/const DEFAULT_VERSION: \&str = \"v$td_version\";/" ./proto/build.rs
 cargo fmt -- ./proto/build.rs 2>/dev/null
 

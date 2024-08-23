@@ -23,8 +23,7 @@ use std::{
 };
 
 use bytes::BufMut;
-use prost::Message;
-use tenderdash_proto::types::CanonicalVote;
+use tenderdash_proto::{prost::Message, types::CanonicalVote};
 
 use crate::{
     proto::types::{

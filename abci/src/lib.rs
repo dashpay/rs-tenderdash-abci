@@ -19,11 +19,11 @@ mod server;
 use std::io;
 
 pub use application::{check_version, Application, RequestDispatcher};
-use prost::{DecodeError, EncodeError};
 #[allow(deprecated)]
 #[cfg(feature = "server")]
 pub use server::{start_server, CancellationToken, Server, ServerBuilder, ServerRuntime};
 pub use tenderdash_proto as proto;
+use tenderdash_proto::prost::{DecodeError, EncodeError};
 
 #[cfg(feature = "crypto")]
 pub mod signatures;

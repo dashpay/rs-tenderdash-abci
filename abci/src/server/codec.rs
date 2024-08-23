@@ -8,8 +8,11 @@ use std::{fmt::Debug, sync::Arc};
 
 use bytes::{Buf, BufMut, BytesMut};
 use futures::{SinkExt, StreamExt};
-use prost::Message;
 use proto::abci::{Request, Response};
+use tenderdash_proto::prost::{
+    encoding::{decode_varint, encode_varint},
+    Message,
+};
 use tokio::{
     io::{AsyncRead, AsyncWrite},
     sync::{
@@ -162,7 +165,7 @@ impl Decoder for Coder {
         let src_len = src.len();
 
         let mut tmp = src.clone().freeze();
-        let encoded_len = match prost::encoding::decode_varint(&mut tmp) {
+        let encoded_len = match decode_varint(&mut tmp) {
             Ok(len) => len,
             // We've potentially only received a partial length delimiter
             Err(_) if src_len <= MAX_VARINT_LENGTH => return Ok(None),
@@ -198,7 +201,7 @@ impl Encoder<proto::abci::Response> for Coder {
         message.encode(&mut buf)?;
 
         let buf = buf.freeze();
-        prost::encoding::encode_varint(buf.len() as u64, dst);
+        encode_varint(buf.len() as u64, dst);
         dst.put(buf);
         Ok(())
     }
@@ -206,8 +209,7 @@ impl Encoder<proto::abci::Response> for Coder {
 
 #[cfg(test)]
 mod test {
-    use prost::Message;
-    use tenderdash_proto::abci;
+    use tenderdash_proto::{abci, prost::Message};
     use tokio::{io::AsyncWriteExt, sync::mpsc};
     use tokio_util::sync::CancellationToken;
 

@@ -86,5 +86,5 @@ tokio = { version = "1.37.0", features = [
 hex = { version = "0.4.3" }
 lazy_static = { version = "1.4.0" }
 # For tests of gRPC server
-tonic = { version = "0.11.0" }
+tonic = { version = "0.12.2" }
 pollster = { version = "0.3.0" }

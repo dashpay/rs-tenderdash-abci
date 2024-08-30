@@ -43,7 +43,7 @@ pub use tenderdash_nostd::*;
 pub mod tenderdash_grpc;
 #[cfg(feature = "grpc")]
 pub use tenderdash_grpc::*;
-
+#[cfg(feature = "serde")]
 pub mod serializers;
 mod time;
 

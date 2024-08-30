@@ -44,7 +44,9 @@ required-features = ["server"]
 
 [dependencies]
 uuid = { version = "1.8.0", features = ["v4", "fast-rng"], optional = true }
-tenderdash-proto = { path = "../proto", default-features = false }
+tenderdash-proto = { path = "../proto", default-features = false, features = [
+    "serde",
+] }
 bytes = { version = "1.6.0" }
 prost = { version = "0.12.4" }
 tracing = { version = "0.1.40", default-features = false }

@@ -10,3 +10,6 @@ pub use alloc::{
     vec::Vec,
 };
 pub use core::prelude::v1::*;
+
+#[allow(unused_imports)]
+pub use crate::time::{FromMillis, ToMillis};

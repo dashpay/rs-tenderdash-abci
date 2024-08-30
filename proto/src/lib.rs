@@ -45,6 +45,7 @@ pub mod tenderdash_grpc;
 pub use tenderdash_grpc::*;
 
 pub mod serializers;
+mod time;
 
 pub use meta::ABCI_VERSION;
 use prelude::*;

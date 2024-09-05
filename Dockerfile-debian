@@ -1,7 +1,7 @@
 # This is an example Dockerfile, demonstrating build process of rs-tenderdash-abci
 
 # We use Debian base image, as Alpine has some segmentation fault issue
-FROM rust:1.76-bullseye
+FROM rust:1.76.0-bookworm
 
 RUN --mount=type=cache,sharing=locked,target=/var/lib/apt/lists \
     --mount=type=cache,sharing=locked,target=/var/cache/apt \

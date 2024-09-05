@@ -3,6 +3,8 @@
 # We use Debian base image, as Alpine has some segmentation fault issue
 FROM rust:1.76.0-bookworm
 
+SHELL ["/bin/bash", "-exc"]
+
 RUN --mount=type=cache,sharing=locked,target=/var/lib/apt/lists \
     --mount=type=cache,sharing=locked,target=/var/cache/apt \
     rm -f /etc/apt/apt.conf.d/docker-clean && \
@@ -27,8 +29,6 @@ WORKDIR /usr/src/abci-app
 
 # revspec or SHA of commit/branch/tag to use
 ARG REVISION="refs/heads/master"
-
-SHELL ["/bin/bash", "-c"]
 
 # Add tenderdash-abci as a dependency and build the package
 #

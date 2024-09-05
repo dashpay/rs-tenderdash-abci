@@ -2,6 +2,8 @@
 
 FROM rust:1.76-alpine3.19
 
+SHELL ["/bin/bash", "-exc"]
+
 RUN apk add --no-cache \
         git \
         wget \
@@ -11,8 +13,6 @@ RUN apk add --no-cache \
         perl \
         unzip \
         bash
-
-SHELL ["/bin/bash", "-c"]
 
 # one of: aarch_64, x86_64
 # ARG PROTOC_ARCH=x86_64

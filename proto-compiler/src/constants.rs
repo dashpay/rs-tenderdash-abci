@@ -256,4 +256,8 @@ pub static CUSTOM_FIELD_ATTRIBUTES: &[(&str, &str)] = &[
         ".tendermint.types.VersionParams.app_version",
         QUOTED_WITH_DEFAULT,
     ),
+    (
+        ".tendermint.types.VersionParams.consensus_version",
+        QUOTED_WITH_DEFAULT,
+    ),
 ];

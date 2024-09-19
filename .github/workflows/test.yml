@@ -53,7 +53,7 @@ jobs:
         run: docker logs tenderdash > tenderdash.log 2>&1
 
       - name: Archive docker logs
-        uses: actions/upload-artifact@v1
+        uses: actions/upload-artifact@v4
         if: failure()
         with:
           name: tenderdash.log

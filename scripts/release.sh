@@ -1,5 +1,7 @@
 #! /bin/bash
 
+set -e
+
 PLATFORM_DIR="$(realpath "$(dirname "$0")/../../platform")"
 
 function help() {
@@ -25,6 +27,8 @@ Examples:
 
 EOF
 }
+
+VERBOSE=0
 
 # Parse arguments
 while [[ $# -gt 0 ]]; do
@@ -52,6 +56,10 @@ while [[ $# -gt 0 ]]; do
         rs_tenderdash_abci_version=$1
         shift
         ;;
+    -v | --verbose)
+        VERBOSE=1
+        shift
+        ;;
     *)
         break
         ;;
@@ -61,16 +69,28 @@ done
 # Check if the versions are passed.
 if [ -z "$td_version" ]; then
     echo "Please specify the version of Tenderdash."
+    echo ""
+    help
     exit 1
 fi
 td_version=${td_version#v} # remove 'v' if it exists
 
 if [ -z "$rs_tenderdash_abci_version" ]; then
     echo "Please specify the version of the library."
+    echo ""
+    help
     exit 1
 fi
 
-rs_tenderdash_abci_version=${rs_tenderdash_abci_version#v} # remove 'v' if it exists
+if [ $VERBOSE -eq 1 ]; then
+    set -x
+fi
+
+rs_tenderdash_abci_version="${rs_tenderdash_abci_version#v}+${td_version}" # remove 'v' if it exists and suffix build mtd
+
+echo "INFO: Preparing release of rs-tenderdash-abci version $rs_tenderdash_abci_version with Tenderdash version $td_version"
+
+echo INFO: Update the version in the Cargo.toml files.
 
 set -ex
 # Update the version in the Cargo.toml files.
@@ -88,3 +108,5 @@ else
     echo "WARN: Dash Platform not found in $PLATFORM_DIR, skipping"
 fi
 # tenderdash-proto = { git = "https://github.com/dashpay/rs-tenderdash-abci", version = "0.14.0-dev.8", features = [
+
+echo "INFO: Done"

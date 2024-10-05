@@ -157,6 +157,7 @@ pub fn test_consensus_params_serde() {
           ]
         },
         "version": {
+          "consensus_version": "1",
           "app_version": "1"
         },
         "synchrony": {
@@ -176,5 +177,6 @@ pub fn test_consensus_params_serde() {
     }
     "#;
 
-    let _new_params: ConsensusParams = serde_json::from_str(json).unwrap();
+    let new_params: ConsensusParams = serde_json::from_str(json).unwrap();
+    assert_eq!(new_params.version.unwrap().consensus_version, 1)
 }

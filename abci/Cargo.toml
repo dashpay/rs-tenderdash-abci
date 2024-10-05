@@ -1,11 +1,11 @@
 [package]
-version = "1.2.0+1.3.0"
+version = "1.2.1+1.3.0"
 name = "tenderdash-abci"
 edition = "2021"
 license = "Apache-2.0"
 readme = "README.md"
 categories = ["cryptography::cryptocurrencies", "network-programming"]
-keywords = ["abci", "blockchain", "bft", "consensus", "tendermint", "dash"]
+keywords = ["abci", "blockchain", "consensus", "tendermint", "dash"]
 repository = "https://github.com/dashpay/rs-tenderdash-abci/tree/main/abci"
 documentation = "https://dashpay.github.io/rs-tenderdash-abci/tenderdash_abci/"
 
@@ -46,7 +46,7 @@ required-features = ["server"]
 uuid = { version = "1.8.0", features = ["v4", "fast-rng"], optional = true }
 tenderdash-proto = { path = "../proto", default-features = false }
 bytes = { version = "1.6.0" }
-prost = { version = "0.12.4" }
+prost = { version = "0.13.3" }
 tracing = { version = "0.1.40", default-features = false }
 tracing-subscriber = { version = "0.3.18", optional = true, default-features = false, features = [
     "ansi",
@@ -86,5 +86,5 @@ tokio = { version = "1.37.0", features = [
 hex = { version = "0.4.3" }
 lazy_static = { version = "1.4.0" }
 # For tests of gRPC server
-tonic = { version = "0.11.0" }
+tonic = { version = "0.12.3" }
 pollster = { version = "0.3.0" }

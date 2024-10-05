@@ -132,8 +132,7 @@ pub fn test_response_exception_from() {
         ResponseException::from(String::from("string")).error,
         "string"
     );
-    assert_eq!(
-        ResponseException::from(String::from("string")).error,
+}
         "string"
     );
 }

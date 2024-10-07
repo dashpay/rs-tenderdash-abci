@@ -86,20 +86,20 @@ if [ $VERBOSE -eq 1 ]; then
     set -x
 fi
 
-rs_tenderdash_abci_version="${rs_tenderdash_abci_version#v}+${td_version}" # remove 'v' if it exists and suffix build mtd
+rs_tenderdash_abci_version_build="${rs_tenderdash_abci_version#v}+${td_version}" # remove 'v' if it exists and suffix build mtd
 
-echo "INFO: Preparing release of rs-tenderdash-abci version $rs_tenderdash_abci_version with Tenderdash version $td_version"
+echo "INFO: Preparing release of rs-tenderdash-abci version $rs_tenderdash_abci_version_build with Tenderdash version $td_version"
 
 echo INFO: Update the version in the Cargo.toml files.
 
 set -ex
 # Update the version in the Cargo.toml files.
-sed -i "s/^version = .*/version = \"$rs_tenderdash_abci_version\"/" ./Cargo.toml
+sed -i "s/^version = .*/version = \"$rs_tenderdash_abci_version_build\"/" ./Cargo.toml
 sed -i "s/^\s*const DEFAULT_VERSION: &str = \".*\";/const DEFAULT_VERSION: \&str = \"v$td_version\";/" ./proto/build.rs
 cargo fmt -- ./proto/build.rs 2>/dev/null
 
 if [ -d "$PLATFORM_DIR" ]; then
-    rs_tenderdash="git = \"https:\/\/github.com\/dashpay\/rs-tenderdash-abci\", version = \"$rs_tenderdash_abci_version\", tag = \"v$rs_tenderdash_abci_version\""
+    rs_tenderdash="git = \"https:\/\/github.com\/dashpay\/rs-tenderdash-abci\", version = \"$rs_tenderdash_abci_version\", tag = \"v$rs_tenderdash_abci_version_build\""
     echo "INFO: Updating references to tenderdash-abci / tenderdash-proto in $PLATFORM_DIR"
 
     sed -i "s/^tenderdash-abci = { git = .*, version = [^,\}]*, tag = [^,\}]*/tenderdash-abci = { $rs_tenderdash/" "${PLATFORM_DIR}"/packages/*/Cargo.toml

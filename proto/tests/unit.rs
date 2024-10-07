@@ -133,9 +133,6 @@ pub fn test_response_exception_from() {
         "string"
     );
 }
-        "string"
-    );
-}
 
 #[test]
 pub fn test_consensus_params_serde() {

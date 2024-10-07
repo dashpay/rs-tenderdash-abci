@@ -1,7 +1,6 @@
 # This is an example Dockerfile, demonstrating build process of rs-tenderdash-abci
 
-# rust:alpine3.17, published Mar 24, 2023 at 2:55 am
-FROM rust:alpine3.17
+FROM rust:1.80-alpine3.20
 
 RUN apk add --no-cache \
         git \
@@ -13,7 +12,7 @@ RUN apk add --no-cache \
         unzip \
         bash
 
-SHELL ["/bin/bash", "-c"]
+SHELL ["/bin/bash", "-exc"]
 
 # one of: aarch_64, x86_64
 # ARG PROTOC_ARCH=x86_64

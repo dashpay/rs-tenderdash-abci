@@ -92,7 +92,9 @@ echo "INFO: Preparing release of rs-tenderdash-abci version $rs_tenderdash_abci_
 
 echo INFO: Update the version in the Cargo.toml files.
 
-sed -i "s/^version = .*/version = \"$rs_tenderdash_abci_version\"/" ./*/Cargo.toml
+set -ex
+# Update the version in the Cargo.toml files.
+sed -i "s/^version = .*/version = \"$rs_tenderdash_abci_version\"/" ./Cargo.toml
 sed -i "s/^\s*const DEFAULT_VERSION: &str = \".*\";/const DEFAULT_VERSION: \&str = \"v$td_version\";/" ./proto/build.rs
 cargo fmt -- ./proto/build.rs 2>/dev/null
 

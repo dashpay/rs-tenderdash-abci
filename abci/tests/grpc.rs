@@ -18,7 +18,7 @@ use tenderdash_abci::{
 };
 mod common;
 use tenderdash_abci::proto;
-use tonic::{async_trait, Response, Status};
+use tenderdash_proto::tonic::{async_trait, Response, Status};
 
 #[cfg(feature = "docker-tests")]
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
@@ -58,7 +58,7 @@ async fn grpc_server_test(test_name: &str, bind_address: &str) {
     use core::panic;
 
     use proto::abci::abci_application_server::AbciApplicationServer;
-    use tonic::transport::Server;
+    use tenderdash_proto::tonic::transport::Server;
 
     tracing_subscriber::fmt()
         .with_env_filter(tracing_subscriber::EnvFilter::new("debug"))
@@ -125,8 +125,8 @@ pub struct TestApp {
 impl AbciApplication for TestApp {
     async fn echo(
         &self,
-        request: tonic::Request<RequestEcho>,
-    ) -> Result<tonic::Response<proto::abci::ResponseEcho>, Status> {
+        request: tenderdash_proto::tonic::Request<RequestEcho>,
+    ) -> Result<tenderdash_proto::tonic::Response<proto::abci::ResponseEcho>, Status> {
         tracing::info!(?request, "Echo called");
         Ok(Response::new(proto::abci::ResponseEcho {
             message: request.into_inner().message,
@@ -134,8 +134,11 @@ impl AbciApplication for TestApp {
     }
     async fn info(
         &self,
-        _request: tonic::Request<RequestInfo>,
-    ) -> std::result::Result<tonic::Response<ResponseInfo>, tonic::Status> {
+        _request: tenderdash_proto::tonic::Request<RequestInfo>,
+    ) -> std::result::Result<
+        tenderdash_proto::tonic::Response<ResponseInfo>,
+        tenderdash_proto::tonic::Status,
+    > {
         tracing::info!("Info called, test successful");
         let resp = ResponseInfo {
             ..Default::default()

@@ -128,7 +128,7 @@ pub fn proto_compile(mode: GenerationMode) {
             #[cfg(feature = "grpc")]
             tonic_build::configure()
                 .generate_default_stubs(true)
-                .compile_with_config(pb, &protos, &proto_includes_paths)
+                .compile_protos_with_config(pb, &protos, &proto_includes_paths)
                 .unwrap();
             #[cfg(not(feature = "grpc"))]
             panic!("grpc feature is required to compile {}", mode.to_string());

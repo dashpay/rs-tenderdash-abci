@@ -124,13 +124,12 @@ pub fn protobuf_struct_conveniences_example() {
 
 #[test]
 pub fn test_response_exception_from() {
-    assert_eq!(ResponseException::from("string").error, "string");
     assert_eq!(
         ResponseException::from(String::from("string")).error,
         "string"
     );
     assert_eq!(
-        ResponseException::from(&String::from("string")).error,
+        ResponseException::from(String::from("string")).error,
         "string"
     );
 }
@@ -138,6 +137,8 @@ pub fn test_response_exception_from() {
 #[test]
 #[cfg(feature = "serde")]
 pub fn test_consensus_params_serde() {
+    use tenderdash_proto::types::ConsensusParams;
+
     let json = r#"
     {
         "block": {
@@ -155,6 +156,7 @@ pub fn test_consensus_params_serde() {
           ]
         },
         "version": {
+          "consensus_version": "1",
           "app_version": "1"
         },
         "synchrony": {
@@ -174,5 +176,6 @@ pub fn test_consensus_params_serde() {
     }
     "#;
 
-    let _new_params: tenderdash_proto::types::ConsensusParams = serde_json::from_str(json).unwrap();
+    let new_params: ConsensusParams = serde_json::from_str(json).unwrap();
+    assert_eq!(new_params.version.unwrap().consensus_version, 1)
 }

@@ -1,5 +1,5 @@
 [package]
-version = "1.1.0"
+
 name = "tenderdash-abci"
 edition = "2021"
 license = "Apache-2.0"
@@ -11,6 +11,9 @@ documentation = "https://dashpay.github.io/rs-tenderdash-abci/tenderdash_abci/"
 
 description = """tenderdash-abci provides a simple framework with which to build\
 low-level applications on top of Tenderdash."""
+
+rust-version.workspace = true
+version.workspace = true
 
 [features]
 default = [
@@ -48,7 +51,6 @@ tenderdash-proto = { path = "../proto", default-features = false, features = [
     "serde",
 ] }
 bytes = { version = "1.6.0" }
-prost = { version = "0.12.4" }
 tracing = { version = "0.1.40", default-features = false }
 tracing-subscriber = { version = "0.3.18", optional = true, default-features = false, features = [
     "ansi",
@@ -60,11 +62,11 @@ url = { version = "2.5.0" }
 semver = { version = "1.0.22" }
 lhash = { version = "1.1.0", features = ["sha256"], optional = true }
 hex = { version = "0.4.3" }
-tokio-util = { version = "0.7.10", features = [
+tokio-util = { version = "0.7.12", features = [
     "net",
     "codec",
 ], default-features = false, optional = true }
-tokio = { version = "1.37.0", features = [
+tokio = { version = "1.40", features = [
     "net",
     "io-util",
     "rt-multi-thread",
@@ -77,16 +79,9 @@ futures = { version = "0.3.30", optional = true }
 anyhow = { version = "1.0.82" }
 bincode = { version = "2.0.0-rc.3" }
 blake2 = { version = "0.10.6" }
-bollard = { version = "0.16.1" }
+bollard = { version = "0.17" }
 futures = { version = "0.3.30" }
-tokio = { version = "1.37.0", features = [
-    "macros",
-    "signal",
-    "time",
-    "io-std",
-] }
+tokio = { version = "1.40", features = ["macros", "signal", "time", "io-std"] }
 hex = { version = "0.4.3" }
 lazy_static = { version = "1.4.0" }
-# For tests of gRPC server
-tonic = { version = "0.11.0" }
 pollster = { version = "0.3.0" }

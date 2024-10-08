@@ -34,7 +34,7 @@ all-features = true
 #
 # Sometimes cleaning the build cache with `cargo clean` might be necessary to solve
 # issues related to outdated generated files.
-default = ["grpc", "serde"]
+default = ["grpc"]
 
 # Enable standard library support; DEPRECATED - use `grpc` instead
 std = ["grpc"]

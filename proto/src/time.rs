@@ -15,7 +15,7 @@ pub trait ToMillis {
     /// Panics when timestamp doesn't fit `u64` type
     fn to_millis(&self) -> Result<u64, Error>;
 
-    #[deprecated = "use `to_millis` instead"]
+    #[deprecated(note = "use `to_millis` instead", since = "1.3.1")]
     fn to_milis(&self) -> u64 {
         self.to_millis()
             .expect("cannot convert time to milliseconds")
@@ -44,8 +44,7 @@ pub trait FromMillis: Sized {
     ///
     /// * millis - time since epoch, in milliseconds; must fit `i64` type
     fn from_millis(millis: u64) -> Result<Self, Error>;
-
-    #[deprecated = "use `from_millis` instead"]
+    #[deprecated(note = "use `from_millis` instead", since = "1.3.1")]
     fn from_milis(millis: u64) -> Self
     where
         Self: Sized,

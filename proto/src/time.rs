@@ -2,13 +2,13 @@
 
 use crate::google::protobuf::Timestamp;
 pub trait ToMillis {
-    /// Convert protobuf timestamp into miliseconds since epoch
+    /// Convert protobuf timestamp into milliseconds since epoch
 
     /// Note there is a resolution difference, as timestamp uses nanoseconds
     ///
     /// # Arguments
     ///
-    /// * millis - time since epoch, in miliseconds
+    /// * millis - time since epoch, in milliseconds
     ///
     /// # Panics
     ///  
@@ -22,7 +22,7 @@ pub trait ToMillis {
 }
 
 impl ToMillis for Timestamp {
-    /// Convert protobuf timestamp into miliseconds since epoch
+    /// Convert protobuf timestamp into milliseconds since epoch
     fn to_millis(&self) -> u64 {
         chrono::DateTime::from_timestamp(self.seconds, self.nanos as u32)
             .unwrap()
@@ -34,13 +34,13 @@ impl ToMillis for Timestamp {
 }
 
 pub trait FromMillis {
-    /// Create protobuf timestamp from miliseconds since epoch
+    /// Create protobuf timestamp from milliseconds since epoch
     ///
     /// Note there is a resolution difference, as timestamp uses nanoseconds
     ///
     /// # Arguments
     ///
-    /// * millis - time since epoch, in miliseconds; must fit `i64` type
+    /// * millis - time since epoch, in milliseconds; must fit `i64` type
     fn from_millis(millis: u64) -> Self;
 
     #[deprecated = "use `from_millis` instead"]
@@ -53,7 +53,7 @@ pub trait FromMillis {
 }
 
 impl FromMillis for Timestamp {
-    /// Create protobuf timestamp from miliseconds since epoch
+    /// Create protobuf timestamp from milliseconds since epoch
     ///
     /// Note there is a resolution difference, as timestamp uses nanoseconds
     ///

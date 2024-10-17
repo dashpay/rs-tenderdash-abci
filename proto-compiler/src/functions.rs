@@ -5,11 +5,14 @@ use std::{
     path::{Path, PathBuf},
     process::Command,
 };
-use semver::Version;
 
+use semver::Version;
 use walkdir::WalkDir;
 
-use crate::constants::{GenerationMode, DEFAULT_TENDERDASH_COMMITISH, DEP_PROTOC_VERSION_OTHER, DEP_PROTOC_VERSION_UBUNTU};
+use crate::constants::{
+    GenerationMode, DEFAULT_TENDERDASH_COMMITISH, DEP_PROTOC_VERSION_OTHER,
+    DEP_PROTOC_VERSION_UBUNTU,
+};
 
 /// Check out a specific commitish of the tenderdash repository.
 ///
@@ -392,15 +395,27 @@ fn dep_protoc(required_version_str: &str) -> Result<Version, String> {
 
     // Extract the version number from the output
     // Assuming the output is like "libprotoc 3.12.4"
-    let installed_version_str = version_output.trim().split_whitespace().nth(1)
+    let installed_version_str = version_output
+        .trim()
+        .split_whitespace()
+        .nth(1)
         .ok_or_else(|| "Failed to parse protoc version output".to_string())?;
 
     // Parse the versions
-    let installed_version = Version::parse(&normalize_version(installed_version_str))
-        .map_err(|e| format!("Failed to parse installed protoc version '{}': {}", installed_version_str, e))?;
+    let installed_version =
+        Version::parse(&normalize_version(installed_version_str)).map_err(|e| {
+            format!(
+                "Failed to parse installed protoc version '{}': {}",
+                installed_version_str, e
+            )
+        })?;
 
-    let required_version = Version::parse(required_version_str)
-        .map_err(|e| format!("Failed to parse required protoc version '{}': {}", required_version_str, e))?;
+    let required_version = Version::parse(required_version_str).map_err(|e| {
+        format!(
+            "Failed to parse required protoc version '{}': {}",
+            required_version_str, e
+        )
+    })?;
 
     // Compare versions
     if installed_version >= required_version {

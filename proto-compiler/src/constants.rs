@@ -1,7 +1,7 @@
 //! Tenderdash protobuf implementation
 
 // Requirements
-pub const DEP_PROTOC_VERSION: &str = "25.0.0";
+pub const DEP_PROTOC_VERSION: &str = "3.2.14";
 
 /// Tenderdash repository URL.
 pub const TENDERDASH_REPO: &str = "https://github.com/dashpay/tenderdash";

@@ -5,6 +5,7 @@ use std::{
     path::{Path, PathBuf},
     process::Command,
 };
+use semver::Version;
 
 use walkdir::WalkDir;
 
@@ -365,48 +366,66 @@ pub(crate) fn check_deps() -> Result<(), String> {
     dep_protoc(DEP_PROTOC_VERSION).map(|_| ())
 }
 
-/// Check if protoc is installed and has the required version
-fn dep_protoc(expected_version: f32) -> Result<f32, String> {
-    let protoc = prost_build::protoc_from_env();
-
-    // Run `protoc --version` and capture the output
-    let output = Command::new(protoc)
+fn dep_protoc(required_version_str: &str) -> Result<Version, String> {
+    // Get the installed protoc version
+    let output = std::process::Command::new("protoc")
         .arg("--version")
         .output()
-        .map_err(|e| format!("failed to run: {}", e))?;
+        .map_err(|e| format!("Failed to execute protoc: {}", e))?;
 
-    // Convert the output to a string
-    let out = output.stdout;
-    let version_output = String::from_utf8(out.clone())
-        .map_err(|e| format!("output {:?} is not utf8 string: {}", out, e))?;
+    let version_output = String::from_utf8(output.stdout)
+        .map_err(|e| format!("Invalid UTF-8 output from protoc: {}", e))?;
 
-    // Extract the version number from string like `libprotoc 25.1`
-    let version: f32 = version_output
-        .split_whitespace()
-        .last()
-        .unwrap()
-        .parse()
-        .map_err(|e| format!("failed to parse protoc version {}: {}", version_output, e))?;
+    // Extract the version number from the output
+    // Assuming the output is like "libprotoc 3.12.4"
+    let installed_version_str = version_output.trim().split_whitespace().nth(1)
+        .ok_or_else(|| "Failed to parse protoc version output".to_string())?;
 
-    if version < expected_version {
-        Err(format!(
-            "protoc version must be {} or higher, but found {}; please upgrade: https://github.com/protocolbuffers/protobuf/releases/",
-            expected_version, version
-        ))
+    // Parse the versions
+    let installed_version = Version::parse(&normalize_version(installed_version_str))
+        .map_err(|e| format!("Failed to parse installed protoc version '{}': {}", installed_version_str, e))?;
+
+    let required_version = Version::parse(required_version_str)
+        .map_err(|e| format!("Failed to parse required protoc version '{}': {}", required_version_str, e))?;
+
+    // Compare versions
+    if installed_version >= required_version {
+        Ok(installed_version)
     } else {
-        Ok(version)
+        Err(format!(
+            "Installed protoc version {} is less than required version {}",
+            installed_version, required_version
+        ))
     }
 }
 
+fn normalize_version(version_str: &str) -> String {
+    let mut parts: Vec<&str> = version_str.split('.').collect();
+    while parts.len() < 3 {
+        parts.push("0");
+    }
+    parts.join(".")
+}
 #[cfg(test)]
 mod tests {
     use super::*;
 
     #[test]
     fn test_protoc_dep() {
-        let expected_versions = vec![(10.1, true), (DEP_PROTOC_VERSION, true), (90.5, false)];
-        for expect in expected_versions {
-            assert_eq!(dep_protoc(expect.0).is_ok(), expect.1);
+        let expected_versions = vec![
+            ("10.1.0", true),
+            (DEP_PROTOC_VERSION, true),
+            ("90.5.0", false),
+        ];
+        for &(required_version, expected_result) in &expected_versions {
+            let result = dep_protoc(required_version);
+            assert_eq!(
+                result.is_ok(),
+                expected_result,
+                "Test case failed for required_version='{}', error='{:?}'",
+                required_version,
+                result.err()
+            );
         }
     }
 }

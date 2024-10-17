@@ -9,7 +9,7 @@ use semver::Version;
 
 use walkdir::WalkDir;
 
-use crate::constants::{GenerationMode, DEFAULT_TENDERDASH_COMMITISH, DEP_PROTOC_VERSION};
+use crate::constants::{GenerationMode, DEFAULT_TENDERDASH_COMMITISH, DEP_PROTOC_VERSION_OTHER, DEP_PROTOC_VERSION_UBUNTU};
 
 /// Check out a specific commitish of the tenderdash repository.
 ///
@@ -361,9 +361,23 @@ pub(crate) fn check_state(dir: &Path, commitish: &str) -> bool {
     }
 }
 
+fn get_required_protoc_version() -> &'static str {
+    #[cfg(target_os = "linux")]
+    {
+        // Further refine detection if needed
+        // For example, detect if it's Ubuntu
+        DEP_PROTOC_VERSION_UBUNTU
+    }
+
+    #[cfg(not(target_os = "linux"))]
+    {
+        DEP_PROTOC_VERSION_OTHER
+    }
+}
+
 /// Check if all dependencies are met
 pub(crate) fn check_deps() -> Result<(), String> {
-    dep_protoc(DEP_PROTOC_VERSION).map(|_| ())
+    dep_protoc(get_required_protoc_version()).map(|_| ())
 }
 
 fn dep_protoc(required_version_str: &str) -> Result<Version, String> {
@@ -414,7 +428,7 @@ mod tests {
     fn test_protoc_dep() {
         let expected_versions = vec![
             ("10.1.0", true),
-            (DEP_PROTOC_VERSION, true),
+            (DEP_PROTOC_VERSION_OTHER, true),
             ("90.5.0", false),
         ];
         for &(required_version, expected_result) in &expected_versions {

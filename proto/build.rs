@@ -10,7 +10,9 @@ fn main() {
     // version
     let commitish = env::var("TENDERDASH_COMMITISH").unwrap_or_default();
     if commitish.is_empty() {
-        env::set_var("TENDERDASH_COMMITISH", DEFAULT_VERSION);
+        unsafe {
+            env::set_var("TENDERDASH_COMMITISH", DEFAULT_VERSION);
+        }
     }
 
     // build gRPC server and client

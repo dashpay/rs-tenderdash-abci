@@ -20,7 +20,7 @@ use tokio::{
 pub use tokio_util::sync::CancellationToken;
 
 use self::generic::GenericServer;
-use crate::{application::RequestDispatcher, Error};
+use crate::{Error, application::RequestDispatcher};
 
 #[cfg(not(any(feature = "tcp", feature = "unix")))]
 compile_error!("At least one of `tcp` or `unix` features must be enabled");

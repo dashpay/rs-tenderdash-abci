@@ -1,5 +1,5 @@
 use lazy_static::lazy_static;
-use tenderdash_abci::{proto::abci, Application, CancellationToken, ServerBuilder};
+use tenderdash_abci::{Application, CancellationToken, ServerBuilder, proto::abci};
 use tracing::info;
 use tracing_subscriber::filter::LevelFilter;
 

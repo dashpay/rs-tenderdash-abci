@@ -8,12 +8,12 @@ use std::{
 
 use bincode::{Decode, Encode};
 use blake2::{
-    digest::{consts::U32, FixedOutput},
     Blake2b, Digest,
+    digest::{FixedOutput, consts::U32},
 };
 use lazy_static::lazy_static;
 use proto::abci::{self, ResponseException};
-use tenderdash_abci::{check_version, proto, Application, CancellationToken};
+use tenderdash_abci::{Application, CancellationToken, check_version, proto};
 use tracing::error;
 use tracing_subscriber::filter::LevelFilter;
 

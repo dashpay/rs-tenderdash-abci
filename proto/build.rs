@@ -4,13 +4,15 @@ use tenderdash_proto_compiler::GenerationMode;
 
 fn main() {
     // default Tenderdash version to use if TENDERDASH_COMMITISH is not set
-    const DEFAULT_VERSION: &str = "v1.3.0";
+    const DEFAULT_VERSION: &str = "v1.4.0";
 
     // check if TENDERDASH_COMMITISH is already set; if not, set it to the current
     // version
     let commitish = env::var("TENDERDASH_COMMITISH").unwrap_or_default();
     if commitish.is_empty() {
-        env::set_var("TENDERDASH_COMMITISH", DEFAULT_VERSION);
+        unsafe {
+            env::set_var("TENDERDASH_COMMITISH", DEFAULT_VERSION);
+        }
     }
 
     // build gRPC server and client

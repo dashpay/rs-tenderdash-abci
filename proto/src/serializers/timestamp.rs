@@ -4,9 +4,9 @@ use core::fmt::{self, Debug};
 #[cfg(feature = "std")]
 use std::fmt::{self, Debug};
 
-use serde::{de::Error as _, ser::Error, Deserialize, Deserializer, Serialize, Serializer};
+use serde::{Deserialize, Deserializer, Serialize, Serializer, de::Error as _, ser::Error};
 use time::{
-    format_description::well_known::Rfc3339 as Rfc3339Format, macros::offset, OffsetDateTime,
+    OffsetDateTime, format_description::well_known::Rfc3339 as Rfc3339Format, macros::offset,
 };
 
 use crate::{google::protobuf::Timestamp, prelude::*};

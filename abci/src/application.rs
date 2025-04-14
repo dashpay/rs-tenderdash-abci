@@ -426,6 +426,7 @@ mod tests {
     use super::match_versions;
 
     fn setup_logs() {
+        #[cfg(feature = "server")]
         tracing_subscriber::fmt()
             .with_env_filter(tracing_subscriber::EnvFilter::new("trace"))
             .try_init()

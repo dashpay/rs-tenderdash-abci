@@ -21,9 +21,7 @@ The repository contains the following crates:
 ## Version Compatibility
 
 Versioning of this library follows the Semantic Versioning 2.0.0 specification. Specifically, it consists of
-`MAJOR.MINOR.PATCH+BUILD`, where `BUILD` denotes minimum version of [Tenderdash] required.
-
-For instance, if you're working with `Tenderdash 1.3.0`, you should use `rs-tenderdash-abci 1.2.0+1.3.0`.
+`MAJOR.MINOR.PATCH`.
 
 This library also includes built-in support for ABCI protocol version verification. The ABCI protocol version, as defined in Tenderdash's [version.go](https://github.com/dashpay/tenderdash/blob/HEAD/version/version.go) under the `ABCISemVer` constant, must align with the ABCI protocol version of this library. You can find the library's ABCI protocol version in [proto/src/tenderdash.rs](proto/src/tenderdash.rs) under the `ABCI_VERSION` constant.
 

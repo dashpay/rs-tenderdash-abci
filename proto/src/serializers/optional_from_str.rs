@@ -2,7 +2,7 @@
 
 use core::{fmt::Display, str::FromStr};
 
-use serde::{de::Error, Deserialize, Deserializer, Serializer};
+use serde::{Deserialize, Deserializer, Serializer, de::Error};
 
 use crate::prelude::*;
 

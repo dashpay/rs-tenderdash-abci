@@ -18,10 +18,10 @@ mod server;
 
 use std::io;
 
-pub use application::{check_version, Application, RequestDispatcher};
+pub use application::{Application, RequestDispatcher, check_version};
 #[allow(deprecated)]
 #[cfg(feature = "server")]
-pub use server::{start_server, CancellationToken, Server, ServerBuilder, ServerRuntime};
+pub use server::{CancellationToken, Server, ServerBuilder, ServerRuntime, start_server};
 pub use tenderdash_proto as proto;
 use tenderdash_proto::prost::{DecodeError, EncodeError};
 

@@ -12,8 +12,8 @@ use core::{convert::TryFrom, fmt::Formatter};
 use std::fmt::Formatter;
 
 use serde::{
-    de::{Error, Visitor},
     Deserializer, Serialize, Serializer,
+    de::{Error, Visitor},
 };
 
 use crate::prelude::*;

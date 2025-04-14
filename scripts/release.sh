@@ -86,7 +86,7 @@ if [ $VERBOSE -eq 1 ]; then
     set -x
 fi
 
-rs_tenderdash_abci_version_build="${rs_tenderdash_abci_version#v}+${td_version}" # remove 'v' if it exists and suffix build mtd
+rs_tenderdash_abci_version_build="${rs_tenderdash_abci_version#v}" # remove 'v' if it exists and suffix build mtd
 
 echo "INFO: Preparing release of rs-tenderdash-abci version $rs_tenderdash_abci_version_build with Tenderdash version $td_version"
 

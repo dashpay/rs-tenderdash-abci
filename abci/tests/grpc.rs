@@ -11,14 +11,14 @@
 use std::sync::Arc;
 
 use tenderdash_abci::{
-    proto::abci::{
-        abci_application_server::AbciApplication, RequestEcho, RequestInfo, ResponseInfo,
-    },
     CancellationToken,
+    proto::abci::{
+        RequestEcho, RequestInfo, ResponseInfo, abci_application_server::AbciApplication,
+    },
 };
 mod common;
 use tenderdash_abci::proto;
-use tenderdash_proto::tonic::{async_trait, Response, Status};
+use tenderdash_proto::tonic::{Response, Status, async_trait};
 
 #[cfg(feature = "docker-tests")]
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]

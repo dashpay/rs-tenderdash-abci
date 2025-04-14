@@ -13,7 +13,7 @@ use tokio::sync::Mutex;
 use tokio_util::net::Listener;
 use tracing::info;
 
-use super::{codec::Codec, Server, ServerRuntime};
+use super::{Server, ServerRuntime, codec::Codec};
 use crate::{CancellationToken, Error, RequestDispatcher};
 
 /// A TCP-based server for serving a specific ABCI application.

@@ -2,9 +2,9 @@
 use core::convert::TryFrom;
 
 use tenderdash_proto::{
+    Protobuf,
     abci::ResponseException,
     types::{BlockId as RawBlockId, PartSetHeader as RawPartSetHeader},
-    Protobuf,
 };
 
 impl Protobuf<RawBlockId> for BlockId {}
@@ -69,7 +69,9 @@ pub fn protobuf_struct_example() {
     my_domain_type.encode(&mut wire).unwrap();
     assert_eq!(
         wire,
-        vec![10, 12, 72, 101, 108, 108, 111, 32, 119, 111, 114, 108, 100, 33]
+        vec![
+            10, 12, 72, 101, 108, 108, 111, 32, 119, 111, 114, 108, 100, 33
+        ]
     );
     let new_domain_type = BlockId::decode(wire.as_ref()).unwrap();
     assert_eq!(new_domain_type.hash, "Hello world!".to_string());
@@ -89,7 +91,9 @@ pub fn protobuf_struct_length_delimited_example() {
     my_domain_type.encode_length_delimited(&mut wire).unwrap();
     assert_eq!(
         wire,
-        vec![14, 10, 12, 72, 101, 108, 108, 111, 32, 119, 111, 114, 108, 100, 33]
+        vec![
+            14, 10, 12, 72, 101, 108, 108, 111, 32, 119, 111, 114, 108, 100, 33
+        ]
     );
 
     let new_domain_type = BlockId::decode_length_delimited(wire.as_ref()).unwrap();
@@ -108,7 +112,9 @@ pub fn protobuf_struct_conveniences_example() {
     let wire = my_domain_type.encode_vec().unwrap();
     assert_eq!(
         wire,
-        vec![10, 12, 72, 101, 108, 108, 111, 32, 119, 111, 114, 108, 100, 33]
+        vec![
+            10, 12, 72, 101, 108, 108, 111, 32, 119, 111, 114, 108, 100, 33
+        ]
     );
     let new_domain_type = BlockId::decode_vec(&wire).unwrap();
     assert_eq!(my_domain_type, new_domain_type);
@@ -116,7 +122,9 @@ pub fn protobuf_struct_conveniences_example() {
     let wire = my_domain_type.encode_length_delimited_vec().unwrap();
     assert_eq!(
         wire,
-        vec![14, 10, 12, 72, 101, 108, 108, 111, 32, 119, 111, 114, 108, 100, 33]
+        vec![
+            14, 10, 12, 72, 101, 108, 108, 111, 32, 119, 111, 114, 108, 100, 33
+        ]
     );
     let new_domain_type = BlockId::decode_length_delimited_vec(&wire).unwrap();
     assert_eq!(my_domain_type, new_domain_type);

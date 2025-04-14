@@ -1,6 +1,6 @@
 use std::{
     env,
-    fs::{copy, create_dir_all, read_to_string, remove_dir_all, File},
+    fs::{File, copy, create_dir_all, read_to_string, remove_dir_all},
     io::Write,
     path::{Path, PathBuf},
     process::Command,
@@ -8,7 +8,7 @@ use std::{
 
 use walkdir::WalkDir;
 
-use crate::constants::{GenerationMode, DEFAULT_TENDERDASH_COMMITISH, DEP_PROTOC_VERSION};
+use crate::constants::{DEFAULT_TENDERDASH_COMMITISH, DEP_PROTOC_VERSION, GenerationMode};
 
 /// Check out a specific commitish of the tenderdash repository.
 ///

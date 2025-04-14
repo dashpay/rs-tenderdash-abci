@@ -3,7 +3,7 @@
 // Most likely we build nostd
 #[cfg(not(any(feature = "server", feature = "client")))]
 use crate::format;
-use crate::{google::protobuf::Timestamp, Error};
+use crate::{Error, google::protobuf::Timestamp};
 pub trait ToMillis {
     /// Convert protobuf timestamp into milliseconds since epoch
     ///

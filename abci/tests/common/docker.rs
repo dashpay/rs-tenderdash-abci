@@ -1,9 +1,9 @@
 use std::{sync::Arc, time::Duration};
 
 use bollard::{
+    API_DEFAULT_VERSION, Docker,
     container::{Config, RemoveContainerOptions},
     service::{CreateImageInfo, HostConfig},
-    Docker, API_DEFAULT_VERSION,
 };
 use futures::StreamExt;
 use tenderdash_abci::ServerRuntime;

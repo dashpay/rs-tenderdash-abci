@@ -25,6 +25,7 @@ use std::{
 use bytes::BufMut;
 
 use crate::{
+    Error,
     merkle::merkle_hash,
     proto::{
         prost::Message,
@@ -33,7 +34,6 @@ use crate::{
             SignedMsgType, StateId, ValidatorSet, Vote, VoteExtension, VoteExtensionType,
         },
     },
-    Error,
 };
 
 const VOTE_REQUEST_ID_PREFIX: &str = "dpbvote";
@@ -238,7 +238,7 @@ fn sign_hash(
 pub trait Hashable {
     /// Generate hash of data to sign
     fn calculate_msg_hash(&self, chain_id: &str, height: i64, round: i32)
-        -> Result<Vec<u8>, Error>;
+    -> Result<Vec<u8>, Error>;
 }
 
 impl<T: SignBytes> Hashable for T {
@@ -654,12 +654,11 @@ pub mod tests {
 
     #[test]
     fn test_validator_set_hash() {
-        use crate::proto::crypto::{public_key::Sum::Bls12381, PublicKey};
+        use crate::proto::crypto::{PublicKey, public_key::Sum::Bls12381};
 
         const QUORUM_HASH_HEX: &str =
             "703ee5bfc78765cc9e151d8dd84e30e196ababa83ac6cbdee31a88a46bba81b9";
-        const THRESHOLD_PUB_KEY_HEX: &str =
-            "830e45e45e6414d9d615473cc2814e6b171c508f9c77e8b16924b74594f61c9956a6fa16335e98467eac8d8bdb76d187";
+        const THRESHOLD_PUB_KEY_HEX: &str = "830e45e45e6414d9d615473cc2814e6b171c508f9c77e8b16924b74594f61c9956a6fa16335e98467eac8d8bdb76d187";
         const VALIDATORS_HASH_HEX: &str =
             "81742F95E99EAE96ABC727FE792CECB4996205DE6BFC88AFEE1F60B96BC648B2";
 

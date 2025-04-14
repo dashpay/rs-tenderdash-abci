@@ -32,7 +32,7 @@ use std::fmt::Display;
 use bytes::{Buf, BufMut};
 pub use error::Error;
 pub use prost;
-use prost::{encoding::encoded_len_varint, Message};
+use prost::{Message, encoding::encoded_len_varint};
 
 #[cfg(not(any(feature = "server", feature = "client")))]
 #[rustfmt::skip]

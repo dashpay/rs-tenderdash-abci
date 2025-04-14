@@ -10,14 +10,14 @@ use bytes::{Buf, BufMut, BytesMut};
 use futures::{SinkExt, StreamExt};
 use proto::abci::{Request, Response};
 use tenderdash_proto::prost::{
-    encoding::{decode_varint, encode_varint},
     Message,
+    encoding::{decode_varint, encode_varint},
 };
 use tokio::{
     io::{AsyncRead, AsyncWrite},
     sync::{
-        mpsc::{self, Receiver, Sender},
         Mutex,
+        mpsc::{self, Receiver, Sender},
     },
 };
 use tokio_util::{
@@ -26,7 +26,7 @@ use tokio_util::{
 };
 
 use super::ServerRuntime;
-use crate::{proto, CancellationToken, Error};
+use crate::{CancellationToken, Error, proto};
 
 /// The maximum number of bytes we expect in a varint. We use this to check if
 /// we're encountering a decoding error for a varint.

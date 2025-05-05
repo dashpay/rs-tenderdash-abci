@@ -367,13 +367,20 @@ pub(crate) fn check_deps() -> Result<(), String> {
 
 /// Check if protoc is installed and has the required version
 fn dep_protoc(expected_version: f32) -> Result<f32, String> {
+    const PROTOC_HINT: &str = "please install most recent protoc from \
+https://github.com/protocolbuffers/protobuf/releases/ (note that the version \
+provided by your package manager may be outdated)";
+
     let protoc = prost_build::protoc_from_env();
 
     // Run `protoc --version` and capture the output
-    let output = Command::new(protoc)
-        .arg("--version")
-        .output()
-        .map_err(|e| format!("failed to run: {}", e))?;
+    let output = match Command::new(protoc).arg("--version").output() {
+        Ok(output) => output,
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => {
+            return Err(format!("protoc not found in PATH; {}", PROTOC_HINT));
+        },
+        Err(e) => return Err(format!("failed to run protoc binary: {}", e)),
+    };
 
     // Convert the output to a string
     let out = output.stdout;
@@ -390,8 +397,8 @@ fn dep_protoc(expected_version: f32) -> Result<f32, String> {
 
     if version < expected_version {
         Err(format!(
-            "protoc version must be {} or higher, but found {}; please upgrade: https://github.com/protocolbuffers/protobuf/releases/",
-            expected_version, version
+            "protoc version must be {} or higher, but found {}; {}",
+            expected_version, version, PROTOC_HINT
         ))
     } else {
         Ok(version)

@@ -2,7 +2,11 @@ use std::{sync::Arc, time::Duration};
 
 use bollard::{
     API_DEFAULT_VERSION, Docker,
-    container::{Config, RemoveContainerOptions},
+    query_parameters::{
+        CreateContainerOptionsBuilder, CreateImageOptionsBuilder, LogsOptionsBuilder,
+        RemoveContainerOptionsBuilder, StartContainerOptionsBuilder,
+    },
+    secret::ContainerCreateBody,
     service::{CreateImageInfo, HostConfig},
 };
 use futures::StreamExt;
@@ -123,14 +127,10 @@ impl TenderdashDocker {
 
     async fn image_pull(&self) -> Result<(), anyhow::Error> {
         debug!("Fetching image {}", self.image);
-        let image_responses = self.docker.create_image(
-            Some(bollard::image::CreateImageOptions {
-                from_image: self.image.clone(),
-                ..Default::default()
-            }),
-            None,
-            None,
-        );
+        let create_options = CreateImageOptionsBuilder::default()
+            .from_image(&self.image)
+            .build();
+        let image_responses = self.docker.create_image(Some(create_options), None, None);
 
         let mut image_responses = image_responses
             .collect::<Vec<Result<CreateImageInfo, bollard::errors::Error>>>()
@@ -165,7 +165,8 @@ impl TenderdashDocker {
         };
 
         debug!("Tenderdash will connect to ABCI address: {}", app_address);
-        let container_config = Config {
+
+        let container_config = ContainerCreateBody {
             image: Some(self.image.clone()),
             env: Some(vec![
                 format!("PROXY_APP={}", app_address),
@@ -177,16 +178,12 @@ impl TenderdashDocker {
             }),
             ..Default::default()
         };
-
+        let options = CreateContainerOptionsBuilder::default()
+            .name(&self.name)
+            .build();
         let id = self
             .docker
-            .create_container::<String, String>(
-                Some(bollard::container::CreateContainerOptions {
-                    name: self.name.clone(),
-                    ..Default::default()
-                }),
-                container_config,
-            )
+            .create_container(Some(options), container_config)
             .await?
             .id;
 
@@ -195,14 +192,8 @@ impl TenderdashDocker {
 
     async fn start_container(&self) -> Result<(), anyhow::Error> {
         debug!("Starting container");
-        self.docker
-            .start_container::<String>(
-                &self.id,
-                Some(bollard::container::StartContainerOptions {
-                    ..Default::default()
-                }),
-            )
-            .await?;
+        let options = StartContainerOptionsBuilder::default().build();
+        self.docker.start_container(&self.id, Some(options)).await?;
 
         Ok(())
     }
@@ -230,16 +221,13 @@ impl TenderdashDocker {
         let stderror = tokio::io::stderr();
         let mut dest = tokio::io::BufWriter::new(stderror);
 
-        let mut logs = docker.logs(
-            &id,
-            Some(bollard::container::LogsOptions {
-                follow: false,
-                stdout: true,
-                stderr: true,
-                tail: "200",
-                ..Default::default()
-            }),
-        );
+        let options = LogsOptionsBuilder::default()
+            .follow(false)
+            .stdout(true)
+            .stderr(true)
+            .tail("200")
+            .build();
+        let mut logs = docker.logs(&id, Some(options));
 
         while let Some(log) = logs.next().await {
             let log = log.unwrap();
@@ -260,10 +248,7 @@ impl TenderdashDocker {
         docker
             .remove_container(
                 &id,
-                Some(RemoveContainerOptions {
-                    force: true,
-                    ..Default::default()
-                }),
+                Some(RemoveContainerOptionsBuilder::default().force(true).build()),
             )
             .await?;
 

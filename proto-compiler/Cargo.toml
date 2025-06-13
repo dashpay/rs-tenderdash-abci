@@ -13,7 +13,7 @@ version.workspace = true
 
 [dependencies]
 walkdir = { version = "2.5.0" }
-prost-build = { version = "0.13" }
+prost-build = { version = "0.14" }
 tempfile = { version = "3.12" }
 regex = { "version" = "1.10" }
 # Use of native-tls-vendored should build vendored openssl, which is required for Alpine build

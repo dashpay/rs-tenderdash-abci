@@ -126,24 +126,24 @@ pub fn proto_compile(mode: GenerationMode) {
     match mode {
         GenerationMode::GrpcServer => {
             #[cfg(feature = "grpc")]
-            tonic_build::configure()
+            tonic_prost_build::configure()
                 .build_client(true)
                 .build_server(true)
                 .build_transport(true)
                 .generate_default_stubs(true)
-                .compile_protos_with_config(pb, &protos, &proto_includes_paths)
+                .compile_with_config(pb, &protos, &proto_includes_paths)
                 .unwrap();
             #[cfg(not(feature = "grpc"))]
             panic!("grpc feature is required to compile {}", mode);
         },
         GenerationMode::GrpcClient => {
             #[cfg(feature = "grpc")]
-            tonic_build::configure()
+            tonic_prost_build::configure()
                 .build_client(true)
                 .build_server(false)
                 .build_transport(false)
                 .generate_default_stubs(true)
-                .compile_protos_with_config(pb, &protos, &proto_includes_paths)
+                .compile_with_config(pb, &protos, &proto_includes_paths)
                 .unwrap();
             #[cfg(not(feature = "grpc"))]
             panic!("grpc feature is required to compile {}", mode);

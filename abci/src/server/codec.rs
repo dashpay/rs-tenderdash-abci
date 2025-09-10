@@ -37,7 +37,7 @@ pub struct Codec {
     response_tx: Sender<Response>,
 }
 
-impl<'a> Codec {
+impl Codec {
     pub(crate) fn new<L>(
         listener: Arc<Mutex<L>>,
         cancel: CancellationToken,

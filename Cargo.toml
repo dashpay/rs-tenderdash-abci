@@ -5,4 +5,4 @@ members = ["abci", "proto-compiler", "proto"]
 [workspace.package]
 
 rust-version = "1.85"
-version = "1.5.0-dev.1"
+version = "1.5.0-dev.2"

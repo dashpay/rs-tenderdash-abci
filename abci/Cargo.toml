@@ -84,7 +84,7 @@ futures = { version = "0.3.30", optional = true }
 
 [dev-dependencies]
 anyhow = { version = "1.0.82" }
-bincode = { version = "2.0.0-rc.3" }
+bincode = { version = "3.0.0" }
 blake2 = { version = "0.10.6" }
 bollard = { version = "0.19" }
 futures = { version = "0.3.30" }

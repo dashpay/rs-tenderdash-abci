@@ -20,7 +20,7 @@ jobs:
         os: [alpine, debian]
     runs-on: ubuntu-22.04
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
 
       - name: Set up QEMU
         uses: docker/setup-qemu-action@master
@@ -28,7 +28,7 @@ jobs:
           platforms: amd64
 
       - name: Set up Docker Build
-        uses: docker/setup-buildx-action@v3.11.1
+        uses: docker/setup-buildx-action@v3.12.0
 
       # ARM build takes very long time, so we build PRs for AMD64 only
       - name: Select target platform

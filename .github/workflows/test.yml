@@ -28,7 +28,7 @@ jobs:
       RUST_TEST_TIME_INTEGRATION: "5000,10000"
       RUST_TEST_TIME_DOCTEST: "5000,10000"
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
       - uses: ./.github/actions/deps
         with:
           toolchain: stable
@@ -53,7 +53,7 @@ jobs:
         run: docker logs tenderdash > tenderdash.log 2>&1
 
       - name: Archive docker logs
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         if: failure()
         with:
           name: tenderdash.log

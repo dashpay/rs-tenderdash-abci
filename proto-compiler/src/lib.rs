@@ -151,7 +151,7 @@ pub fn proto_compile(mode: GenerationMode) {
     }
 
     println!(
-        "[info] => Generated files copied to {}.",
+        "[info] => Generated files written to {}.",
         prost_out_dir.display()
     );
 
@@ -167,7 +167,7 @@ pub fn proto_compile(mode: GenerationMode) {
     println!("[info] => Done!");
 }
 
-fn resolve_output_base() -> PathBuf {
+pub fn resolve_output_base() -> PathBuf {
     var("TENDERDASH_PROTO_OUT_DIR")
         .map(PathBuf::from)
         .or_else(|_| var("OUT_DIR").map(PathBuf::from))

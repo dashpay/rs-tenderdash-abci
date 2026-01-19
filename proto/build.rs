@@ -1,4 +1,4 @@
-use std::env;
+use std::{env, path::PathBuf};
 
 use tenderdash_proto_compiler::GenerationMode;
 
@@ -19,6 +19,16 @@ fn main() {
     // note it should be safe to build both server and client; we will just not use
     // them in the lib.rs
 
+    let output_base = proto_output_base();
+    println!(
+        "[info] => Using Tenderdash proto output dir: {}",
+        output_base.display()
+    );
+    println!(
+        "cargo:rustc-env=TENDERDASH_PROTO_OUT_DIR={}",
+        output_base.display()
+    );
+
     #[cfg(feature = "server")]
     // build gRPC server (includes client)
     tenderdash_proto_compiler::proto_compile(GenerationMode::GrpcServer);
@@ -32,4 +42,12 @@ fn main() {
     println!("cargo:rerun-if-changed=Cargo.toml");
     println!("cargo:rerun-if-env-changed=CARGO_PKG_VERSION");
     println!("cargo:rerun-if-env-changed=TENDERDASH_COMMITISH");
+    println!("cargo:rerun-if-env-changed=TENDERDASH_PROTO_OUT_DIR");
+}
+
+fn proto_output_base() -> PathBuf {
+    env::var("TENDERDASH_PROTO_OUT_DIR")
+        .or_else(|_| env::var("OUT_DIR"))
+        .map(PathBuf::from)
+        .expect("OUT_DIR should be provided by Cargo; set TENDERDASH_PROTO_OUT_DIR to override it")
 }

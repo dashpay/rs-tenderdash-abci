@@ -1,6 +1,6 @@
 use std::{
     env,
-    fs::{File, copy, create_dir_all, read_to_string, remove_dir_all},
+    fs::{File, read_to_string},
     io::Write,
     path::{Path, PathBuf},
     process::Command,
@@ -152,38 +152,6 @@ fn find_subdir(parent: &Path, name_prefix: &str) -> PathBuf {
     parent.join(src_dir)
 }
 
-/// Copy generated files to target folder
-pub fn copy_files(src_dir: &Path, target_dir: &Path) {
-    // Remove old compiled files
-    remove_dir_all(target_dir).unwrap_or_default();
-    create_dir_all(target_dir).unwrap();
-
-    // Copy new compiled files (prost does not use folder structures)
-    let errors = WalkDir::new(src_dir)
-        .into_iter()
-        .filter_map(|e| e.ok())
-        .filter(|e| e.file_type().is_file())
-        .map(|e| {
-            copy(
-                e.path(),
-                std::path::Path::new(&format!(
-                    "{}/{}",
-                    &target_dir.display(),
-                    &e.file_name().to_os_string().to_str().unwrap()
-                )),
-            )
-        })
-        .filter_map(|e| e.err())
-        .collect::<Vec<_>>();
-
-    if !errors.is_empty() {
-        for e in errors {
-            println!("[error] => Error while copying compiled file: {e}");
-        }
-        panic!("[error] => Aborted.");
-    }
-}
-
 /// Walk through the list of directories and gather all *.proto files
 pub fn find_proto_files(proto_paths: Vec<PathBuf>) -> Vec<PathBuf> {
     let mut protos: Vec<PathBuf> = vec![];
@@ -263,7 +231,7 @@ pub fn generate_tenderdash_lib(
     file_names.sort();
 
     let mut content =
-        String::from("//! Tenderdash-proto auto-generated sub-modules for Tenderdash\n");
+        String::from("/// Tenderdash-proto auto-generated sub-modules for Tenderdash\n");
     let tab = "    ".to_string();
 
     for file_name in file_names {

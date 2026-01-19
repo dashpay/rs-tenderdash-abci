@@ -27,7 +27,10 @@ pub fn fetch_commitish(tenderdash_dir: &Path, cache_dir: &Path, url: &str, commi
 
     // ensure cache dir exists
     if !cache_dir.is_dir() {
-        std::fs::create_dir_all(cache_dir).expect("cannot create cache directory");
+        std::fs::create_dir_all(cache_dir).expect(&format!(
+            "cannot create cache directory {}",
+            cache_dir.display()
+        ));
     }
 
     let archive_file = cache_dir.join(format!("tenderdash-{}.zip", commitish));
@@ -42,9 +45,14 @@ pub fn fetch_commitish(tenderdash_dir: &Path, cache_dir: &Path, url: &str, commi
 
     let options = fs_extra::dir::CopyOptions::new().content_only(true);
 
-    fs_extra::dir::create(tenderdash_dir, true).expect("cannot create destination directory");
-    fs_extra::dir::move_dir(src_dir, tenderdash_dir, &options)
-        .expect("cannot move tenderdash directory");
+    fs_extra::dir::create(tenderdash_dir, true).expect(&format!(
+        "cannot create destination directory {}",
+        tenderdash_dir.display()
+    ));
+    fs_extra::dir::move_dir(src_dir, tenderdash_dir, &options).expect(&format!(
+        "cannot move tenderdash directory to {}",
+        tenderdash_dir.display()
+    ));
 }
 
 /// Download file from URL and unzip it to `dest_dir`
@@ -96,8 +104,12 @@ fn download_and_unzip(url: &str, archive_file: &Path, dest_dir: &Path) {
 
 /// Download file from URL
 fn download(url: &str, archive_file: &Path) -> Result<(), String> {
-    let mut file =
-        File::create(archive_file).map_err(|e| format!("cannot create file: {:?}", e))?;
+    let mut file = File::create(archive_file).map_err(|e| {
+        format!(
+            "cannot create archive file {}: {e}",
+            archive_file.display()
+        )
+    })?;
     let rb = ureq::get(url)
         .call()
         .map_err(|e| format!("cannot download archive from: {}: {:?}", url, e))?;
@@ -121,20 +133,26 @@ fn unzip(archive_file: &Path, dest_dir: &Path) -> Result<(), String> {
         // no archive file, so we request another download
         return Err("archive file does not exist".to_string());
     }
-    let file = File::open(archive_file).expect("cannot open downloaded zip");
+    let file = File::open(archive_file).expect(&format!(
+        "cannot open downloaded zip {}",
+        archive_file.display()
+    ));
     let mut archive =
         zip::ZipArchive::new(&file).map_err(|e| format!("cannot open zip archive: {:?}", e))?;
 
     archive
         .extract(dest_dir)
-        .map_err(|e| format!("cannot extract archive: {:?}", e))?;
+        .map_err(|e| format!("cannot extract archive to {}: {e}", dest_dir.display()))?;
 
     Ok(())
 }
 
 /// Find a subdirectory of a parent path which has provided name prefix
 fn find_subdir(parent: &Path, name_prefix: &str) -> PathBuf {
-    let dir_content = fs_extra::dir::get_dir_content(parent).expect("cannot ls tmp dir");
+    let dir_content = fs_extra::dir::get_dir_content(parent).expect(&format!(
+        "cannot list tmp dir {}",
+        parent.display()
+    ));
     let mut src_dir = String::new();
     for directory in dir_content.directories {
         let directory = Path::new(&directory)
@@ -176,7 +194,8 @@ pub fn abci_version<T: AsRef<Path>>(dir: T) -> String {
     let mut file_path = dir.as_ref().to_path_buf();
     file_path.push("version/version.go");
 
-    let contents = read_to_string(&file_path).expect("cannot read version/version.go");
+    let contents =
+        read_to_string(&file_path).expect(&format!("cannot read {}", file_path.display()));
     use regex::Regex;
 
     let re = Regex::new(r##"(?m)^\s+ABCISemVer\s*=\s*"([^"]+)"\s+*$"##).unwrap();
@@ -195,7 +214,8 @@ pub fn tenderdash_version<T: AsRef<Path>>(dir: T) -> String {
     let mut file_path = dir.as_ref().to_path_buf();
     file_path.push("version/version.go");
 
-    let contents = read_to_string(&file_path).expect("cannot read version/version.go");
+    let contents =
+        read_to_string(&file_path).expect(&format!("cannot read {}", file_path.display()));
     use regex::Regex;
 
     let re = Regex::new(r##"(?m)^\s+TMVersionDefault\s*=\s*"([^"]+)"\s+*$"##).unwrap();
@@ -283,8 +303,10 @@ pub mod meta {{
     .trim_start()
     .into();
 
-    let mut file =
-        File::create(tenderdash_lib_target).expect("tenderdash library file create failed");
+    let mut file = File::create(tenderdash_lib_target).expect(&format!(
+        "tenderdash library file create failed {}",
+        tenderdash_lib_target.display()
+    ));
     file.write_all(content.as_bytes())
         .expect("tenderdash library file write failed");
 }
@@ -320,12 +342,19 @@ pub(crate) fn check_state(dir: &Path, commitish: &str) -> bool {
 
     let expected = commitish.to_string();
 
-    match read_to_string(state_file) {
+    match read_to_string(&state_file) {
         Ok(content) => {
             println!("[info] => Detected Tenderdash version: {}.", content);
             content == expected
         },
-        Err(_) => false,
+        Err(e) => {
+            eprintln!(
+                "[warn] => Failed to read download.state file {}: {}",
+                state_file.display(),
+                e
+            );
+            false
+        },
     }
 }
 

@@ -33,17 +33,25 @@ pub fn proto_compile(mode: GenerationMode) {
     std::fs::create_dir_all(&prost_out_dir)
         .unwrap_or_else(|e| panic!("cannot create out dir {:?}: {e}", prost_out_dir));
 
-    let cargo_target_dir = match std::env::var("CARGO_TARGET_DIR") {
-        Ok(s) => PathBuf::from(s),
-        Err(_) => root.join("..").join("target"),
-    };
+    let cargo_target_dir = std::env::var("CARGO_TARGET_DIR")
+        .map(PathBuf::from)
+        .unwrap_or_else(|_| output_base.join("tenderdash-cache"));
     let tenderdash_dir = PathBuf::from(var("TENDERDASH_DIR").unwrap_or_else(|_| {
-        cargo_target_dir
+        output_base
             .join("tenderdash")
             .to_str()
             .unwrap()
             .to_string()
     }));
+
+    println!(
+        "[info] => Tenderdash cache dir: {}",
+        cargo_target_dir.display()
+    );
+    println!(
+        "[info] => Tenderdash source dir: {}",
+        tenderdash_dir.display()
+    );
 
     let thirdparty_dir = root.join("third_party");
 

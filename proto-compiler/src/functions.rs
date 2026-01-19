@@ -230,8 +230,7 @@ pub fn generate_tenderdash_lib(
         .collect::<Vec<_>>();
     file_names.sort();
 
-    let mut content =
-        String::from("/// Tenderdash-proto auto-generated sub-modules for Tenderdash\n");
+    let mut content = String::new();
     let tab = "    ".to_string();
 
     for file_name in file_names {
@@ -280,7 +279,9 @@ pub mod meta {{
         abci_ver,
         td_ver,
         mode,
-    );
+    )
+    .trim_start()
+    .into();
 
     let mut file =
         File::create(tenderdash_lib_target).expect("tenderdash library file create failed");

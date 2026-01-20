@@ -34,10 +34,12 @@ pub fn proto_compile(mode: GenerationMode) -> Result<(), String> {
     let cargo_target_dir = std::env::var("CARGO_TARGET_DIR")
         .map(PathBuf::from)
         .unwrap_or_else(|_| output_base.join("tenderdash-cache"));
-    let tenderdash_dir = PathBuf::from(
-        var("TENDERDASH_DIR")
-            .unwrap_or_else(|_| output_base.join("tenderdash").to_str().unwrap().to_string()),
-    );
+    let tenderdash_dir = PathBuf::from(var("TENDERDASH_DIR").unwrap_or_else(|_| {
+        output_base
+            .join("tenderdash")
+            .to_string_lossy()
+            .into_owned()
+    }));
 
     println!(
         "[info] => Tenderdash cache dir: {}",

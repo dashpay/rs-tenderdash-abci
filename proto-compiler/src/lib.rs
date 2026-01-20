@@ -28,21 +28,16 @@ pub fn proto_compile(mode: GenerationMode) {
     let prost_out_dir = output_base.join(mode.module_name());
     let tenderdash_lib_target = prost_out_dir.join("mod.rs");
 
-    // ensure we start clean
-    std::fs::remove_dir_all(&prost_out_dir).ok();
     std::fs::create_dir_all(&prost_out_dir)
         .unwrap_or_else(|e| panic!("cannot create out dir {:?}: {e}", prost_out_dir));
 
     let cargo_target_dir = std::env::var("CARGO_TARGET_DIR")
         .map(PathBuf::from)
         .unwrap_or_else(|_| output_base.join("tenderdash-cache"));
-    let tenderdash_dir = PathBuf::from(var("TENDERDASH_DIR").unwrap_or_else(|_| {
-        output_base
-            .join("tenderdash")
-            .to_str()
-            .unwrap()
-            .to_string()
-    }));
+    let tenderdash_dir = PathBuf::from(
+        var("TENDERDASH_DIR")
+            .unwrap_or_else(|_| output_base.join("tenderdash").to_str().unwrap().to_string()),
+    );
 
     println!(
         "[info] => Tenderdash cache dir: {}",
@@ -68,6 +63,10 @@ pub fn proto_compile(mode: GenerationMode) {
         || !check_state(&prost_out_dir, &commitish);
 
     if download {
+        // ensure we start clean when regenerating
+        std::fs::remove_dir_all(&prost_out_dir).ok();
+        std::fs::create_dir_all(&prost_out_dir)
+            .unwrap_or_else(|e| panic!("cannot create out dir {:?}: {e}", prost_out_dir));
         println!("[info] => Fetching {TENDERDASH_REPO} at {commitish} into {tenderdash_dir:?}.");
         fetch_commitish(
             &PathBuf::from(&tenderdash_dir),
@@ -175,6 +174,7 @@ pub fn proto_compile(mode: GenerationMode) {
     println!("[info] => Done!");
 }
 
+/// Resolve output base directory for generated files.
 pub fn resolve_output_base() -> PathBuf {
     var("TENDERDASH_PROTO_OUT_DIR")
         .map(PathBuf::from)

@@ -104,12 +104,8 @@ fn download_and_unzip(url: &str, archive_file: &Path, dest_dir: &Path) {
 
 /// Download file from URL
 fn download(url: &str, archive_file: &Path) -> Result<(), String> {
-    let mut file = File::create(archive_file).map_err(|e| {
-        format!(
-            "cannot create archive file {}: {e}",
-            archive_file.display()
-        )
-    })?;
+    let mut file = File::create(archive_file)
+        .map_err(|e| format!("cannot create archive file {}: {e}", archive_file.display()))?;
     let rb = ureq::get(url)
         .call()
         .map_err(|e| format!("cannot download archive from: {}: {:?}", url, e))?;
@@ -149,10 +145,8 @@ fn unzip(archive_file: &Path, dest_dir: &Path) -> Result<(), String> {
 
 /// Find a subdirectory of a parent path which has provided name prefix
 fn find_subdir(parent: &Path, name_prefix: &str) -> PathBuf {
-    let dir_content = fs_extra::dir::get_dir_content(parent).expect(&format!(
-        "cannot list tmp dir {}",
-        parent.display()
-    ));
+    let dir_content = fs_extra::dir::get_dir_content(parent)
+        .expect(&format!("cannot list tmp dir {}", parent.display()));
     let mut src_dir = String::new();
     for directory in dir_content.directories {
         let directory = Path::new(&directory)

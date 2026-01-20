@@ -31,16 +31,22 @@ fn main() {
 
     #[cfg(feature = "server")]
     // build gRPC server (includes client)
-    tenderdash_proto_compiler::proto_compile(GenerationMode::GrpcServer);
+    run_proto_compile(GenerationMode::GrpcServer);
     #[cfg(feature = "client")]
     // build gRPC client only
-    tenderdash_proto_compiler::proto_compile(GenerationMode::GrpcClient);
+    run_proto_compile(GenerationMode::GrpcClient);
     // we always build nostd version
-    tenderdash_proto_compiler::proto_compile(GenerationMode::NoStd);
+    run_proto_compile(GenerationMode::NoStd);
 
     println!("cargo:rerun-if-changed=../proto-compiler/src");
     println!("cargo:rerun-if-changed=Cargo.toml");
     println!("cargo:rerun-if-env-changed=CARGO_PKG_VERSION");
     println!("cargo:rerun-if-env-changed=TENDERDASH_COMMITISH");
     println!("cargo:rerun-if-env-changed=TENDERDASH_PROTO_OUT_DIR");
+}
+
+fn run_proto_compile(mode: GenerationMode) {
+    if let Err(e) = tenderdash_proto_compiler::proto_compile(mode) {
+        panic!("[error] => proto compile failed: {e}");
+    }
 }

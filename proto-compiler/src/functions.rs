@@ -152,7 +152,7 @@ fn unzip(archive_file: &Path, dest_dir: &Path) -> Result<(), String> {
         return Err("archive file does not exist".to_string());
     }
     let file = File::open(archive_file)
-        .unwrap_or_else(|e| panic!("cannot open downloaded zip {}: {e}", archive_file.display()));
+        .map_err(|e| format!("cannot open downloaded zip {}: {e}", archive_file.display()))?;
     let mut archive =
         zip::ZipArchive::new(&file).map_err(|e| format!("cannot open zip archive: {:?}", e))?;
 

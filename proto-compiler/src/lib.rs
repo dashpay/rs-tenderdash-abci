@@ -24,12 +24,12 @@ use crate::functions::{check_deps, check_state, save_state};
 pub fn proto_compile(mode: GenerationMode) -> Result<(), String> {
     let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
 
-    let output_base = resolve_output_base();
+    let output_base = resolve_output_base()?;
     let prost_out_dir = output_base.join(mode.module_name());
     let tenderdash_lib_target = prost_out_dir.join("mod.rs");
 
     std::fs::create_dir_all(&prost_out_dir)
-        .unwrap_or_else(|e| panic!("cannot create out dir {:?}: {e}", prost_out_dir));
+        .map_err(|e| format!("cannot create out dir {:?}: {e}", prost_out_dir))?;
 
     let cargo_target_dir = std::env::var("CARGO_TARGET_DIR")
         .map(PathBuf::from)
@@ -73,7 +73,7 @@ pub fn proto_compile(mode: GenerationMode) -> Result<(), String> {
         // ensure we start clean when regenerating
         std::fs::remove_dir_all(&prost_out_dir).ok();
         std::fs::create_dir_all(&prost_out_dir)
-            .unwrap_or_else(|e| panic!("cannot create out dir {:?}: {e}", prost_out_dir));
+            .map_err(|e| format!("cannot create out dir {:?}: {e}", prost_out_dir))?;
         println!("[info] => Fetching {TENDERDASH_REPO} at {commitish} into {tenderdash_dir:?}.");
         fetch_commitish(
             &PathBuf::from(&tenderdash_dir),
@@ -144,7 +144,7 @@ pub fn proto_compile(mode: GenerationMode) -> Result<(), String> {
                 .compile_with_config(pb, &protos, &proto_includes_paths)
                 .map_err(|e| format!("tonic compile failed: {e}"))?;
             #[cfg(not(feature = "grpc"))]
-            panic!("grpc feature is required to compile {}", mode);
+            return Err(format!("grpc feature is required to compile {}", mode));
         },
         GenerationMode::GrpcClient => {
             #[cfg(feature = "grpc")]
@@ -157,7 +157,7 @@ pub fn proto_compile(mode: GenerationMode) -> Result<(), String> {
                 .compile_with_config(pb, &protos, &proto_includes_paths)
                 .map_err(|e| format!("tonic compile failed: {e}"))?;
             #[cfg(not(feature = "grpc"))]
-            panic!("grpc feature is required to compile {}", mode);
+            return Err(format!("grpc feature is required to compile {}", mode));
         },
         GenerationMode::NoStd => {
             pb.compile_protos(&protos, &proto_includes_paths)
@@ -184,13 +184,12 @@ pub fn proto_compile(mode: GenerationMode) -> Result<(), String> {
 }
 
 /// Resolve output base directory for generated files.
-pub fn resolve_output_base() -> PathBuf {
+pub fn resolve_output_base() -> Result<PathBuf, String> {
     var("TENDERDASH_PROTO_OUT_DIR")
         .map(PathBuf::from)
         .or_else(|_| var("OUT_DIR").map(PathBuf::from))
-        .unwrap_or_else(|_| {
-            panic!(
-                "OUT_DIR should be provided by Cargo; set TENDERDASH_PROTO_OUT_DIR to override it"
-            )
+        .map_err(|_| {
+            "OUT_DIR should be provided by Cargo; set TENDERDASH_PROTO_OUT_DIR to override it"
+                .to_string()
         })
 }

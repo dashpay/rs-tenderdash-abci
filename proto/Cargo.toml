@@ -56,9 +56,7 @@ serde = ["dep:serde", "bytes/serde"]
 
 [dependencies]
 bytes = { version = "1.7", default-features = false }
-prost = { version = "0.14", default-features = false, features = [
-    "derive",
-] }
+prost = { version = "0.14", default-features = false, features = ["derive"] }
 tonic = { version = "0.14.2", optional = true, default-features = false }
 tonic-prost = { version = "0.14.2", optional = true }
 serde = { version = "1.0.208", default-features = false, features = [

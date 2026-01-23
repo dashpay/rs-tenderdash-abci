@@ -1,7 +1,7 @@
 use std::{
     env,
     fs::{File, read_to_string},
-    io::Write,
+    io::{ErrorKind, Write},
     path::{Path, PathBuf},
     process::Command,
 };
@@ -16,7 +16,12 @@ use crate::constants::{DEFAULT_TENDERDASH_COMMITISH, DEP_PROTOC_VERSION, Generat
 /// on cargo to decide wherther or not to call it. It means
 /// we will not be called too frequently, so the fetch will
 /// not happen too often.
-pub fn fetch_commitish(tenderdash_dir: &Path, cache_dir: &Path, url: &str, commitish: &str) {
+pub fn fetch_commitish(
+    tenderdash_dir: &Path,
+    cache_dir: &Path,
+    url: &str,
+    commitish: &str,
+) -> Result<(), String> {
     let url = format!("{url}/archive/{commitish}.zip");
 
     println!(
@@ -27,37 +32,42 @@ pub fn fetch_commitish(tenderdash_dir: &Path, cache_dir: &Path, url: &str, commi
 
     // ensure cache dir exists
     if !cache_dir.is_dir() {
-        std::fs::create_dir_all(cache_dir).expect(&format!(
-            "cannot create cache directory {}",
-            cache_dir.display()
-        ));
+        std::fs::create_dir_all(cache_dir)
+            .map_err(|e| format!("cannot create cache directory {}: {e}", cache_dir.display()))?;
     }
 
     let archive_file = cache_dir.join(format!("tenderdash-{}.zip", commitish));
     // Unzip Tenderdash sources to tmpdir and move to target/tenderdash
-    let tmpdir = tempfile::tempdir().expect("cannot create temporary dir to extract archive");
-    download_and_unzip(&url, archive_file.as_path(), tmpdir.path());
+    let tmpdir = tempfile::tempdir()
+        .map_err(|e| format!("cannot create temporary dir to extract archive: {e}"))?;
+    download_and_unzip(&url, archive_file.as_path(), tmpdir.path())?;
 
     // Downloaded zip contains subdirectory like tenderdash-0.12.0-dev.2. We need to
     // move its contents to target/tederdash, so that we get correct paths like
     // target/tenderdash/version/version.go
-    let src_dir = find_subdir(tmpdir.path(), "tenderdash-");
+    let src_dir = find_subdir(tmpdir.path(), "tenderdash-")?;
 
     let options = fs_extra::dir::CopyOptions::new().content_only(true);
 
-    fs_extra::dir::create(tenderdash_dir, true).expect(&format!(
-        "cannot create destination directory {}",
-        tenderdash_dir.display()
-    ));
-    fs_extra::dir::move_dir(src_dir, tenderdash_dir, &options).expect(&format!(
-        "cannot move tenderdash directory to {}",
-        tenderdash_dir.display()
-    ));
+    fs_extra::dir::create(tenderdash_dir, true).map_err(|e| {
+        format!(
+            "cannot create destination directory {}: {e}",
+            tenderdash_dir.display()
+        )
+    })?;
+    fs_extra::dir::move_dir(src_dir, tenderdash_dir, &options).map_err(|e| {
+        format!(
+            "cannot move tenderdash directory to {}: {e}",
+            tenderdash_dir.display()
+        )
+    })?;
+    Ok(())
 }
 
 /// Download file from URL and unzip it to `dest_dir`
-fn download_and_unzip(url: &str, archive_file: &Path, dest_dir: &Path) {
+fn download_and_unzip(url: &str, archive_file: &Path, dest_dir: &Path) -> Result<(), String> {
     const RETRIES: usize = 2;
+    let mut last_err: Option<String> = None;
 
     for retry in 1..=RETRIES {
         println!(
@@ -67,8 +77,11 @@ fn download_and_unzip(url: &str, archive_file: &Path, dest_dir: &Path) {
 
         if !archive_file.is_file() {
             println!("      [info] => Downloading {}", url);
-            download(url, archive_file)
-                .unwrap_or_else(|e| println!(" [error] => Cannot download archive: {:?}", e));
+            if let Err(e) = download(url, archive_file) {
+                println!(" [error] => Cannot download archive: {:?}", e);
+                last_err = Some(e);
+                continue;
+            }
         } else {
             println!(
                 "      [info] => Archive file {} already exists, skipping download",
@@ -81,13 +94,20 @@ fn download_and_unzip(url: &str, archive_file: &Path, dest_dir: &Path) {
             archive_file.display()
         );
         match unzip(archive_file, dest_dir) {
-            Ok(_) => break,
+            Ok(_) => {
+                println!(
+                    "      [info] => Extracted tenderdash sources to {}",
+                    dest_dir.display()
+                );
+                return Ok(());
+            },
             Err(e) => {
                 println!(
                     "        [error] => Cannot unzip archive: {}: {:?}",
                     archive_file.display(),
                     e
                 );
+                last_err = Some(e);
             },
         }
 
@@ -96,10 +116,12 @@ fn download_and_unzip(url: &str, archive_file: &Path, dest_dir: &Path) {
             .unwrap_or_else(|_| println!("      [warn] => Cannot remove file: {:?}", archive_file));
     }
 
-    println!(
-        "      [info] => Extracted tenderdash sources to {}",
-        dest_dir.display()
-    );
+    Err(last_err.unwrap_or_else(|| {
+        format!(
+            "cannot download and extract tenderdash sources to {}",
+            dest_dir.display()
+        )
+    }))
 }
 
 /// Download file from URL
@@ -129,10 +151,8 @@ fn unzip(archive_file: &Path, dest_dir: &Path) -> Result<(), String> {
         // no archive file, so we request another download
         return Err("archive file does not exist".to_string());
     }
-    let file = File::open(archive_file).expect(&format!(
-        "cannot open downloaded zip {}",
-        archive_file.display()
-    ));
+    let file = File::open(archive_file)
+        .map_err(|e| format!("cannot open downloaded zip {}: {e}", archive_file.display()))?;
     let mut archive =
         zip::ZipArchive::new(&file).map_err(|e| format!("cannot open zip archive: {:?}", e))?;
 
@@ -144,14 +164,14 @@ fn unzip(archive_file: &Path, dest_dir: &Path) -> Result<(), String> {
 }
 
 /// Find a subdirectory of a parent path which has provided name prefix
-fn find_subdir(parent: &Path, name_prefix: &str) -> PathBuf {
+fn find_subdir(parent: &Path, name_prefix: &str) -> Result<PathBuf, String> {
     let dir_content = fs_extra::dir::get_dir_content(parent)
-        .expect(&format!("cannot list tmp dir {}", parent.display()));
+        .map_err(|e| format!("cannot list tmp dir {}: {e}", parent.display()))?;
     let mut src_dir = String::new();
     for directory in dir_content.directories {
         let directory = Path::new(&directory)
             .file_name()
-            .expect("cannot extract dir name");
+            .ok_or_else(|| "cannot extract dir name".to_string())?;
 
         if directory.to_string_lossy().starts_with(name_prefix) {
             src_dir = directory.to_string_lossy().into();
@@ -159,13 +179,16 @@ fn find_subdir(parent: &Path, name_prefix: &str) -> PathBuf {
         };
     }
     if src_dir.is_empty() {
-        panic!("cannot find extracted Tenderdash sources")
+        return Err(format!(
+            "cannot find extracted Tenderdash sources in {}",
+            parent.display()
+        ));
     }
-    parent.join(src_dir)
+    Ok(parent.join(src_dir))
 }
 
 /// Walk through the list of directories and gather all *.proto files
-pub fn find_proto_files(proto_paths: Vec<PathBuf>) -> Vec<PathBuf> {
+pub fn find_proto_files(proto_paths: Vec<PathBuf>) -> Result<Vec<PathBuf>, String> {
     let mut protos: Vec<PathBuf> = vec![];
     for proto_path in &proto_paths {
         protos.append(
@@ -174,54 +197,57 @@ pub fn find_proto_files(proto_paths: Vec<PathBuf>) -> Vec<PathBuf> {
                 .filter_map(|e| e.ok())
                 .filter(|e| {
                     e.file_type().is_file()
-                        && e.path().extension().is_some()
-                        && e.path().extension().unwrap() == "proto"
+                        && e.path()
+                            .extension()
+                            .and_then(|ext| ext.to_str())
+                            .map(|ext| ext == "proto")
+                            .unwrap_or(false)
                 })
                 .map(|e| e.into_path())
                 .collect(),
         );
     }
-    protos
+    Ok(protos)
 }
 
-pub fn abci_version<T: AsRef<Path>>(dir: T) -> String {
+pub fn abci_version<T: AsRef<Path>>(dir: T) -> Result<String, String> {
     let mut file_path = dir.as_ref().to_path_buf();
     file_path.push("version/version.go");
 
-    let contents =
-        read_to_string(&file_path).expect(&format!("cannot read {}", file_path.display()));
+    let contents = read_to_string(&file_path)
+        .map_err(|e| format!("cannot read {}: {e}", file_path.display()))?;
     use regex::Regex;
 
-    let re = Regex::new(r##"(?m)^\s+ABCISemVer\s*=\s*"([^"]+)"\s+*$"##).unwrap();
+    let re = Regex::new(r##"(?m)^\s+ABCISemVer\s*=\s*"([^"]+)"\s+*$"##)
+        .map_err(|e| format!("invalid ABCISemVer regex: {e}"))?;
     let captures = re
         .captures(&contents)
-        .expect("cannot find ABCISemVer in version/version.go");
+        .ok_or_else(|| "cannot find ABCISemVer in version/version.go".to_string())?;
 
-    captures
+    let match_val = captures
         .get(1)
-        .expect("ABCISemVer not found in version/version.go")
-        .as_str()
-        .to_string()
+        .ok_or_else(|| "ABCISemVer not found in version/version.go".to_string())?;
+    Ok(match_val.as_str().to_string())
 }
 
-pub fn tenderdash_version<T: AsRef<Path>>(dir: T) -> String {
+pub fn tenderdash_version<T: AsRef<Path>>(dir: T) -> Result<String, String> {
     let mut file_path = dir.as_ref().to_path_buf();
     file_path.push("version/version.go");
 
-    let contents =
-        read_to_string(&file_path).expect(&format!("cannot read {}", file_path.display()));
+    let contents = read_to_string(&file_path)
+        .map_err(|e| format!("cannot read {}: {e}", file_path.display()))?;
     use regex::Regex;
 
-    let re = Regex::new(r##"(?m)^\s+TMVersionDefault\s*=\s*"([^"]+)"\s+*$"##).unwrap();
+    let re = Regex::new(r##"(?m)^\s+TMVersionDefault\s*=\s*"([^"]+)"\s+*$"##)
+        .map_err(|e| format!("invalid TMVersionDefault regex: {e}"))?;
     let captures = re
         .captures(&contents)
-        .expect("cannot find TMVersionDefault in version/version.go");
+        .ok_or_else(|| "cannot find TMVersionDefault in version/version.go".to_string())?;
 
-    captures
+    let match_val = captures
         .get(1)
-        .expect("TMVersionDefault not found in version/version.go")
-        .as_str()
-        .to_string()
+        .ok_or_else(|| "TMVersionDefault not found in version/version.go".to_string())?;
+    Ok(match_val.as_str().to_string())
 }
 
 /// Create tenderdash.rs with library information
@@ -231,16 +257,19 @@ pub fn generate_tenderdash_lib(
     abci_ver: &str,
     td_ver: &str,
     mode: &GenerationMode,
-) {
+) -> Result<(), String> {
     let mut file_names = WalkDir::new(prost_dir)
         .into_iter()
         .filter_map(|e| e.ok())
-        .filter(|e| {
-            e.file_type().is_file()
-                && e.file_name().to_str().unwrap().starts_with("tendermint.")
-                && e.file_name().to_str().unwrap().ends_with(".rs")
+        .filter(|e| e.file_type().is_file())
+        .filter_map(|e| {
+            let file_name = e.file_name().to_str()?;
+            if file_name.starts_with("tendermint.") && file_name.ends_with(".rs") {
+                Some(file_name.to_string())
+            } else {
+                None
+            }
         })
-        .map(|d| d.file_name().to_str().unwrap().to_string())
         .collect::<Vec<_>>();
     file_names.sort();
 
@@ -248,14 +277,12 @@ pub fn generate_tenderdash_lib(
     let tab = "    ".to_string();
 
     for file_name in file_names {
-        let parts: Vec<_> = file_name
+        let trimmed = file_name
             .strip_prefix("tendermint.")
-            .unwrap()
+            .ok_or_else(|| format!("unexpected generated file name: {file_name}"))?
             .strip_suffix(".rs")
-            .unwrap()
-            .split('.')
-            .rev()
-            .collect();
+            .ok_or_else(|| format!("unexpected generated file name: {file_name}"))?;
+        let parts: Vec<_> = trimmed.split('.').rev().collect();
 
         let mut tab_count = parts.len();
 
@@ -274,6 +301,7 @@ pub fn generate_tenderdash_lib(
     }
 
     // Add meta
+    let commitish = tenderdash_commitish()?;
     content = format!(
         "{}
 pub mod meta {{
@@ -289,7 +317,7 @@ pub mod meta {{
 ",
         content,
         crate::constants::TENDERDASH_REPO,
-        tenderdash_commitish(),
+        commitish,
         abci_ver,
         td_ver,
         mode,
@@ -297,41 +325,44 @@ pub mod meta {{
     .trim_start()
     .into();
 
-    let mut file = File::create(tenderdash_lib_target).expect(&format!(
-        "tenderdash library file create failed {}",
-        tenderdash_lib_target.display()
-    ));
+    let mut file = File::create(tenderdash_lib_target).map_err(|e| {
+        format!(
+            "tenderdash library file create failed {}: {e}",
+            tenderdash_lib_target.display()
+        )
+    })?;
     file.write_all(content.as_bytes())
-        .expect("tenderdash library file write failed");
+        .map_err(|e| format!("tenderdash library file write failed: {e}"))?;
+    Ok(())
 }
 
-pub(crate) fn tenderdash_commitish() -> String {
-    match env::var("TENDERDASH_COMMITISH") {
+pub(crate) fn tenderdash_commitish() -> Result<String, String> {
+    let value = match env::var("TENDERDASH_COMMITISH") {
         Ok(v) => v,
         Err(_) => DEFAULT_TENDERDASH_COMMITISH.to_string(),
-    }
+    };
+    Ok(value)
 }
 
 /// Save the commitish of last successful download to a file in a state file,
 /// located in the `dir` directory and named `download.state`.
-pub(crate) fn save_state(dir: &Path, commitish: &str) {
+pub(crate) fn save_state(dir: &Path, commitish: &str) -> Result<(), String> {
     let state_file = PathBuf::from(&dir).join("download.state");
 
-    std::fs::write(&state_file, commitish)
-        .map_err(|e| {
-            println!(
-                "[warn] => Failed to write download.state file {}: {}",
-                state_file.display(),
-                e
-            );
-        })
-        .ok();
+    std::fs::write(&state_file, commitish).map_err(|e| {
+        format!(
+            "failed to write download.state file {}: {}",
+            state_file.display(),
+            e
+        )
+    })?;
+    Ok(())
 }
 
 /// Check if the state file contains the same commitish as the one we are trying
 /// to download. State file should be located in the `dir` and named
 /// `download.state`
-pub(crate) fn check_state(dir: &Path, commitish: &str) -> bool {
+pub(crate) fn check_state(dir: &Path, commitish: &str) -> Result<bool, String> {
     let state_file = PathBuf::from(&dir).join("download.state");
 
     let expected = commitish.to_string();
@@ -339,16 +370,14 @@ pub(crate) fn check_state(dir: &Path, commitish: &str) -> bool {
     match read_to_string(&state_file) {
         Ok(content) => {
             println!("[info] => Detected Tenderdash version: {}.", content);
-            content == expected
+            Ok(content == expected)
         },
-        Err(e) => {
-            eprintln!(
-                "[warn] => Failed to read download.state file {}: {}",
-                state_file.display(),
-                e
-            );
-            false
-        },
+        Err(e) if e.kind() == ErrorKind::NotFound => Ok(false),
+        Err(e) => Err(format!(
+            "failed to read download.state file {}: {}",
+            state_file.display(),
+            e
+        )),
     }
 }
 
@@ -380,10 +409,11 @@ provided by your package manager may be outdated)";
         .map_err(|e| format!("output {:?} is not utf8 string: {}", out, e))?;
 
     // Extract the version number from string like `libprotoc 25.1`
-    let version: f32 = version_output
+    let version_str = version_output
         .split_whitespace()
         .last()
-        .unwrap()
+        .ok_or_else(|| format!("unexpected protoc --version output: {}", version_output))?;
+    let version: f32 = version_str
         .parse()
         .map_err(|e| format!("failed to parse protoc version {}: {}", version_output, e))?;
 

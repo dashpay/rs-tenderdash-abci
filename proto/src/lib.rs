@@ -37,16 +37,22 @@ use prost::{Message, encoding::encoded_len_varint};
 #[cfg(not(any(feature = "server", feature = "client")))]
 #[rustfmt::skip]
 #[allow(clippy::empty_docs)]
-pub mod tenderdash_nostd;
+pub mod tenderdash_nostd {
+    include!(concat!(env!("TENDERDASH_PROTO_OUT_DIR"), "/tenderdash_nostd/mod.rs"));
+}
 
 #[cfg(feature = "server")]
 #[rustfmt::skip]
 #[allow(clippy::empty_docs)]
-pub mod tenderdash_grpc;
+pub mod tenderdash_grpc {
+    include!(concat!(env!("TENDERDASH_PROTO_OUT_DIR"), "/tenderdash_grpc/mod.rs"));
+}
 #[cfg(feature = "client")]
 #[rustfmt::skip]
 #[allow(clippy::empty_docs)]
-pub mod tenderdash_grpc_client;
+pub mod tenderdash_grpc_client {
+    include!(concat!(env!("TENDERDASH_PROTO_OUT_DIR"), "/tenderdash_grpc_client/mod.rs"));
+}
 
 // Now, re-export correct module
 

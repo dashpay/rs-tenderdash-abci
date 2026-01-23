@@ -1,6 +1,6 @@
 use std::env;
 
-use tenderdash_proto_compiler::GenerationMode;
+use tenderdash_proto_compiler::{GenerationMode, resolve_output_base};
 
 fn main() {
     // default Tenderdash version to use if TENDERDASH_COMMITISH is not set
@@ -19,6 +19,16 @@ fn main() {
     // note it should be safe to build both server and client; we will just not use
     // them in the lib.rs
 
+    let output_base = resolve_output_base();
+    println!(
+        "[info] => Using Tenderdash proto output dir: {}",
+        output_base.display()
+    );
+    println!(
+        "cargo:rustc-env=TENDERDASH_PROTO_OUT_DIR={}",
+        output_base.display()
+    );
+
     #[cfg(feature = "server")]
     // build gRPC server (includes client)
     tenderdash_proto_compiler::proto_compile(GenerationMode::GrpcServer);
@@ -32,4 +42,5 @@ fn main() {
     println!("cargo:rerun-if-changed=Cargo.toml");
     println!("cargo:rerun-if-env-changed=CARGO_PKG_VERSION");
     println!("cargo:rerun-if-env-changed=TENDERDASH_COMMITISH");
+    println!("cargo:rerun-if-env-changed=TENDERDASH_PROTO_OUT_DIR");
 }

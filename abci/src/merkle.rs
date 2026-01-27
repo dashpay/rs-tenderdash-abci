@@ -33,7 +33,7 @@ fn inner(left: [u8; 32], right: [u8; 32]) -> [u8; 32] {
 }
 
 fn empty_hash() -> [u8; 32] {
-    return lhash::sha256(&[]);
+    lhash::sha256(&[])
 }
 
 fn get_split_point(length: i64) -> i64 {

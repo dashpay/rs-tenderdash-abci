@@ -1,11 +1,9 @@
 use std::{env::var, path::PathBuf};
 
-use tempfile::tempdir;
-
 mod functions;
 use functions::{
-    abci_version, copy_files, fetch_commitish, find_proto_files, generate_tenderdash_lib,
-    tenderdash_commitish, tenderdash_version,
+    abci_version, fetch_commitish, find_proto_files, generate_tenderdash_lib, tenderdash_commitish,
+    tenderdash_version,
 };
 
 mod constants;
@@ -23,55 +21,66 @@ use crate::functions::{check_deps, check_state, save_state};
 /// # Arguments
 ///
 /// * `module_name` - name of module to put generated files into
-pub fn proto_compile(mode: GenerationMode) {
+pub fn proto_compile(mode: GenerationMode) -> Result<(), String> {
     let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
 
-    let prost_out_dir = root
-        .join("..")
-        .join("proto")
-        .join("src")
-        .join(mode.module_name());
+    let output_base = resolve_output_base()?;
+    let prost_out_dir = output_base.join(mode.module_name());
     let tenderdash_lib_target = prost_out_dir.join("mod.rs");
 
-    let out_dir = var("OUT_DIR")
-        .map(PathBuf::from)
-        .or_else(|_| tempdir().map(|d| d.into_path()))
-        .unwrap();
+    std::fs::create_dir_all(&prost_out_dir)
+        .map_err(|e| format!("cannot create out dir {:?}: {e}", prost_out_dir))?;
 
-    let cargo_target_dir = match std::env::var("CARGO_TARGET_DIR") {
-        Ok(s) => PathBuf::from(s),
-        Err(_) => root.join("..").join("target"),
-    };
+    let cargo_target_dir = std::env::var("CARGO_TARGET_DIR")
+        .map(PathBuf::from)
+        .unwrap_or_else(|_| output_base.join("tenderdash-cache"));
     let tenderdash_dir = PathBuf::from(var("TENDERDASH_DIR").unwrap_or_else(|_| {
-        cargo_target_dir
+        output_base
             .join("tenderdash")
-            .to_str()
-            .unwrap()
-            .to_string()
+            .to_string_lossy()
+            .into_owned()
     }));
+
+    println!(
+        "[info] => Tenderdash cache dir: {}",
+        cargo_target_dir.display()
+    );
+    println!(
+        "[info] => Tenderdash source dir: {}",
+        tenderdash_dir.display()
+    );
 
     let thirdparty_dir = root.join("third_party");
 
-    let commitish = tenderdash_commitish();
+    let commitish = tenderdash_commitish()?;
 
     // ensure dependencies are up to date
-    if let Err(e) = check_deps() {
-        eprintln!("[error] => {}", e);
-        std::process::exit(1);
-    }
+    check_deps()?;
 
     // check if this commitish is already downloaded
-    let download = std::fs::metadata(tenderdash_dir.join("proto")).is_err()
-        || !check_state(&prost_out_dir, &commitish);
+    let download = match std::fs::metadata(tenderdash_dir.join("proto")) {
+        Ok(_) => !check_state(&prost_out_dir, &commitish)?,
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => true,
+        Err(e) => {
+            return Err(format!(
+                "cannot stat Tenderdash proto dir {}: {e}",
+                tenderdash_dir.join("proto").display()
+            ));
+        },
+    };
 
     if download {
+        // ensure we start clean when regenerating
+        std::fs::remove_dir_all(&prost_out_dir).ok();
+        std::fs::create_dir_all(&prost_out_dir)
+            .map_err(|e| format!("cannot create out dir {:?}: {e}", prost_out_dir))?;
         println!("[info] => Fetching {TENDERDASH_REPO} at {commitish} into {tenderdash_dir:?}.");
         fetch_commitish(
             &PathBuf::from(&tenderdash_dir),
             &cargo_target_dir,
             TENDERDASH_REPO,
             &commitish,
-        ); // This panics if it fails.
+        )?;
     } else {
         println!("[info] => Skipping download.");
     }
@@ -81,7 +90,7 @@ pub fn proto_compile(mode: GenerationMode) {
     let proto_paths = vec![tenderdash_dir.join("proto").join("tendermint").join("abci")];
     let proto_includes_paths = vec![tenderdash_dir.join("proto"), thirdparty_dir];
     // List available proto files
-    let mut protos = find_proto_files(proto_paths);
+    let mut protos = find_proto_files(proto_paths)?;
     // On top of that, we add canonical.proto, required to verify signatures
     protos.push(
         tenderdash_dir
@@ -94,7 +103,7 @@ pub fn proto_compile(mode: GenerationMode) {
     let mut pb = prost_build::Config::new();
 
     // Compile proto files with added annotations, exchange prost_types to our own
-    pb.out_dir(&out_dir);
+    pb.out_dir(&prost_out_dir);
     pb.type_attribute(".", constants::SERIALIZED);
     for type_attribute in CUSTOM_TYPE_ATTRIBUTES {
         println!("[info] => Adding type attribute: {:?}", type_attribute);
@@ -118,52 +127,69 @@ pub fn proto_compile(mode: GenerationMode) {
     );
 
     println!("[info] => Determining ABCI protocol version.");
-    let abci_ver = abci_version(&tenderdash_dir);
-    let tenderdash_ver = tenderdash_version(tenderdash_dir);
+    let abci_ver = abci_version(&tenderdash_dir)?;
+    let tenderdash_ver = tenderdash_version(tenderdash_dir)?;
 
     println!("[info] => Creating structs.");
 
     match mode {
         GenerationMode::GrpcServer => {
             #[cfg(feature = "grpc")]
-            tonic_build::configure()
+            tonic_prost_build::configure()
+                .out_dir(prost_out_dir.clone())
                 .build_client(true)
                 .build_server(true)
                 .build_transport(true)
                 .generate_default_stubs(true)
-                .compile_protos_with_config(pb, &protos, &proto_includes_paths)
-                .unwrap();
+                .compile_with_config(pb, &protos, &proto_includes_paths)
+                .map_err(|e| format!("tonic compile failed: {e}"))?;
             #[cfg(not(feature = "grpc"))]
-            panic!("grpc feature is required to compile {}", mode);
+            return Err(format!("grpc feature is required to compile {}", mode));
         },
         GenerationMode::GrpcClient => {
             #[cfg(feature = "grpc")]
-            tonic_build::configure()
+            tonic_prost_build::configure()
+                .out_dir(prost_out_dir.clone())
                 .build_client(true)
                 .build_server(false)
                 .build_transport(false)
                 .generate_default_stubs(true)
-                .compile_protos_with_config(pb, &protos, &proto_includes_paths)
-                .unwrap();
+                .compile_with_config(pb, &protos, &proto_includes_paths)
+                .map_err(|e| format!("tonic compile failed: {e}"))?;
             #[cfg(not(feature = "grpc"))]
-            panic!("grpc feature is required to compile {}", mode);
+            return Err(format!("grpc feature is required to compile {}", mode));
         },
         GenerationMode::NoStd => {
-            pb.compile_protos(&protos, &proto_includes_paths).unwrap();
+            pb.compile_protos(&protos, &proto_includes_paths)
+                .map_err(|e| format!("prost compile failed: {e}"))?;
         },
     }
 
-    println!("[info] => Removing old structs and copying new structs.");
-    copy_files(&out_dir, &prost_out_dir); // This panics if it fails.
+    println!(
+        "[info] => Generated files written to {}.",
+        prost_out_dir.display()
+    );
 
     generate_tenderdash_lib(
-        &out_dir,
+        &prost_out_dir,
         &tenderdash_lib_target,
         &abci_ver,
         &tenderdash_ver,
         &mode,
-    );
+    )?;
 
-    save_state(&prost_out_dir, &commitish);
+    save_state(&prost_out_dir, &commitish)?;
     println!("[info] => Done!");
+    Ok(())
+}
+
+/// Resolve output base directory for generated files.
+pub fn resolve_output_base() -> Result<PathBuf, String> {
+    var("TENDERDASH_PROTO_OUT_DIR")
+        .map(PathBuf::from)
+        .or_else(|_| var("OUT_DIR").map(PathBuf::from))
+        .map_err(|_| {
+            "OUT_DIR should be provided by Cargo; set TENDERDASH_PROTO_OUT_DIR to override it"
+                .to_string()
+        })
 }

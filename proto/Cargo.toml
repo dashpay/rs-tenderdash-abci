@@ -48,7 +48,7 @@ client = [
     "prost/std",
     "dep:tonic",
     "tonic/codegen",
-    "tonic/prost",
+    "dep:tonic-prost",
     "std",
 ]
 
@@ -56,10 +56,9 @@ serde = ["dep:serde", "bytes/serde"]
 
 [dependencies]
 bytes = { version = "1.7", default-features = false }
-prost = { version = "0.13", default-features = false, features = [
-    "prost-derive",
-] }
-tonic = { version = "0.13.0", optional = true, default-features = false }
+prost = { version = "0.14", default-features = false, features = ["derive"] }
+tonic = { version = "0.14.2", optional = true, default-features = false }
+tonic-prost = { version = "0.14.2", optional = true }
 serde = { version = "1.0.208", default-features = false, features = [
     "derive",
 ], optional = true }
@@ -74,7 +73,7 @@ time = { version = "0.3.36", default-features = false, features = [
     "macros",
     "parsing",
 ] }
-flex-error = { version = "0.4.4", default-features = false }
+thiserror = { version = "2.0.3" }
 chrono = { version = "0.4.38", default-features = false }
 derive_more = { version = "2.0", features = ["from", "from_str"] }
 

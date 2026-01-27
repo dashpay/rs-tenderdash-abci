@@ -170,7 +170,7 @@ impl<'a> KVStoreABCI<'a> {
         KVStoreABCI { kvstore }
     }
 
-    fn lock_kvstore(&self) -> RwLockWriteGuard<KVStore> {
+    fn lock_kvstore(&'a self) -> RwLockWriteGuard<'a, KVStore> {
         self.kvstore.write().expect("kvstore lock is poisoned")
     }
 }

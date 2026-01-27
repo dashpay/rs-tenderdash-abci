@@ -59,7 +59,7 @@ uuid = { version = "1.8.0", features = ["v4", "fast-rng"], optional = true }
 tenderdash-proto = { path = "../proto", default-features = false }
 bytes = { version = "1.6.0" }
 tracing = { version = "0.1.40", default-features = false }
-tracing-subscriber = { version = "0.3.18", optional = true, default-features = false, features = [
+tracing-subscriber = { version = "0.3.22", optional = true, default-features = false, features = [
     "ansi",
     "env-filter",
 ] }
@@ -84,9 +84,10 @@ futures = { version = "0.3.30", optional = true }
 
 [dev-dependencies]
 anyhow = { version = "1.0.82" }
-bincode = { version = "2.0.0-rc.3" }
+# Dash Platform requires specific version of bincode
+bincode = { version = "=2.0.1" }
 blake2 = { version = "0.10.6" }
-bollard = { version = "0.18" }
+bollard = { version = "0.20" }
 futures = { version = "0.3.30" }
 tokio = { version = "1.40", features = ["macros", "signal", "time", "io-std"] }
 hex = { version = "0.4.3" }

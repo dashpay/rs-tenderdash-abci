@@ -13,74 +13,19 @@ runs:
       with:
         toolchain: ${{ inputs.toolchain }}
 
-    - name: Install protoc (latest from GitHub)
+    - name: Install protoc
       id: deps-protoc
       shell: bash
       run: |
-        LATEST_TAG=$(curl -fsSL https://api.github.com/repos/protocolbuffers/protobuf/releases/latest \
-          | grep '"tag_name"' | cut -d'"' -f4)
-        if [ -z "$LATEST_TAG" ]; then
-          echo "ERROR: Failed to fetch latest protoc release tag from GitHub API." >&2
-          echo "Check network connectivity or GitHub API rate limits." >&2
-          exit 1
-        fi
-        LATEST_VERSION="${LATEST_TAG#v}"
-        echo "Installing protoc ${LATEST_TAG}"
-        curl -fsSL -o /tmp/protoc.zip \
-          "https://github.com/protocolbuffers/protobuf/releases/download/${LATEST_TAG}/protoc-${LATEST_VERSION}-linux-x86_64.zip"
-        unzip /tmp/protoc.zip -d "${HOME}/.local"
+        curl -Lo /tmp/protoc.zip \
+          https://github.com/protocolbuffers/protobuf/releases/download/v25.2/protoc-25.2-linux-x86_64.zip
+        unzip /tmp/protoc.zip -d ${HOME}/.local
         echo "PROTOC=${HOME}/.local/bin/protoc" >> $GITHUB_ENV
-        echo "${HOME}/.local/bin" >> $GITHUB_PATH
-        "${HOME}/.local/bin/protoc" --version
+        export PATH="${PATH}:${HOME}/.local/bin"
 
     - name: Rust cache
       uses: Swatinem/rust-cache@v2
 
-    - name: "Compile Protobuf definitions (first attempt)"
-      id: build_proto_first
-      continue-on-error: true
-      shell: bash
-      run: |
-        set -o pipefail
-        cargo build -p tenderdash-proto 2>&1 | tee /tmp/proto_build_output.txt
-
-    - name: "Work around SSL download issue (follow hint from build output)"
-      # This step parses the download hint emitted by the build script when it
-      # cannot fetch the Tenderdash archive due to SSL certificate errors (e.g.
-      # rustls/webpki vs. the system trust store).  The hint format is defined in
-      # proto-compiler/src/functions.rs and looks like:
-      #
-      #   1. Download <URL> (e.g. with a browser or curl on another machine).
-      #   2. Save it to: <PATH>
-      #
-      # If that format ever changes, update the grep patterns below accordingly.
-      if: steps.build_proto_first.outcome == 'failure'
-      shell: bash
-      run: |
-        echo "First build attempt failed; looking for a download hint in the output..."
-        ARCHIVE_URL=$(grep -oP '1\. Download \K\S+' /tmp/proto_build_output.txt | head -1)
-        ARCHIVE_PATH=$(grep -oP '2\. Save it to: \K\S+' /tmp/proto_build_output.txt | head -1)
-        if [ -z "$ARCHIVE_URL" ] || [ -z "$ARCHIVE_PATH" ]; then
-          echo "No download hint found; build failed for an unrelated reason:"
-          cat /tmp/proto_build_output.txt
-          exit 1
-        fi
-        echo "Following hint:"
-        echo "  Downloading: $ARCHIVE_URL"
-        echo "  Saving to:   $ARCHIVE_PATH"
-        mkdir -p "$(dirname "$ARCHIVE_PATH")"
-        if ! curl -fsSL -o "$ARCHIVE_PATH" "$ARCHIVE_URL"; then
-          echo "ERROR: Failed to download archive from $ARCHIVE_URL" >&2
-          exit 1
-        fi
-        ARCHIVE_SIZE=$(stat -c%s "$ARCHIVE_PATH" 2>/dev/null || echo 0)
-        if [ "$ARCHIVE_SIZE" -eq 0 ]; then
-          echo "ERROR: Downloaded archive is empty: $ARCHIVE_PATH" >&2
-          exit 1
-        fi
-        echo "Archive saved: $(du -h "$ARCHIVE_PATH" | cut -f1)"
-
-    - name: "Compile Protobuf definitions (retry after following hint)"
-      if: steps.build_proto_first.outcome == 'failure'
+    - name: "Compile Protobuf definitions (needed by fmt, doc, etc.)"
       shell: bash
       run: cargo build -p tenderdash-proto

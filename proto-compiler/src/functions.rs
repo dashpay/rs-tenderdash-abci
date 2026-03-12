@@ -40,7 +40,7 @@ pub fn fetch_commitish(
     // Unzip Tenderdash sources to tmpdir and move to target/tenderdash
     let tmpdir = tempfile::tempdir()
         .map_err(|e| format!("cannot create temporary dir to extract archive: {e}"))?;
-    download_and_unzip(&url, archive_file.as_path(), tmpdir.path(), commitish)?;
+    download_and_unzip(&url, archive_file.as_path(), tmpdir.path())?;
 
     // Downloaded zip contains subdirectory like tenderdash-0.12.0-dev.2. We need to
     // move its contents to target/tenderdash, so that we get correct paths like
@@ -69,7 +69,6 @@ fn download_and_unzip(
     url: &str,
     archive_file: &Path,
     dest_dir: &Path,
-    commitish: &str,
 ) -> Result<(), String> {
     const RETRIES: usize = 2;
     let mut last_err: Option<String> = None;
@@ -82,7 +81,7 @@ fn download_and_unzip(
 
         if !archive_file.is_file() {
             println!("      [info] => Downloading {}", url);
-            if let Err(e) = download(url, archive_file, commitish) {
+            if let Err(e) = download(url, archive_file) {
                 println!("      [error] => Cannot download archive: {}", e);
                 last_err = Some(e);
                 continue;
@@ -130,26 +129,17 @@ fn download_and_unzip(
 }
 
 /// Download file from URL
-fn download(url: &str, archive_file: &Path, commitish: &str) -> Result<(), String> {
+fn download(url: &str, archive_file: &Path) -> Result<(), String> {
     let mut file = File::create(archive_file)
         .map_err(|e| format!("cannot create archive file {}: {e}", archive_file.display()))?;
     let rb = ureq::get(url).call().map_err(|e| {
         format!(
             "cannot download Tenderdash sources from {url}: {e:?}\n\
             \n\
-            To work around download issues, you can provide sources manually:\n\
-            \n\
-            Option 1 – Provide a downloaded archive:\n\
-              1. Download {url} manually (e.g. with a browser or curl on another machine).\n\
+            To work around download issues, download the archive manually:\n\
+              1. Download {url} (e.g. with a browser or curl on another machine).\n\
               2. Save it to: {archive_file}\n\
-              3. Re-run the build.\n\
-            \n\
-            Option 2 – Provide pre-extracted sources:\n\
-              1. Download and extract {url} manually.\n\
-              2. Set the environment variable before building:\n\
-                 TENDERDASH_DIR=<path/to/extracted/tenderdash-{commitish}>\n\
-              3. Create a file named 'download.state' in the proto output directory\n\
-                 (OUT_DIR or TENDERDASH_PROTO_OUT_DIR) containing: {commitish}",
+              3. Re-run the build.",
             archive_file = archive_file.display(),
         )
     })?;

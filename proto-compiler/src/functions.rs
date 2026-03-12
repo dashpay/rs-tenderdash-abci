@@ -130,8 +130,9 @@ fn download_and_unzip(
 
 /// Download file from URL
 fn download(url: &str, archive_file: &Path) -> Result<(), String> {
-    let mut file = File::create(archive_file)
-        .map_err(|e| format!("cannot create archive file {}: {e}", archive_file.display()))?;
+    // Initiate the HTTP request before creating any local file so that a failed
+    // request does not leave a stale empty archive behind (which would confuse
+    // the subsequent retry).
     let rb = ureq::get(url).call().map_err(|e| {
         format!(
             "cannot download Tenderdash sources from {url}: {e:?}\n\
@@ -143,6 +144,8 @@ fn download(url: &str, archive_file: &Path) -> Result<(), String> {
             archive_file = archive_file.display(),
         )
     })?;
+    let mut file = File::create(archive_file)
+        .map_err(|e| format!("cannot create archive file {}: {e}", archive_file.display()))?;
     let mut body = rb.into_body();
     let mut reader = body.as_reader();
     std::io::copy(&mut reader, &mut file).map_err(|e| {

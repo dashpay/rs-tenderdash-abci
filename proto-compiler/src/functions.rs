@@ -16,19 +16,16 @@ use crate::constants::{DEFAULT_TENDERDASH_COMMITISH, DEP_PROTOC_VERSION, Generat
 /// on cargo to decide wherther or not to call it. It means
 /// we will not be called too frequently, so the fetch will
 /// not happen too often.
+///
+/// If the `TENDERDASH_PROTO_ARCHIVE` environment variable is set, the archive
+/// at that path will be used instead of downloading it from the internet.
 pub fn fetch_commitish(
     tenderdash_dir: &Path,
     cache_dir: &Path,
     url: &str,
     commitish: &str,
 ) -> Result<(), String> {
-    let url = format!("{url}/archive/{commitish}.zip");
-
-    println!(
-        "  [info] => Downloading and extracting {} into {}",
-        url,
-        tenderdash_dir.to_string_lossy()
-    );
+    let download_url = format!("{url}/archive/{commitish}.zip");
 
     // ensure cache dir exists
     if !cache_dir.is_dir() {
@@ -36,11 +33,38 @@ pub fn fetch_commitish(
             .map_err(|e| format!("cannot create cache directory {}: {e}", cache_dir.display()))?;
     }
 
-    let archive_file = cache_dir.join(format!("tenderdash-{}.zip", commitish));
+    let default_archive_file = cache_dir.join(format!("tenderdash-{}.zip", commitish));
+
+    // Allow users to provide a pre-downloaded archive via TENDERDASH_PROTO_ARCHIVE
+    let archive_file = match env::var("TENDERDASH_PROTO_ARCHIVE") {
+        Ok(path) if !path.is_empty() => {
+            let p = PathBuf::from(&path);
+            println!(
+                "  [info] => Using pre-downloaded archive from TENDERDASH_PROTO_ARCHIVE: {}",
+                p.display()
+            );
+            p
+        },
+        _ => {
+            println!(
+                "  [info] => Downloading and extracting {} into {}",
+                download_url,
+                tenderdash_dir.to_string_lossy()
+            );
+            default_archive_file.clone()
+        },
+    };
+
     // Unzip Tenderdash sources to tmpdir and move to target/tenderdash
     let tmpdir = tempfile::tempdir()
         .map_err(|e| format!("cannot create temporary dir to extract archive: {e}"))?;
-    download_and_unzip(&url, archive_file.as_path(), tmpdir.path())?;
+    download_and_unzip(
+        &download_url,
+        archive_file.as_path(),
+        &default_archive_file,
+        tmpdir.path(),
+        commitish,
+    )?;
 
     // Downloaded zip contains subdirectory like tenderdash-0.12.0-dev.2. We need to
     // move its contents to target/tederdash, so that we get correct paths like
@@ -64,10 +88,27 @@ pub fn fetch_commitish(
     Ok(())
 }
 
-/// Download file from URL and unzip it to `dest_dir`
-fn download_and_unzip(url: &str, archive_file: &Path, dest_dir: &Path) -> Result<(), String> {
+/// Download file from URL and unzip it to `dest_dir`.
+///
+/// `archive_file` is the path to use for the archive (may already exist or be
+/// a pre-supplied file).  `default_archive_file` is where the auto-downloaded
+/// archive would normally live – used only in error messages so users know
+/// exactly where to place a manually downloaded file.  `commitish` is used in
+/// the manual-download hint message.
+fn download_and_unzip(
+    url: &str,
+    archive_file: &Path,
+    default_archive_file: &Path,
+    dest_dir: &Path,
+    commitish: &str,
+) -> Result<(), String> {
     const RETRIES: usize = 2;
     let mut last_err: Option<String> = None;
+
+    // If the caller supplied a custom archive via TENDERDASH_PROTO_ARCHIVE and
+    // the file already exists, skip downloading entirely.
+    // (archive_file differs from default_archive_file only when TENDERDASH_PROTO_ARCHIVE is set)
+    let skip_download = archive_file != default_archive_file && archive_file.is_file();
 
     for retry in 1..=RETRIES {
         println!(
@@ -75,10 +116,10 @@ fn download_and_unzip(url: &str, archive_file: &Path, dest_dir: &Path) -> Result
             retry, RETRIES
         );
 
-        if !archive_file.is_file() {
+        if !archive_file.is_file() && !skip_download {
             println!("      [info] => Downloading {}", url);
-            if let Err(e) = download(url, archive_file) {
-                println!(" [error] => Cannot download archive: {:?}", e);
+            if let Err(e) = download(url, archive_file, default_archive_file, commitish) {
+                println!("      [error] => Cannot download archive: {}", e);
                 last_err = Some(e);
                 continue;
             }
@@ -111,9 +152,12 @@ fn download_and_unzip(url: &str, archive_file: &Path, dest_dir: &Path) -> Result
             },
         }
 
-        // remove invalid file
-        std::fs::remove_file(archive_file)
-            .unwrap_or_else(|_| println!("      [warn] => Cannot remove file: {:?}", archive_file));
+        // remove invalid file (only if it is the auto-downloaded one)
+        if archive_file == default_archive_file {
+            std::fs::remove_file(archive_file).unwrap_or_else(|_| {
+                println!("      [warn] => Cannot remove file: {:?}", archive_file)
+            });
+        }
     }
 
     Err(last_err.unwrap_or_else(|| {
@@ -125,12 +169,47 @@ fn download_and_unzip(url: &str, archive_file: &Path, dest_dir: &Path) -> Result
 }
 
 /// Download file from URL
-fn download(url: &str, archive_file: &Path) -> Result<(), String> {
+fn download(
+    url: &str,
+    archive_file: &Path,
+    default_archive_file: &Path,
+    commitish: &str,
+) -> Result<(), String> {
     let mut file = File::create(archive_file)
         .map_err(|e| format!("cannot create archive file {}: {e}", archive_file.display()))?;
-    let rb = ureq::get(url)
-        .call()
-        .map_err(|e| format!("cannot download archive from: {}: {:?}", url, e))?;
+    let rb = ureq::get(url).call().map_err(|e| {
+        let err_str = format!("{:?}", e).to_lowercase();
+        // Detect SSL / TLS certificate errors and emit an actionable hint.
+        let is_ssl_error = err_str.contains("ssl")
+            || err_str.contains("tls")
+            || err_str.contains("certificate")
+            || err_str.contains("handshake");
+        if is_ssl_error {
+            format!(
+                "SSL/TLS error while downloading Tenderdash sources: {e:?}\n\
+                \n\
+                This is likely caused by an untrusted or self-signed SSL certificate in your \
+                network environment (e.g. a corporate proxy).\n\
+                \n\
+                To work around this you have two options:\n\
+                \n\
+                Option 1 – Point to a pre-downloaded archive:\n\
+                  1. Download {url} manually (e.g. with a browser or curl on another machine).\n\
+                  2. Save the file to any location, for example:\n\
+                     {default_archive_file}\n\
+                  3. Set the environment variable before building:\n\
+                     TENDERDASH_PROTO_ARCHIVE=<path/to/tenderdash-{commitish}.zip>\n\
+                \n\
+                Option 2 – Point to pre-extracted sources:\n\
+                  1. Download and extract {url} manually.\n\
+                  2. Set the environment variable before building:\n\
+                     TENDERDASH_DIR=<path/to/extracted/tenderdash-{commitish}>",
+                default_archive_file = default_archive_file.display(),
+            )
+        } else {
+            format!("cannot download archive from: {url}: {e:?}")
+        }
+    })?;
     let mut body = rb.into_body();
     let mut reader = body.as_reader();
     std::io::copy(&mut reader, &mut file).map_err(|e| {

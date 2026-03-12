@@ -43,7 +43,7 @@ pub fn fetch_commitish(
     download_and_unzip(&url, archive_file.as_path(), tmpdir.path())?;
 
     // Downloaded zip contains subdirectory like tenderdash-0.12.0-dev.2. We need to
-    // move its contents to target/tederdash, so that we get correct paths like
+    // move its contents to target/tenderdash, so that we get correct paths like
     // target/tenderdash/version/version.go
     let src_dir = find_subdir(tmpdir.path(), "tenderdash-")?;
 
@@ -65,7 +65,11 @@ pub fn fetch_commitish(
 }
 
 /// Download file from URL and unzip it to `dest_dir`
-fn download_and_unzip(url: &str, archive_file: &Path, dest_dir: &Path) -> Result<(), String> {
+fn download_and_unzip(
+    url: &str,
+    archive_file: &Path,
+    dest_dir: &Path,
+) -> Result<(), String> {
     const RETRIES: usize = 2;
     let mut last_err: Option<String> = None;
 
@@ -78,7 +82,7 @@ fn download_and_unzip(url: &str, archive_file: &Path, dest_dir: &Path) -> Result
         if !archive_file.is_file() {
             println!("      [info] => Downloading {}", url);
             if let Err(e) = download(url, archive_file) {
-                println!(" [error] => Cannot download archive: {:?}", e);
+                println!("      [error] => Cannot download archive: {}", e);
                 last_err = Some(e);
                 continue;
             }
@@ -126,11 +130,22 @@ fn download_and_unzip(url: &str, archive_file: &Path, dest_dir: &Path) -> Result
 
 /// Download file from URL
 fn download(url: &str, archive_file: &Path) -> Result<(), String> {
+    // Initiate the HTTP request before creating any local file so that a failed
+    // request does not leave a stale empty archive behind (which would confuse
+    // the subsequent retry).
+    let rb = ureq::get(url).call().map_err(|e| {
+        format!(
+            "cannot download Tenderdash sources from {url}: {e:?}\n\
+            \n\
+            To work around download issues, download the archive manually:\n\
+              1. Download {url} (e.g. with a browser or curl on another machine).\n\
+              2. Save it to: {archive_file}\n\
+              3. Re-run the build.",
+            archive_file = archive_file.display(),
+        )
+    })?;
     let mut file = File::create(archive_file)
         .map_err(|e| format!("cannot create archive file {}: {e}", archive_file.display()))?;
-    let rb = ureq::get(url)
-        .call()
-        .map_err(|e| format!("cannot download archive from: {}: {:?}", url, e))?;
     let mut body = rb.into_body();
     let mut reader = body.as_reader();
     std::io::copy(&mut reader, &mut file).map_err(|e| {

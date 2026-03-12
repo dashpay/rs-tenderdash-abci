@@ -47,7 +47,6 @@ fn main() {
     println!("cargo:rerun-if-env-changed=TENDERDASH_COMMITISH");
     println!("cargo:rerun-if-env-changed=TENDERDASH_PROTO_OUT_DIR");
     println!("cargo:rerun-if-env-changed=TENDERDASH_DIR");
-    println!("cargo:rerun-if-env-changed=TENDERDASH_PROTO_ARCHIVE");
 }
 
 fn run_proto_compile(mode: GenerationMode) {

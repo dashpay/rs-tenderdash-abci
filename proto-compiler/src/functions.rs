@@ -65,11 +65,7 @@ pub fn fetch_commitish(
 }
 
 /// Download file from URL and unzip it to `dest_dir`
-fn download_and_unzip(
-    url: &str,
-    archive_file: &Path,
-    dest_dir: &Path,
-) -> Result<(), String> {
+fn download_and_unzip(url: &str, archive_file: &Path, dest_dir: &Path) -> Result<(), String> {
     const RETRIES: usize = 2;
     let mut last_err: Option<String> = None;
 

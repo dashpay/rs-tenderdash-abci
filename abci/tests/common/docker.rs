@@ -2,11 +2,11 @@ use std::{sync::Arc, time::Duration};
 
 use bollard::{
     API_DEFAULT_VERSION, Docker,
+    models::ContainerCreateBody,
     query_parameters::{
         CreateContainerOptionsBuilder, CreateImageOptionsBuilder, LogsOptionsBuilder,
         RemoveContainerOptionsBuilder, StartContainerOptionsBuilder,
     },
-    secret::ContainerCreateBody,
     service::{CreateImageInfo, HostConfig},
 };
 use futures::StreamExt;

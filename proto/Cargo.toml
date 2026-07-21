@@ -68,7 +68,7 @@ subtle-encoding = { version = "0.5.1", default-features = false, features = [
     "alloc",
 ] }
 num-traits = { version = "0.2.19", default-features = false }
-num-derive = { version = "0.4.2", default-features = false }
+num-derive = { version = "0.5.1", default-features = false }
 time = { version = "0.3.36", default-features = false, features = [
     "macros",
     "parsing",

@@ -4,7 +4,9 @@ use tenderdash_proto_compiler::{GenerationMode, resolve_output_base};
 
 fn main() {
     // default Tenderdash version to use if TENDERDASH_COMMITISH is not set
-    const DEFAULT_VERSION: &str = "v1.5.3";
+    // Tenderdash feat/abci-propose-next-block-immediately (dashpay/tenderdash#1466); replace with
+    // the tag once it is released.
+    const DEFAULT_VERSION: &str = "01514ef30e37c44dce7b6055fb55a09e6e0c5438";
 
     // check if TENDERDASH_COMMITISH is already set; if not, set it to the current
     // version

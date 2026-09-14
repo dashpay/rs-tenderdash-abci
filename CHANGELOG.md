@@ -5,6 +5,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- `ResponseFinalizeBlock::propose_next_block_immediately`: the application asks Tenderdash to propose round 0 of the next height without waiting for transactions or the empty-block interval (dashpay/tenderdash#1466).
+
+### Changed
+
+- Protobuf definitions regenerated from Tenderdash `feat/abci-propose-next-block-immediately` (ABCI version `1.4.0`, was `1.3.0`). `check_version` now requires a Tenderdash with ABCI `^1.4`, so Drive built against this crate needs a Tenderdash release that includes the change.
+
 ## [1.5.1] - 2026-04-24
 
 ### Changed

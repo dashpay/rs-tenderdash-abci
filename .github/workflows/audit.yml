@@ -5,6 +5,10 @@ on:
     paths:
       - "**/Cargo.toml"
       - "**/Cargo.lock"
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
 
 jobs:
   security_audit:
@@ -16,7 +20,7 @@ jobs:
         with:
           path: ~/.cargo/bin
           key: ${{ runner.os }}-cargo-audit
-      - uses: actions-rs/audit-check@v1
-        name: Audit check
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Install cargo-audit
+        run: command -v cargo-audit || cargo install cargo-audit --locked
+      - name: Run cargo audit
+        run: cargo audit

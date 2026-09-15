@@ -84,8 +84,8 @@ futures = { version = "0.3.30", optional = true }
 
 [dev-dependencies]
 anyhow = { version = "1.0.82" }
-# Dash Platform requires specific version of bincode
-bincode = { version = "=2.0.1" }
+# GroveDB's maintained fork of bincode 2.x (upstream bincode 2.x is unmaintained, RUSTSEC-2025-0141)
+bincode = { package = "grovedb-bincode", version = "=2.1.0" }
 blake2 = { version = "0.11.0" }
 bollard = { version = "0.21" }
 futures = { version = "0.3.30" }

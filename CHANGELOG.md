@@ -5,6 +5,23 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.8.0] - 2026-09-16
+
+### Changed
+
+- **Default Tenderdash version bumped to `v1.8.0`** (was `v1.5.3`): protobuf definitions are generated from Tenderdash v1.8.0 unless `TENDERDASH_COMMITISH` is set. The crate version is aligned with the targeted Tenderdash version.
+- **ABCI protocol version is `1.4.0`** (was `1.3.0`, unchanged in Tenderdash v1.6.x/v1.7.x). `check_version()` requires Tenderdash ABCI `^1.4`, so apps built on this release reject Tenderdash nodes older than v1.8.0 during the `info` handshake.
+
+### Added
+
+- `ResponseFinalizeBlock.propose_next_block_immediately` (`bool`, default `false`): tells the local Tenderdash node to skip the `create-empty-blocks-interval` wait before proposing round 0 of the next height, for example when withdrawal transactions are waiting to be signed. The field is additive, so code that builds `ResponseFinalizeBlock` with `..Default::default()` needs no changes.
+
+### Documentation
+
+- `ValidatorParams.voting_power_threshold` doc comments describe Tenderdash's type-aware threshold validation: an explicit override, the canonical LLMQ threshold, or a size-based floor for custom quorum types. The wire format is unchanged.
+
+[1.8.0]: https://github.com/dashpay/rs-tenderdash-abci/compare/v1.5.1...v1.8.0
+
 ## [1.5.1] - 2026-04-24
 
 ### Changed

@@ -14,7 +14,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- `ResponseCommit.propose_next_block_immediately` (`bool`, default `false`): tells the local Tenderdash node to skip the `create-empty-blocks-interval` wait before proposing round 0 of the next height, for example when withdrawal transactions are waiting to be signed. The field is additive, so code that builds `ResponseCommit` with `..Default::default()` needs no changes.
+- `ResponseFinalizeBlock.propose_next_block_immediately` (`bool`, default `false`): tells the local Tenderdash node to skip the `create-empty-blocks-interval` wait before proposing round 0 of the next height, for example when withdrawal transactions are waiting to be signed. The field is additive, so code that builds `ResponseFinalizeBlock` with `..Default::default()` needs no changes.
 
 ### Documentation
 

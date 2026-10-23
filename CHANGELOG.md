@@ -5,6 +5,21 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.8.1] - 2026-10-23
+
+### Security
+
+- Update the `zip` build dependency from 8.5 to 9.0, fixing archive extraction vulnerabilities RUSTSEC-2026-0367, RUSTSEC-2026-0368, and RUSTSEC-2026-0369 (#221).
+- Require `anyhow` 1.0.104 or newer in tests, including the fix for RUSTSEC-2026-0190.
+- Verify the resolved dependency graph against the current RustSec database with no vulnerabilities or warnings. Consumers with existing lockfiles should update their dependencies to pick up the compatible fixes in `ctutils`, `h2`, `rustls`, `rustls-webpki`, and `webpki-roots`.
+
+### CI / Build
+
+- Update `docker/build-push-action` from 7.3.0 to 7.4.0 (#215), `docker/setup-buildx-action` from 4.3.0 to 4.4.1 (#218), and `github/codeql-action` from 4.38.0 to 4.39.0 (#222).
+- Remove the broken crate release workflow that invoked a nonexistent root-level release script (#223).
+
+[1.8.1]: https://github.com/dashpay/rs-tenderdash-abci/compare/v1.8.0...v1.8.1
+
 ## [1.8.0] - 2026-09-16
 
 ### Changed

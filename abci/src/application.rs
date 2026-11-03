@@ -522,6 +522,10 @@ mod tests {
         test_abci_1_4_rejects_td_1_5: ("1.3.0", "1.4.0", false),
         test_abci_1_3_accepts_td_1_8: ("1.4.0", "1.3.0", true),
 
+        // ApplyBlockRandomness ships ABCI 1.5.0
+        test_abci_1_5_rejects_abci_1_4: ("1.4.0", "1.5.0", false),
+        test_abci_1_4_accepts_abci_1_5: ("1.5.0", "1.4.0", true),
+
         test_dev_td_newer: ("0.1.2-dev.1", "0.1.0", false),
         test_dev_equal: ("0.1.0-dev.1","0.1.0-dev.1",true),
         test_dev_our_newer_dev: ("0.1.0-dev.1", "0.1.0-dev.2",false),

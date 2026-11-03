@@ -4,7 +4,9 @@ use tenderdash_proto_compiler::{GenerationMode, resolve_output_base};
 
 fn main() {
     // default Tenderdash version to use if TENDERDASH_COMMITISH is not set
-    const DEFAULT_VERSION: &str = "v1.8.0";
+    // TODO: replace with the Tenderdash release tag that ships
+    // ApplyBlockRandomness (dashpay/tenderdash#1582)
+    const DEFAULT_VERSION: &str = "fdb40c82946253c9ee23c87c0d5a8f5035c8e93b";
 
     // check if TENDERDASH_COMMITISH is already set; if not, set it to the current
     // version

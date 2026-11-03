@@ -110,6 +110,22 @@ pub trait Application {
         Ok(Default::default())
     }
 
+    /// Apply the block's random beacon and return the app hash that the
+    /// precommits sign.
+    ///
+    /// Tenderdash calls it from consensus version 2. The default returns an
+    /// error instead of an empty response: an empty `app_hash` is never a
+    /// valid answer, so applications on consensus version 2 must implement
+    /// it.
+    fn apply_block_randomness(
+        &self,
+        _request: abci::RequestApplyBlockRandomness,
+    ) -> Result<abci::ResponseApplyBlockRandomness, abci::ResponseException> {
+        Err(abci::ResponseException {
+            error: "ApplyBlockRandomness is not implemented by the application".to_string(),
+        })
+    }
+
     fn finalize_block(
         &self,
         _request: abci::RequestFinalizeBlock,
@@ -176,6 +192,9 @@ impl<A: Application> RequestDispatcher for A {
             request::Value::ExtendVote(req) => self.extend_vote(req).map(|v| v.into()),
             request::Value::VerifyVoteExtension(req) => {
                 self.verify_vote_extension(req).map(|v| v.into())
+            },
+            request::Value::ApplyBlockRandomness(req) => {
+                self.apply_block_randomness(req).map(|v| v.into())
             },
         }
         .unwrap_or_else(|e| e.into());
@@ -273,6 +292,14 @@ fn serialize_response_for_logging(response: &response::Value) -> String {
                 "tx_results" => tx_results_hex,
                 "consensus_param_updates" => consensus_params,
                 "validator_set_update" => validator_set_update,
+            )
+            .to_string()
+        },
+        response::Value::ApplyBlockRandomness(response) => {
+            let app_hash_hex = hex::encode(&response.app_hash);
+
+            serialize!(
+                "app_hash" => app_hash_hex,
             )
             .to_string()
         },
@@ -494,6 +521,10 @@ mod tests {
         test_abci_1_4_matches_td_1_8: ("1.4.0", "1.4.0", true),
         test_abci_1_4_rejects_td_1_5: ("1.3.0", "1.4.0", false),
         test_abci_1_3_accepts_td_1_8: ("1.4.0", "1.3.0", true),
+
+        // ApplyBlockRandomness ships ABCI 1.5.0
+        test_abci_1_5_rejects_abci_1_4: ("1.4.0", "1.5.0", false),
+        test_abci_1_4_accepts_abci_1_5: ("1.5.0", "1.4.0", true),
 
         test_dev_td_newer: ("0.1.2-dev.1", "0.1.0", false),
         test_dev_equal: ("0.1.0-dev.1","0.1.0-dev.1",true),

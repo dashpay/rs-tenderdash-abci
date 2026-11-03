@@ -62,6 +62,7 @@ where
         Value::ProcessProposal(r) => block_span!(r, endpoint, request_id),
         Value::ExtendVote(r) => block_span!(r, endpoint, request_id),
         Value::VerifyVoteExtension(r) => block_span!(r, endpoint, request_id),
+        Value::ApplyBlockRandomness(r) => block_span!(r, endpoint, request_id),
         Value::FinalizeBlock(r) => block_span!(r, endpoint, request_id),
         Value::CheckTx(_r) => {
             tracing::span!(LEVEL, SPAN_NAME, endpoint, request_id)
@@ -77,6 +78,7 @@ where
 
 fn abci_method_name(request: &Value) -> String {
     match request {
+        Value::ApplyBlockRandomness(_) => "ApplyBlockRandomness",
         Value::ApplySnapshotChunk(_) => "ApplySnapshotChunk",
         Value::CheckTx(_) => "CheckTx",
         Value::Echo(_) => "Echo",

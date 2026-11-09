@@ -49,6 +49,13 @@ export TENDERDASH_COMMITISH=688ee3e3f2624e6ebb20f5d74e0812109b7b9a27
 cargo build
 ```
 
+The build downloads the Tenderdash source archive for that commit and extracts it. Symlinks in the archive are skipped, as protobuf generation does not need them. Two optional environment variables control where the files go:
+
+- `TENDERDASH_DIR`: directory for the extracted Tenderdash sources. The default is `tenderdash` inside the build output directory.
+- `TENDERDASH_PROTO_OUT_DIR`: output directory for the generated code. The default is Cargo's `OUT_DIR`.
+
+**`TENDERDASH_DIR` is a scratch directory owned by the build.** Whenever the build fetches sources again, for example in a clean output directory or for a different `TENDERDASH_COMMITISH`, it deletes this directory and extracts the archive in its place. Do not point it at a Tenderdash checkout or any other directory whose contents you want to keep.
+
 ## Credits
 
 This project is a partial fork of [tendermint-rs] project.

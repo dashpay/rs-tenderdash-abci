@@ -155,8 +155,13 @@ fn download(url: &str, archive_file: &Path) -> Result<(), String> {
         .map_err(|e| format!("cannot flush downloaded file: {:?}: {:?}", archive_file, e))
 }
 
-// Unzip archive; when return false, it means that the archive file does not
-// exist or is corrupted and should be downloaded again
+/// Extract a ZIP archive into `dest_dir`, skipping symbolic links.
+///
+/// # Errors
+///
+/// Returns an error if `archive_file` is not a file, cannot be opened or read as
+/// a ZIP archive, or extraction fails. Failed extraction may leave partial
+/// contents in `dest_dir`.
 fn unzip(archive_file: &Path, dest_dir: &Path) -> Result<(), String> {
     if !archive_file.is_file() {
         // no archive file, so we request another download
@@ -167,8 +172,13 @@ fn unzip(archive_file: &Path, dest_dir: &Path) -> Result<(), String> {
     let mut archive =
         zip::ZipArchive::new(&file).map_err(|e| format!("cannot open zip archive: {:?}", e))?;
 
+    // Protobuf generation does not need symlinks. Extracting them breaks the
+    // move of the sources (fs_extra follows them) and needs extra privileges
+    // on Windows, so they are skipped.
+    let options = zip::read::ExtractOptions::default()
+        .symlink_action(zip::read::SymlinkExtractAction::NoExtract);
     archive
-        .extract(dest_dir)
+        .extract_with_options(dest_dir, options)
         .map_err(|e| format!("cannot extract archive to {}: {e}", dest_dir.display()))?;
 
     Ok(())
@@ -448,5 +458,64 @@ mod tests {
         for expect in expected_versions {
             assert_eq!(dep_protoc(expect.0).is_ok(), expect.1);
         }
+    }
+
+    /// Tenderdash archives may contain symlinks (e.g. `.claude/skills/*` pointing
+    /// into `.agents/skills/*` since Tenderdash v2.0.0-dev.1). Extraction must skip
+    /// them instead of failing, also on Windows without symlink privileges.
+    #[test]
+    fn test_fetch_commitish_archive_with_symlink() {
+        use zip::{ZipWriter, write::SimpleFileOptions};
+
+        const COMMITISH: &str = "v0.0.0-symlink";
+        let work = tempfile::tempdir().unwrap();
+        let cache_dir = work.path().join("cache");
+        let tenderdash_dir = work.path().join("out").join("tenderdash");
+        std::fs::create_dir_all(&cache_dir).unwrap();
+        std::fs::create_dir_all(tenderdash_dir.parent().unwrap()).unwrap();
+
+        // Pre-populated cache archive, so no download is attempted.
+        let archive = cache_dir.join(format!("tenderdash-{COMMITISH}.zip"));
+        let mut zip = ZipWriter::new(File::create(&archive).unwrap());
+        let options = SimpleFileOptions::default()
+            .compression_method(zip::CompressionMethod::Stored)
+            .unix_permissions(0o644);
+        let dir_options = options.unix_permissions(0o755);
+        let root = "tenderdash-0.0.0-symlink";
+        zip.add_directory(format!("{root}/.agents/skills/release/"), dir_options)
+            .unwrap();
+        zip.start_file(format!("{root}/.agents/skills/release/SKILL.md"), options)
+            .unwrap();
+        zip.write_all(b"skill").unwrap();
+        zip.add_directory(format!("{root}/.claude/skills/"), dir_options)
+            .unwrap();
+        zip.add_symlink(
+            format!("{root}/.claude/skills/release"),
+            "../../.agents/skills/release",
+            options,
+        )
+        .unwrap();
+        zip.add_directory(format!("{root}/version/"), dir_options)
+            .unwrap();
+        zip.start_file(format!("{root}/version/version.go"), options)
+            .unwrap();
+        zip.write_all(b"package version").unwrap();
+        zip.finish().unwrap();
+
+        fetch_commitish(&tenderdash_dir, &cache_dir, "http://127.0.0.1:9", COMMITISH)
+            .expect("archive with a symlink must extract");
+
+        assert_eq!(
+            read_to_string(tenderdash_dir.join("version/version.go")).unwrap(),
+            "package version"
+        );
+        assert_eq!(
+            read_to_string(tenderdash_dir.join(".agents/skills/release/SKILL.md")).unwrap(),
+            "skill"
+        );
+        assert!(
+            std::fs::symlink_metadata(tenderdash_dir.join(".claude/skills/release")).is_err(),
+            "symlinks must not be extracted"
+        );
     }
 }

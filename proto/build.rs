@@ -2,9 +2,16 @@ use std::env;
 
 use tenderdash_proto_compiler::{GenerationMode, resolve_output_base};
 
+/// Generate Tenderdash protobuf bindings for the enabled client/server features
+/// and always generate the no-std bindings.
+///
+/// Defaults `TENDERDASH_COMMITISH` to `v2.0.0-dev.1` when unset, empty, or not
+/// valid Unicode. Uses `TENDERDASH_PROTO_OUT_DIR`, falling back to Cargo's
+/// `OUT_DIR`, for generated files. Exits with status 1 if the output directory
+/// cannot be resolved or protobuf generation returns an error.
 fn main() {
     // default Tenderdash version to use if TENDERDASH_COMMITISH is not set
-    const DEFAULT_VERSION: &str = "v1.8.0";
+    const DEFAULT_VERSION: &str = "v2.0.0-dev.1";
 
     // check if TENDERDASH_COMMITISH is already set; if not, set it to the current
     // version

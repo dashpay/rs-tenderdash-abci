@@ -5,6 +5,23 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.0.0-dev.1] - 2026-11-09
+
+### Changed
+
+- **Default Tenderdash version bumped to `v2.0.0-dev.1`** (was `v1.8.0`): protobuf definitions are generated from Tenderdash v2.0.0-dev.1 unless `TENDERDASH_COMMITISH` is set. The crate version is aligned with the targeted Tenderdash version.
+- **ABCI protocol version is `1.5.0`** (was `1.4.0`). `check_version()` requires Tenderdash ABCI `^1.5`, so apps built on this release reject Tenderdash nodes older than v2.0.0-dev.1 during the `info` handshake. Apps built on 1.8.x (ABCI `^1.4`) still accept Tenderdash v2.0.0-dev.1.
+
+### Added
+
+- Proposer liveness from Tenderdash v2.0.0-dev.1: `version_params::ConsensusVersion::ConsensusVersion2`, `TimeoutParams.proposer_heartbeat` and `TimeoutParams.proposer_silence` (zero means the Tenderdash default), plus the `ProposerHeartbeat`, `RoundSkipVote` and `RoundSkipCertificate` types. Code that builds `TimeoutParams` without `..Default::default()` or matches `ConsensusVersion` exhaustively must handle the new fields and variant.
+
+### Fixed
+
+- The proto build no longer fails on Tenderdash source archives that contain symlinks (Tenderdash ships `.claude/skills/*` links since v2.0.0-dev.1). Symlinks are skipped during extraction; they are not needed for protobuf generation, and skipping them also avoids requiring symlink privileges on Windows.
+
+[2.0.0-dev.1]: https://github.com/dashpay/rs-tenderdash-abci/compare/v1.8.1...v2.0.0-dev.1
+
 ## [1.8.1] - 2026-10-23
 
 ### Security

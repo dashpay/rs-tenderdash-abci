@@ -37,25 +37,35 @@ pub fn fetch_commitish(
     }
 
     let archive_file = cache_dir.join(format!("tenderdash-{}.zip", commitish));
-    // Unzip Tenderdash sources to tmpdir and move to target/tenderdash
-    let tmpdir = tempfile::tempdir()
+    // Unzip Tenderdash sources to a tmpdir next to target/tenderdash, so the final
+    // move is a same-filesystem rename. A rename keeps symlinks in the archive
+    // (e.g. .claude/skills/*) intact; a recursive copy would follow them.
+    let parent = tenderdash_dir.parent().ok_or_else(|| {
+        format!(
+            "tenderdash directory {} has no parent",
+            tenderdash_dir.display()
+        )
+    })?;
+    std::fs::create_dir_all(parent)
+        .map_err(|e| format!("cannot create directory {}: {e}", parent.display()))?;
+    let tmpdir = tempfile::tempdir_in(parent)
         .map_err(|e| format!("cannot create temporary dir to extract archive: {e}"))?;
     download_and_unzip(&url, archive_file.as_path(), tmpdir.path())?;
 
     // Downloaded zip contains subdirectory like tenderdash-0.12.0-dev.2. We need to
-    // move its contents to target/tenderdash, so that we get correct paths like
+    // move it to target/tenderdash, so that we get correct paths like
     // target/tenderdash/version/version.go
     let src_dir = find_subdir(tmpdir.path(), "tenderdash-")?;
 
-    let options = fs_extra::dir::CopyOptions::new().content_only(true);
-
-    fs_extra::dir::create(tenderdash_dir, true).map_err(|e| {
-        format!(
-            "cannot create destination directory {}: {e}",
-            tenderdash_dir.display()
-        )
-    })?;
-    fs_extra::dir::move_dir(src_dir, tenderdash_dir, &options).map_err(|e| {
+    if tenderdash_dir.exists() {
+        std::fs::remove_dir_all(tenderdash_dir).map_err(|e| {
+            format!(
+                "cannot remove stale destination directory {}: {e}",
+                tenderdash_dir.display()
+            )
+        })?;
+    }
+    std::fs::rename(&src_dir, tenderdash_dir).map_err(|e| {
         format!(
             "cannot move tenderdash directory to {}: {e}",
             tenderdash_dir.display()
@@ -176,26 +186,23 @@ fn unzip(archive_file: &Path, dest_dir: &Path) -> Result<(), String> {
 
 /// Find a subdirectory of a parent path which has provided name prefix
 fn find_subdir(parent: &Path, name_prefix: &str) -> Result<PathBuf, String> {
-    let dir_content = fs_extra::dir::get_dir_content(parent)
+    // Only direct children: a recursive walk would descend into symlinked dirs.
+    let entries = std::fs::read_dir(parent)
         .map_err(|e| format!("cannot list tmp dir {}: {e}", parent.display()))?;
-    let mut src_dir = String::new();
-    for directory in dir_content.directories {
-        let directory = Path::new(&directory)
-            .file_name()
-            .ok_or_else(|| "cannot extract dir name".to_string())?;
-
-        if directory.to_string_lossy().starts_with(name_prefix) {
-            src_dir = directory.to_string_lossy().into();
-            break;
-        };
+    for entry in entries {
+        let entry = entry.map_err(|e| format!("cannot list tmp dir {}: {e}", parent.display()))?;
+        let is_dir = entry
+            .file_type()
+            .map_err(|e| format!("cannot stat {}: {e}", entry.path().display()))?
+            .is_dir();
+        if is_dir && entry.file_name().to_string_lossy().starts_with(name_prefix) {
+            return Ok(entry.path());
+        }
     }
-    if src_dir.is_empty() {
-        return Err(format!(
-            "cannot find extracted Tenderdash sources in {}",
-            parent.display()
-        ));
-    }
-    Ok(parent.join(src_dir))
+    Err(format!(
+        "cannot find extracted Tenderdash sources in {}",
+        parent.display()
+    ))
 }
 
 /// Walk through the list of directories and gather all *.proto files
@@ -448,5 +455,61 @@ mod tests {
         for expect in expected_versions {
             assert_eq!(dep_protoc(expect.0).is_ok(), expect.1);
         }
+    }
+
+    /// Tenderdash archives may contain symlinks (e.g. `.claude/skills/*` pointing
+    /// into `.agents/skills/*` since Tenderdash v2.0.0-dev.1); extraction must
+    /// keep them instead of failing.
+    #[cfg(unix)]
+    #[test]
+    fn test_fetch_commitish_archive_with_symlink() {
+        use zip::{ZipWriter, write::SimpleFileOptions};
+
+        const COMMITISH: &str = "v0.0.0-symlink";
+        let work = tempfile::tempdir().unwrap();
+        let cache_dir = work.path().join("cache");
+        let tenderdash_dir = work.path().join("out").join("tenderdash");
+        std::fs::create_dir_all(&cache_dir).unwrap();
+        std::fs::create_dir_all(tenderdash_dir.parent().unwrap()).unwrap();
+
+        // Pre-populated cache archive, so no download is attempted.
+        let archive = cache_dir.join(format!("tenderdash-{COMMITISH}.zip"));
+        let mut zip = ZipWriter::new(File::create(&archive).unwrap());
+        let options = SimpleFileOptions::default()
+            .compression_method(zip::CompressionMethod::Stored)
+            .unix_permissions(0o644);
+        let dir_options = options.unix_permissions(0o755);
+        let root = "tenderdash-0.0.0-symlink";
+        zip.add_directory(format!("{root}/.agents/skills/release/"), dir_options)
+            .unwrap();
+        zip.start_file(format!("{root}/.agents/skills/release/SKILL.md"), options)
+            .unwrap();
+        zip.write_all(b"skill").unwrap();
+        zip.add_directory(format!("{root}/.claude/skills/"), dir_options)
+            .unwrap();
+        zip.add_symlink(
+            format!("{root}/.claude/skills/release"),
+            "../../.agents/skills/release",
+            options,
+        )
+        .unwrap();
+        zip.add_directory(format!("{root}/version/"), dir_options)
+            .unwrap();
+        zip.start_file(format!("{root}/version/version.go"), options)
+            .unwrap();
+        zip.write_all(b"package version").unwrap();
+        zip.finish().unwrap();
+
+        fetch_commitish(&tenderdash_dir, &cache_dir, "http://127.0.0.1:9", COMMITISH)
+            .expect("archive with a symlink must extract");
+
+        assert_eq!(
+            read_to_string(tenderdash_dir.join("version/version.go")).unwrap(),
+            "package version"
+        );
+        assert_eq!(
+            read_to_string(tenderdash_dir.join(".claude/skills/release/SKILL.md")).unwrap(),
+            "skill"
+        );
     }
 }

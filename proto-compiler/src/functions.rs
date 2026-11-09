@@ -37,34 +37,25 @@ pub fn fetch_commitish(
     }
 
     let archive_file = cache_dir.join(format!("tenderdash-{}.zip", commitish));
-    // Unzip Tenderdash sources to a tmpdir next to target/tenderdash, so the final
-    // move is a same-filesystem rename instead of a recursive copy.
-    let parent = tenderdash_dir.parent().ok_or_else(|| {
-        format!(
-            "tenderdash directory {} has no parent",
-            tenderdash_dir.display()
-        )
-    })?;
-    std::fs::create_dir_all(parent)
-        .map_err(|e| format!("cannot create directory {}: {e}", parent.display()))?;
-    let tmpdir = tempfile::tempdir_in(parent)
+    // Unzip Tenderdash sources to tmpdir and move to target/tenderdash
+    let tmpdir = tempfile::tempdir()
         .map_err(|e| format!("cannot create temporary dir to extract archive: {e}"))?;
     download_and_unzip(&url, archive_file.as_path(), tmpdir.path())?;
 
     // Downloaded zip contains subdirectory like tenderdash-0.12.0-dev.2. We need to
-    // move it to target/tenderdash, so that we get correct paths like
+    // move its contents to target/tenderdash, so that we get correct paths like
     // target/tenderdash/version/version.go
     let src_dir = find_subdir(tmpdir.path(), "tenderdash-")?;
 
-    if tenderdash_dir.exists() {
-        std::fs::remove_dir_all(tenderdash_dir).map_err(|e| {
-            format!(
-                "cannot remove stale destination directory {}: {e}",
-                tenderdash_dir.display()
-            )
-        })?;
-    }
-    std::fs::rename(&src_dir, tenderdash_dir).map_err(|e| {
+    let options = fs_extra::dir::CopyOptions::new().content_only(true);
+
+    fs_extra::dir::create(tenderdash_dir, true).map_err(|e| {
+        format!(
+            "cannot create destination directory {}: {e}",
+            tenderdash_dir.display()
+        )
+    })?;
+    fs_extra::dir::move_dir(src_dir, tenderdash_dir, &options).map_err(|e| {
         format!(
             "cannot move tenderdash directory to {}: {e}",
             tenderdash_dir.display()
@@ -176,8 +167,9 @@ fn unzip(archive_file: &Path, dest_dir: &Path) -> Result<(), String> {
     let mut archive =
         zip::ZipArchive::new(&file).map_err(|e| format!("cannot open zip archive: {:?}", e))?;
 
-    // Protobuf generation does not need symlinks, and creating them on Windows
-    // requires extra privileges, so they are skipped.
+    // Protobuf generation does not need symlinks. Extracting them breaks the
+    // move of the sources (fs_extra follows them) and needs extra privileges
+    // on Windows, so they are skipped.
     let options = zip::read::ExtractOptions::default()
         .symlink_action(zip::read::SymlinkExtractAction::NoExtract);
     archive
@@ -189,23 +181,26 @@ fn unzip(archive_file: &Path, dest_dir: &Path) -> Result<(), String> {
 
 /// Find a subdirectory of a parent path which has provided name prefix
 fn find_subdir(parent: &Path, name_prefix: &str) -> Result<PathBuf, String> {
-    // Only direct children: a recursive walk would descend into symlinked dirs.
-    let entries = std::fs::read_dir(parent)
+    let dir_content = fs_extra::dir::get_dir_content(parent)
         .map_err(|e| format!("cannot list tmp dir {}: {e}", parent.display()))?;
-    for entry in entries {
-        let entry = entry.map_err(|e| format!("cannot list tmp dir {}: {e}", parent.display()))?;
-        let is_dir = entry
-            .file_type()
-            .map_err(|e| format!("cannot stat {}: {e}", entry.path().display()))?
-            .is_dir();
-        if is_dir && entry.file_name().to_string_lossy().starts_with(name_prefix) {
-            return Ok(entry.path());
-        }
+    let mut src_dir = String::new();
+    for directory in dir_content.directories {
+        let directory = Path::new(&directory)
+            .file_name()
+            .ok_or_else(|| "cannot extract dir name".to_string())?;
+
+        if directory.to_string_lossy().starts_with(name_prefix) {
+            src_dir = directory.to_string_lossy().into();
+            break;
+        };
     }
-    Err(format!(
-        "cannot find extracted Tenderdash sources in {}",
-        parent.display()
-    ))
+    if src_dir.is_empty() {
+        return Err(format!(
+            "cannot find extracted Tenderdash sources in {}",
+            parent.display()
+        ));
+    }
+    Ok(parent.join(src_dir))
 }
 
 /// Walk through the list of directories and gather all *.proto files

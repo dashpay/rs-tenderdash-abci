@@ -38,8 +38,7 @@ pub fn fetch_commitish(
 
     let archive_file = cache_dir.join(format!("tenderdash-{}.zip", commitish));
     // Unzip Tenderdash sources to a tmpdir next to target/tenderdash, so the final
-    // move is a same-filesystem rename. A rename keeps symlinks in the archive
-    // (e.g. .claude/skills/*) intact; a recursive copy would follow them.
+    // move is a same-filesystem rename instead of a recursive copy.
     let parent = tenderdash_dir.parent().ok_or_else(|| {
         format!(
             "tenderdash directory {} has no parent",
@@ -177,8 +176,12 @@ fn unzip(archive_file: &Path, dest_dir: &Path) -> Result<(), String> {
     let mut archive =
         zip::ZipArchive::new(&file).map_err(|e| format!("cannot open zip archive: {:?}", e))?;
 
+    // Protobuf generation does not need symlinks, and creating them on Windows
+    // requires extra privileges, so they are skipped.
+    let options = zip::read::ExtractOptions::default()
+        .symlink_action(zip::read::SymlinkExtractAction::NoExtract);
     archive
-        .extract(dest_dir)
+        .extract_with_options(dest_dir, options)
         .map_err(|e| format!("cannot extract archive to {}: {e}", dest_dir.display()))?;
 
     Ok(())
@@ -458,9 +461,8 @@ mod tests {
     }
 
     /// Tenderdash archives may contain symlinks (e.g. `.claude/skills/*` pointing
-    /// into `.agents/skills/*` since Tenderdash v2.0.0-dev.1); extraction must
-    /// keep them instead of failing.
-    #[cfg(unix)]
+    /// into `.agents/skills/*` since Tenderdash v2.0.0-dev.1). Extraction must skip
+    /// them instead of failing, also on Windows without symlink privileges.
     #[test]
     fn test_fetch_commitish_archive_with_symlink() {
         use zip::{ZipWriter, write::SimpleFileOptions};
@@ -508,8 +510,12 @@ mod tests {
             "package version"
         );
         assert_eq!(
-            read_to_string(tenderdash_dir.join(".claude/skills/release/SKILL.md")).unwrap(),
+            read_to_string(tenderdash_dir.join(".agents/skills/release/SKILL.md")).unwrap(),
             "skill"
+        );
+        assert!(
+            std::fs::symlink_metadata(tenderdash_dir.join(".claude/skills/release")).is_err(),
+            "symlinks must not be extracted"
         );
     }
 }

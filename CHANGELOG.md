@@ -18,7 +18,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
-- The proto build no longer fails on Tenderdash source archives that contain symlinks (Tenderdash ships `.claude/skills/*` links since v2.0.0-dev.1). Sources are extracted next to the output directory and moved with a single rename that keeps symlinks, instead of a recursive copy that followed them. The `fs_extra` dependency is removed.
+- The proto build no longer fails on Tenderdash source archives that contain symlinks (Tenderdash ships `.claude/skills/*` links since v2.0.0-dev.1). Symlinks are skipped during extraction, so the build also works on Windows without symlink privileges. Sources are moved into place with a single rename instead of a recursive copy, and the `fs_extra` dependency is removed.
 
 [2.0.0-dev.1]: https://github.com/dashpay/rs-tenderdash-abci/compare/v1.8.1...v2.0.0-dev.1
 

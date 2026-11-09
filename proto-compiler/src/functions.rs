@@ -155,8 +155,13 @@ fn download(url: &str, archive_file: &Path) -> Result<(), String> {
         .map_err(|e| format!("cannot flush downloaded file: {:?}: {:?}", archive_file, e))
 }
 
-// Unzip archive; when return false, it means that the archive file does not
-// exist or is corrupted and should be downloaded again
+/// Extract a ZIP archive into `dest_dir`, skipping symbolic links.
+///
+/// # Errors
+///
+/// Returns an error if `archive_file` is not a file, cannot be opened or read as
+/// a ZIP archive, or extraction fails. Failed extraction may leave partial
+/// contents in `dest_dir`.
 fn unzip(archive_file: &Path, dest_dir: &Path) -> Result<(), String> {
     if !archive_file.is_file() {
         // no archive file, so we request another download

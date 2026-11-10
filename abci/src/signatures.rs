@@ -11,7 +11,8 @@
 //!
 //! All [Signable] objects are also [Hashable], but not vice versa.
 //! For example, [StateId] is [Hashable], but not [Signable], as it is only
-//! part of some other signed objects.
+//! part of some other signed objects. So is [Header]: its hash is the hash of
+//! the block, which a [BlockId] carries.
 //!
 //! When signing or verifying signature, use [Signable::calculate_sign_hash] to
 //! calculate signature digest and provide it as a digest directly to the
@@ -30,7 +31,7 @@ use crate::{
     proto::{
         prost::Message,
         types::{
-            BlockId, CanonicalBlockId, CanonicalVote, CanonicalVoteExtension, Commit,
+            BlockId, CanonicalBlockId, CanonicalVote, CanonicalVoteExtension, Commit, Header,
             SignedMsgType, StateId, ValidatorSet, Vote, VoteExtension, VoteExtensionType,
         },
     },
@@ -472,14 +473,114 @@ impl Hashable for ValidatorSet {
     }
 }
 
+impl Hashable for Header {
+    /// Calculate hash of a block header, which is the hash of its block.
+    ///
+    /// This is the hash that [BlockId.hash](crate::proto::types::BlockId::hash)
+    /// carries and, through the block ID, the one a commit signs.
+    ///
+    /// The core chain locked height does not change this hash: the
+    /// [StateId] is what commits to it.
+    ///
+    /// ## Tenderdash implementation
+    ///
+    /// The hash is the Merkle root of the header's fields, each in its
+    /// protobuf encoding. A string, number or hash is wrapped in a one-field
+    /// message first (`cdcEncode`), so one that is empty or zero is an empty
+    /// leaf. `cdcEncode` does not support the type of the core chain locked
+    /// height, so that field is always an empty leaf:
+    ///
+    /// ```go
+    /// return merkle.HashFromByteSlices([][]byte{
+    ///     version,
+    ///     cdcEncode(h.ChainID),
+    ///     cdcEncode(h.Height),
+    ///     cdcEncode(h.CoreChainLockedHeight),
+    ///     blockTime,
+    ///     lastBlockID,
+    ///     cdcEncode(h.LastCommitHash),
+    ///     cdcEncode(h.DataHash),
+    ///     cdcEncode(h.ValidatorsHash),
+    ///     cdcEncode(h.NextValidatorsHash),
+    ///     cdcEncode(h.ConsensusHash),
+    ///     cdcEncode(h.NextConsensusHash),
+    ///     cdcEncode(h.AppHash),
+    ///     cdcEncode(h.ResultsHash),
+    ///     cdcEncode(h.EvidenceHash),
+    ///     cdcEncode(h.ProposerProTxHash),
+    ///     cdcEncode(h.ProposedAppVersion),
+    /// })
+    /// ```
+    ///
+    /// ## Arguments
+    ///
+    /// All arguments are ignored.
+    ///
+    /// ## Returns
+    ///
+    /// Returns hash of the header. Fails for a header without a validators
+    /// hash, which Tenderdash gives no hash, and for one without a time.
+    fn calculate_msg_hash(
+        &self,
+        _chain_id: &str,
+        _height: i64,
+        _round: i32,
+    ) -> Result<Vec<u8>, Error> {
+        if self.validators_hash.is_empty() {
+            return Err(Error::Canonical("missing validators hash".to_string()));
+        }
+        let time = self
+            .time
+            .as_ref()
+            .ok_or(Error::Canonical("missing header time".to_string()))?;
+
+        // Tenderdash always encodes the part set header of a block ID, also
+        // when the header has no last block
+        let last_block_id = self.last_block_id.clone().unwrap_or_default();
+        let last_block_id = BlockId {
+            part_set_header: Some(last_block_id.part_set_header.unwrap_or_default()),
+            ..last_block_id
+        };
+
+        let result = merkle_hash(&[
+            self.version.unwrap_or_default().encode_to_vec(),
+            self.chain_id.encode_to_vec(),
+            self.height.encode_to_vec(),
+            // core chain locked height
+            Vec::new(),
+            time.encode_to_vec(),
+            last_block_id.encode_to_vec(),
+            self.last_commit_hash.encode_to_vec(),
+            self.data_hash.encode_to_vec(),
+            self.validators_hash.encode_to_vec(),
+            self.next_validators_hash.encode_to_vec(),
+            self.consensus_hash.encode_to_vec(),
+            self.next_consensus_hash.encode_to_vec(),
+            self.app_hash.encode_to_vec(),
+            self.results_hash.encode_to_vec(),
+            self.evidence_hash.encode_to_vec(),
+            self.proposer_pro_tx_hash.encode_to_vec(),
+            self.proposed_app_version.encode_to_vec(),
+        ]);
+
+        Ok(result.to_vec())
+    }
+}
+
 #[cfg(test)]
 pub mod tests {
     use std::{string::ToString, vec::Vec};
 
     use super::SignBytes;
     use crate::{
-        proto::types::{
-            Commit, PartSetHeader, SignedMsgType, Vote, VoteExtension, VoteExtensionType,
+        Error,
+        proto::{
+            google::protobuf::Timestamp,
+            types::{
+                BlockId, Commit, Header, PartSetHeader, SignedMsgType, StateId, Vote,
+                VoteExtension, VoteExtensionType,
+            },
+            version::Consensus,
         },
         signatures::{Hashable, Signable},
     };
@@ -680,5 +781,161 @@ pub mod tests {
         let actual = vs.calculate_msg_hash("", 0, 0).unwrap();
 
         assert_eq!(expected_validators_hash, actual,);
+    }
+
+    /// The header of the "Generates expected hash" case of Tenderdash test
+    /// [TestHeaderHash](https://github.com/dashpay/tenderdash/blob/v2.0.0-dev.1/types/block_test.go#L370),
+    /// which sets every field.
+    fn tenderdash_header() -> Header {
+        let checksum = |seed: &str| lhash::sha256(seed.as_bytes()).to_vec();
+        let last_state_id = StateId {
+            app_version: 1,
+            height: 3,
+            app_hash: checksum("app_hash"),
+            core_chain_locked_height: 1,
+            // 2022-03-04T05:06:07.000000008Z, in milliseconds
+            time: 1_646_370_367_000,
+        };
+
+        Header {
+            version: Some(Consensus { block: 1, app: 2 }),
+            chain_id: "chainId".to_string(),
+            height: 3,
+            // 2019-10-13T16:14:44Z
+            time: Some(Timestamp {
+                seconds: 1_570_983_284,
+                nanos: 0,
+            }),
+            last_block_id: Some(BlockId {
+                hash: [0u8; 32].to_vec(),
+                part_set_header: Some(PartSetHeader {
+                    total: 6,
+                    hash: [0u8; 32].to_vec(),
+                }),
+                state_id: last_state_id.calculate_msg_hash("", 0, 0).unwrap(),
+            }),
+            last_commit_hash: checksum("last_commit_hash"),
+            data_hash: checksum("data_hash"),
+            validators_hash: checksum("validators_hash"),
+            next_validators_hash: checksum("next_validators_hash"),
+            consensus_hash: checksum("consensus_hash"),
+            next_consensus_hash: checksum("next_consensus_hash"),
+            app_hash: checksum("app_hash"),
+            results_hash: checksum("last_results_hash"),
+            evidence_hash: checksum("evidence_hash"),
+            proposed_app_version: 1,
+            proposer_pro_tx_hash: checksum("proposer_pro_tx_hash"),
+            core_chain_locked_height: 1,
+        }
+    }
+
+    fn header_hash(header: &Header) -> String {
+        // chain_id, height and round are unused
+        hex::encode(header.calculate_msg_hash("", 0, 0).unwrap())
+    }
+
+    #[test]
+    fn test_header_hash() {
+        assert_eq!(
+            header_hash(&tenderdash_header()),
+            "ff24ddab9e1550beb40ab7ad432a4d577560e9b87a80c7bb86e75263974b87e0"
+        );
+    }
+
+    /// Tenderdash test
+    /// [TestHeaderHashVector](https://github.com/dashpay/tenderdash/blob/v2.0.0-dev.1/types/block_test.go#L1419):
+    /// no last block, a time before 1970 with nanoseconds, and hashes that
+    /// are the text of a hex string.
+    #[test]
+    fn test_header_hash_vector() {
+        let text = b"f2564c78071e26643ae9b3e2a19fa0dc10d4d9e873aa0be808660123f11a1e78".to_vec();
+        let mut header = Header {
+            version: Some(Consensus { block: 1, app: 1 }),
+            chain_id: "test".to_string(),
+            height: 50,
+            // what Go's `time.Date(math.MaxInt64, 0, 0, 0, 0, 0, math.MaxInt64,
+            // time.UTC)` wraps around to: 0291-03-10T13:13:40.854775807Z
+            time: Some(Timestamp {
+                seconds: -52_978_185_980,
+                nanos: 854_775_807,
+            }),
+            last_block_id: Some(BlockId::default()),
+            last_commit_hash: text.clone(),
+            data_hash: text.clone(),
+            validators_hash: text.clone(),
+            next_validators_hash: text.clone(),
+            consensus_hash: text.clone(),
+            next_consensus_hash: text.clone(),
+            app_hash: text.clone(),
+            results_hash: text.clone(),
+            evidence_hash: text.clone(),
+            proposer_pro_tx_hash: text,
+            ..Default::default()
+        };
+        const EXPECTED: &str = "1476e858bfe231d7cd767a9693f63fe6a8757e8c07aba432f338a5ecba2b0342";
+
+        assert_eq!(header_hash(&header), EXPECTED);
+
+        // an absent last block ID is an empty one
+        header.last_block_id = None;
+        assert_eq!(header_hash(&header), EXPECTED);
+    }
+
+    /// Every field changes the hash, except the core chain locked height.
+    #[test]
+    fn test_header_hash_covers_every_field_but_core_chain_locked_height() {
+        type Change = (&'static str, fn(&mut Header));
+        let signed = tenderdash_header();
+        let hash = header_hash(&signed);
+        let changes: [Change; 18] = [
+            ("version.block", |h| h.version.as_mut().unwrap().block += 1),
+            ("version.app", |h| h.version.as_mut().unwrap().app += 1),
+            ("chain_id", |h| h.chain_id.push('x')),
+            ("height", |h| h.height += 1),
+            ("time.seconds", |h| h.time.as_mut().unwrap().seconds += 1),
+            ("time.nanos", |h| h.time.as_mut().unwrap().nanos += 1),
+            ("last_block_id", |h| {
+                h.last_block_id.as_mut().unwrap().state_id[0] ^= 1
+            }),
+            ("last_commit_hash", |h| h.last_commit_hash[0] ^= 1),
+            ("data_hash", |h| h.data_hash[0] ^= 1),
+            ("validators_hash", |h| h.validators_hash[0] ^= 1),
+            ("next_validators_hash", |h| h.next_validators_hash[0] ^= 1),
+            ("consensus_hash", |h| h.consensus_hash[0] ^= 1),
+            ("next_consensus_hash", |h| h.next_consensus_hash[0] ^= 1),
+            ("app_hash", |h| h.app_hash[0] ^= 1),
+            ("results_hash", |h| h.results_hash[0] ^= 1),
+            ("evidence_hash", |h| h.evidence_hash[0] ^= 1),
+            ("proposed_app_version", |h| h.proposed_app_version += 1),
+            ("proposer_pro_tx_hash", |h| h.proposer_pro_tx_hash[0] ^= 1),
+        ];
+
+        for (field, change) in changes {
+            let mut header = signed.clone();
+            change(&mut header);
+            assert_ne!(header_hash(&header), hash, "{field}");
+        }
+
+        let mut header = signed.clone();
+        header.core_chain_locked_height += 1;
+        assert_eq!(header_hash(&header), hash);
+    }
+
+    /// Tenderdash gives a header without a validators hash no hash at all.
+    #[test]
+    fn test_header_hash_needs_validators_hash_and_time() {
+        let mut header = tenderdash_header();
+        header.validators_hash = Vec::new();
+        assert!(matches!(
+            header.calculate_msg_hash("", 0, 0),
+            Err(Error::Canonical(_))
+        ));
+
+        let mut header = tenderdash_header();
+        header.time = None;
+        assert!(matches!(
+            header.calculate_msg_hash("", 0, 0),
+            Err(Error::Canonical(_))
+        ));
     }
 }

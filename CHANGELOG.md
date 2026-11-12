@@ -5,6 +5,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.0.0-dev.2] - 2026-11-12
+
+### Changed
+
+- **Default Tenderdash version bumped to `v2.0.0-dev.2`** (was `v2.0.0-dev.1`). The ABCI protocol version stays `1.5.0` and the generated types are unchanged.
+
+### Added
+
+- Block verification primitives (feature `crypto`): `merkle` is a public module with `merkle_hash`, `MerkleTree` (root plus Merkle paths of selected items) and `merkle_root_from_path`, and `Header` implements `Hashable` with Tenderdash's block hash (#231).
+
+[2.0.0-dev.2]: https://github.com/dashpay/rs-tenderdash-abci/compare/v2.0.0-dev.1...v2.0.0-dev.2
+
 ## [2.0.0-dev.1] - 2026-11-09
 
 ### Changed

@@ -13,7 +13,7 @@ use blake2::{
 };
 use lazy_static::lazy_static;
 use proto::abci::{self, ResponseException};
-use tenderdash_abci::{Application, CancellationToken, check_version, proto};
+use tenderdash_abci::{Application, CancellationToken, RequestDispatcher, check_version, proto};
 use tracing::error;
 use tracing_subscriber::filter::LevelFilter;
 
@@ -78,6 +78,74 @@ fn test_kvstore() {
     assert_eq!(kvstore_app.last_block_height, 1);
 
     drop(td);
+}
+
+/// Application that keeps every default method of [`Application`].
+struct DefaultApp;
+
+impl Application for DefaultApp {}
+
+fn apply_block_randomness_request(height: i64) -> abci::RequestApplyBlockRandomness {
+    abci::RequestApplyBlockRandomness {
+        hash: [1u8; 32].to_vec(),
+        height,
+        round: 0,
+        beacon: [2u8; 96].to_vec(),
+    }
+}
+
+/// The default `apply_block_randomness` must fail instead of returning an
+/// empty app hash.
+#[test]
+fn test_apply_block_randomness_default_returns_error() {
+    let request = apply_block_randomness_request(1);
+
+    let err = DefaultApp
+        .apply_block_randomness(request.clone())
+        .expect_err("default apply_block_randomness must not return an app hash");
+    assert!(err.error.contains("ApplyBlockRandomness"), "{}", err.error);
+
+    // Tenderdash receives an exception, not an empty app hash
+    let response = DefaultApp
+        .handle(abci::Request {
+            value: Some(request.into()),
+        })
+        .expect("dispatcher must respond");
+    assert!(
+        matches!(response.value, Some(abci::response::Value::Exception(_))),
+        "{:?}",
+        response
+    );
+}
+
+#[test]
+fn test_kvstore_apply_block_randomness_returns_app_hash() {
+    let kvstore = RwLock::new(KVStore::new());
+    kvstore
+        .write()
+        .expect("kvstore lock is poisoned")
+        .pending_operations = [Operation::Insert {
+        key: "ayy".to_owned(),
+        value: "lmao".to_owned(),
+    }]
+    .into_iter()
+    .collect();
+    let expected = kvstore
+        .read()
+        .expect("kvstore lock is poisoned")
+        .calculate_uncommited_state_hash()
+        .to_vec();
+
+    let response = KVStoreABCI::new(&kvstore)
+        .handle(abci::Request {
+            value: Some(apply_block_randomness_request(1).into()),
+        })
+        .expect("dispatcher must respond");
+
+    let Some(abci::response::Value::ApplyBlockRandomness(response)) = response.value else {
+        panic!("unexpected response: {:?}", response);
+    };
+    assert_eq!(response.app_hash, expected);
 }
 
 /// An example storage.
@@ -346,6 +414,21 @@ impl Application for KVStoreABCI<'_> {
         };
 
         Ok(abci::ResponseVerifyVoteExtension { status })
+    }
+
+    fn apply_block_randomness(
+        &self,
+        request: proto::abci::RequestApplyBlockRandomness,
+    ) -> Result<abci::ResponseApplyBlockRandomness, abci::ResponseException> {
+        let kvstore_lock = self.lock_kvstore();
+
+        assert_block_height(request.height, &kvstore_lock);
+
+        // The kvstore does not use randomness, so the app hash stays the one
+        // returned from `ProcessProposal`.
+        Ok(abci::ResponseApplyBlockRandomness {
+            app_hash: kvstore_lock.calculate_uncommited_state_hash().to_vec(),
+        })
     }
 
     fn finalize_block(

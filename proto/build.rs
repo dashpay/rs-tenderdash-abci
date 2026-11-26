@@ -5,13 +5,16 @@ use tenderdash_proto_compiler::{GenerationMode, resolve_output_base};
 /// Generate Tenderdash protobuf bindings for the enabled client/server features
 /// and always generate the no-std bindings.
 ///
-/// Defaults `TENDERDASH_COMMITISH` to `v2.0.0-dev.2` when unset, empty, or not
+/// Defaults `TENDERDASH_COMMITISH` to `7eda7e06af4693747d5cd1689eb56b0aedd05017`
+/// (the head of dashpay/tenderdash#1582) when unset, empty, or not
 /// valid Unicode. Uses `TENDERDASH_PROTO_OUT_DIR`, falling back to Cargo's
 /// `OUT_DIR`, for generated files. Exits with status 1 if the output directory
 /// cannot be resolved or protobuf generation returns an error.
 fn main() {
     // default Tenderdash version to use if TENDERDASH_COMMITISH is not set
-    const DEFAULT_VERSION: &str = "v2.0.0-dev.2";
+    // TODO: replace with the Tenderdash release tag that ships
+    // ApplyBlockRandomness (dashpay/tenderdash#1582)
+    const DEFAULT_VERSION: &str = "7eda7e06af4693747d5cd1689eb56b0aedd05017";
 
     // check if TENDERDASH_COMMITISH is already set; if not, set it to the current
     // version

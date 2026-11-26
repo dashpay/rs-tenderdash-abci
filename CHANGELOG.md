@@ -5,6 +5,14 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.0.0] - 2026-11-26
+
+### Changed
+
+- **Default Tenderdash version bumped to `v2.0.0`** (was `v2.0.0-dev.2`), the first stable Tenderdash 2.0 release. The ABCI protocol version stays `1.5.0` and the generated types are unchanged: the protobuf definitions are identical to `v2.0.0-dev.2`. Apps built on 1.8.x (ABCI `^1.4`) still accept Tenderdash v2.0.0 at the `info` handshake; apps built on this release (ABCI `^1.5`) reject Tenderdash older than v2.0.0-dev.1.
+
+[2.0.0]: https://github.com/dashpay/rs-tenderdash-abci/compare/v2.0.0-dev.2...v2.0.0
+
 ## [2.0.0-dev.2] - 2026-11-12
 
 ### Changed

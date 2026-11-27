@@ -23,7 +23,18 @@ The repository contains the following crates:
 Versioning of this library follows the Semantic Versioning 2.0.0 specification. Specifically, it consists of
 `MAJOR.MINOR.PATCH`.
 
-This library also includes built-in support for ABCI protocol version verification. The ABCI protocol version, as defined in Tenderdash's [version.go](https://github.com/dashpay/tenderdash/blob/HEAD/version/version.go) under the `ABCISemVer` constant, must align with the ABCI protocol version of this library. You can find the library's ABCI protocol version in [proto/src/tenderdash.rs](proto/src/tenderdash.rs) under the `ABCI_VERSION` constant.
+- `MAJOR.MINOR` follows the Tenderdash release line the library is built for
+  (rs-tenderdash-abci `2.0.x` targets Tenderdash `2.0.x`).
+- `PATCH` is independent of the Tenderdash patch level (for example,
+  rs-tenderdash-abci `v1.8.1` builds against Tenderdash `v1.8.0`); each
+  Tenderdash release gets a library release with the next free patch of the
+  same line.
+- The Tenderdash version whose protobuf definitions are compiled defaults to
+  `DEFAULT_VERSION` in [proto/build.rs](proto/build.rs), set by
+  `scripts/release.sh -t <tenderdash_version> -a <library_version>`;
+  `TENDERDASH_COMMITISH` overrides it (see below).
+
+This library also includes built-in support for ABCI protocol version verification. The ABCI protocol version, as defined in Tenderdash's [version.go](https://github.com/dashpay/tenderdash/blob/HEAD/version/version.go) under the `ABCISemVer` constant, must align with the ABCI protocol version of this library. The library's ABCI protocol version is the `ABCI_VERSION` constant of `tenderdash-proto`, generated at build time from `ABCISemVer` of the compiled Tenderdash version. `check_version` accepts a Tenderdash whose ABCI version has the same `MAJOR.MINOR` (`^MAJOR.MINOR`, or `^MAJOR.MINOR.0-<pre>` for a prerelease); the patch level is ignored.
 
 ## Quick start
 
